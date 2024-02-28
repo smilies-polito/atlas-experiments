@@ -3,7 +3,7 @@ import numpy as np
 
 from enum import Enum
 from anndata import AnnData
-from scipy.sparse import csr_matrix, csr_array
+from scipy.sparse import csr_matrix
 from typing import Literal, Union, Optional
 
 class Similarity(Enum):
@@ -98,7 +98,7 @@ class Deterministic():
     def __init__(self, 
                  adata: AnnData, 
                  velocitites: np.ndarray, 
-                 similarity: Union[Cosine, Correlation, DotProduct, SimilarityComputer], 
+                 similarity: Union[Cosine, Correlation, DotProduct, SimilarityComputer, Similarity], 
                  softmax_scale: float = 1.0, 
                  key: str = 'connectivities'
     ):
@@ -111,7 +111,10 @@ class Deterministic():
                 key: key in adata.obsp where to search for neighbor connectivities. Deafult 'connectivities'    
         """
         self._adata = adata
-        self._similarity = similarity
+        if isinstance(similarity, Similarity):
+            similarity = SimilarityWrapper.create(similarity)
+
+        self._similarity= similarity
         self._key = key
         self._velocities = velocitites
         self._softmax_scale = softmax_scale
@@ -211,46 +214,76 @@ class TransitionMatrix:
 
     def __init__(self, 
                  adata: AnnData, 
-                 velocities, 
+                 velocities: Union[np.ndarray, pd.DataFrame], 
                  promoter_key : Optional[str] = None, 
-                 softmax_scale: Optional[float]= None):
+                 softmax_scale: Optional[float]= None
+        ):
         """
             param:
                 adata : AnnData
-                promoter_key: string identifyinf a fiel in adata.var specifying the gene the peak is promoter of. It must be specifies if adata._var is used to retrieve the peak-gene relationship.
-                    Defaul None
+                promoter_key: string identifyinf a fiel in adata.var specifying the gene the peak is promoter of. It must be specifies if adata._var is used to retrieve 
+                    the peak-gene relationship. Default None
                 velocities: pandas.DataFrame containing velocities for the genes of shape n_cells x n_genes. If it is a pd.DataFrame it must contain cell bacordes
                     as row indices and gene names as columns names.
                 softmax_scale: float indicating the softmax scale for probabilities computations. if None it is estimated. 
         """
-        velocities = velocities.fillna(0) #if Nans are present
-        ref_genes = adata.var[promoter_key] 
-        self._velocities = velocities.get(ref_genes) #shape is (n_cells, n_peaks) stores velocities for every gene whose peak is promoter per every cell
+
+
+        if isinstance(velocities, np.ndarray):
+            if velocities.shape[0]!=adata.shape[0] or velocities.shape[1] != adata.shape[1]:
+                raise ValueError(f"Shapes of velocity array {velocities.shape} and adata {adata.shape} do not match.")
+            mask = np.isnan(velocities)
+            velocities[mask] = 0
+            self._velocities = velocities
+
+        
+        elif isinstance(velocities, pd.DataFrame):
+            if velocities.shape[0]!= adata.shape[0] or not set(velocities.index) == set(adata.obs_names):
+                raise ValueError(f"Barcordes no not match.")
+            if promoter_key is None: 
+                raise ValueError("With pd.DataFrame promoter_key field is mandatory")
+            elif promoter_key not in adata.var.columns:
+                raise ValueError(f"{promoter_key} not in adata.var")
+            if not set(adata.var[promoter_key]).issubset(set(velocities.columns)):
+                raise ValueError(f"Not all genes in adata.var[{promoter_key}] are in velocities")
+            ref_genes = adata.var[promoter_key] 
+            velocities = velocities.fillna(0) 
+            self._velocities = velocities.get(ref_genes).to_numpy(dtype=np.float64) #shape is (n_cells, n_peaks) stores velocities for every gene whose peak is promoter per every cell
+        
+
         self._adata = adata
         self._promoter_key = promoter_key
         self._softmax_scale = softmax_scale
-        
+
 
     @property
     def key(self):
         return self._promoter_key
     
     
-    def estimate_softmax_scale(self, similarity, key):
+    def estimate_softmax_scale(self, similarity: Union[DotProduct, Cosine, Correlation, SimilarityComputer, Similarity], key: str = 'connectivities'):
         """
         Estimation of softmax scale. By cellrank definition, softmax scale is sigma = 1/median{|c_ik|} where c_ik are the logits obtained through the model 
         params:
             similarity: SimilarityComputer object for probabilities and logits computations. 
-            key: where to search for neighbors for each cell. Default "connectivities" to search in adata.obsm['connectivities']
+            key: where to search for neighbors for each cell. Default "connectivities" to search in adata.obsp['connectivities']
         """
         model = Deterministic(adata=self._adata, velocitites=self._velocities, similarity=similarity, softmax_scale=1.0, key=key)
         _ , logits = model()
-        return 1.0/np.median(np.abs(logits)) #DA VEDERE PERCHE' LOGITS.DATA IN CELLRANK !!!!
+        return 1.0/np.median(np.abs(logits.data))
 
 
 
-    def compute_transition_matrix(self, similarity = 'correlation', key = 'connectivities'):
-        
+    def compute_transition_matrix(self, 
+                                  similarity: Union[Literal['correlation', 'cosine', 'dot'], Cosine, Correlation, DotProduct, SimilarityComputer, Similarity] = 'correlation', 
+                                  key: str = 'connectivities'
+    ):
+        """
+        Computes the transition probabilities and logits. 
+        params: 
+            similarity: similarity metric for probability computations, either a string or a SimilarityComputer object. Default: correlation. 
+            key: where to search for neighbors for each cell. Default "connectivities" to search in adata.obsp['connectivities']
+        """
         if isinstance(similarity, str):
             similarity = SimilarityWrapper.create(similarity)
 
@@ -258,7 +291,12 @@ class TransitionMatrix:
             self._softmax_scale = self.estimate_softmax_scale(similarity, key)
 
         model = Deterministic(adata=self._adata, velocitites=self._velocities, similarity=similarity, softmax_scale=self._softmax_scale, key=key)
-        probabilities, logits = model()
+        self._transition_matrix, self._logits = model()
+
+
+    @property
+    def transition_matrix(self):
+        return self._transition_matrix
 
             
 
