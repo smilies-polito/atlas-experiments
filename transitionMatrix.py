@@ -2,7 +2,9 @@ import pandas as pd
 import numpy as np
 
 from enum import Enum
+from anndata import AnnData
 from scipy.sparse import csr_matrix, csr_array
+from typing import Literal, Union, Optional
 
 class Similarity(Enum):
     """Enum that imitates CellRank similarity computations"""
@@ -12,25 +14,31 @@ class Similarity(Enum):
 
 
 class SimilarityWrapper():
-    """Class that allows to create and manage different similarities computations"""
-    def create(similarity):
-        """Returns a SimilarityComputer object"""
+    """
+    Class that allows to create and manage different similarities computations.
+    Returns a SimilarityComputer object.
+    """
+    def create(similarity: Literal['correlation', 'cosine', 'dot']):
         return Correlation() if similarity=="correlation" else Cosine() if similarity == 'cosine' else DotProduct()
     
 
 class SimilarityComputer():
-    """Class that computes the transition matrix given a certain similarity metric."""
-    def __init__(self, center_mean, scale_by_norm):
+    """Class that computes the transition matrix given a certain similarity metric.
+        params:
+            center_mean: boolean if to center velocity and displacement vectors around their mean. Default False
+            scale_by_norm: boolean if to scale velocity and displacement vectors by their norm. Default False
+    """
+    def __init__(self, center_mean: bool = False, scale_by_norm: bool = False):
         self._center_mean = center_mean
         self._scale_by_norm = scale_by_norm 
 
-    def __call__(self, v, X, softmax_scale):
+    def __call__(self, v, X, softmax_scale: float = 1.0):
         """
         Computes transition matrix: 
             params: 
                 v: velocity vector for cell_i
                 X: displacement vector between cell_i and its neighbors
-                sotftmax_scale: softmax scale for softmax computation
+                sotftmax_scale: softmax scale for softmax computation. Default 1.0
         """
         if self._center_mean:
             X -= np.expand_dims(np.mean(X, axis=1), axis=1)
@@ -45,13 +53,13 @@ class SimilarityComputer():
         return self.softmax(X.dot(v), softmax_scale)
     
 
-    def softmax_masked(self, x, mask, softmax_scale):
+    def softmax_masked(self, x: np.array, mask: np.array, softmax_scale: float = 1.0):
         """
-        Computes softmax and returns probabilities.
+        Computes softmax and returns probabilities and logits.
             params:
-                x: vectors of logits from which compute the proebabilities
+                x: vectors of logits from which compute the probabilities
                 mask: mask indicating which part of x result from a divsion by 0
-                softmax_scale: softmax scale for softmax computation
+                softmax_scale: softmax scale for softmax computation. Default is 1.0
         """
         numerator = x*softmax_scale
         numerator = np.exp(numerator - np.nanmax(numerator))
@@ -59,12 +67,12 @@ class SimilarityComputer():
         return numerator/np.nansum(numerator), x
     
 
-    def softmax(self, x, softmax_scale):
+    def softmax(self, x: np.array, softmax_scale: float = 1.0):
         """
-        Computes softmax and returns probabilities.
+        Computes softmax and returns probabilities and logits.
             params:
                 x: vectors of logits from which compute the proebabilities
-                softmax_scale: softmax scale for softmax computation
+                softmax_scale: softmax scale for softmax computation. Default is 1.0
         """
         numerator = x * softmax_scale
         numerator = np.exp(numerator - np.max(numerator))
@@ -86,8 +94,22 @@ class DotProduct(SimilarityComputer):
 
 class Deterministic():
     """Class that simulates the deterministic model of CellRank for transition matrix computations."""
-    
-    def __init__(self, adata, velocitites, similarity, softmax_scale, key='connectivities'):
+
+    def __init__(self, 
+                 adata: AnnData, 
+                 velocitites: np.ndarray, 
+                 similarity: Union[Cosine, Correlation, DotProduct, SimilarityComputer], 
+                 softmax_scale: float = 1.0, 
+                 key: str = 'connectivities'
+    ):
+        """
+            params:
+                adata: AnnData of shape n_cells x n_peaks.
+                velocities: np.ndarray of shape n_cells x n_peaks
+                similarity: similarity class that implements the transition matrix computation strategy. 
+                softmax_scale: float for the softmax computation. Default 1.0
+                key: key in adata.obsp where to search for neighbor connectivities. Deafult 'connectivities'    
+        """
         self._adata = adata
         self._similarity = similarity
         self._key = key
@@ -99,14 +121,15 @@ class Deterministic():
         self._indptr = None
 
 
-    def uniform(self, n_neighbors):
+    def uniform(self, n_neighbors: int):
         """Function that returns uniform distribution over the neighbors.
             prarams: 
-                n_neighbors: number of neighbors for cell_i"""
+                n_neighbors: number of neighbors for cell_i
+        """
         return np.ones(n_neighbors)/n_neighbors, np.zeros(n_neighbors)
     
 
-    def compute_displacement_vector(self, idx, key='connectivities'):
+    def compute_displacement_vector(self, idx: int, key: str ='connectivities'):
         """Function that compute the displacement vector for the specific cell
         params:
             adata: annotated data
@@ -117,11 +140,10 @@ class Deterministic():
         start, end = indptr[idx], indptr[idx+1]
         neighbors_idx = indices[start:end]
         displacement = self._adata.X[neighbors_idx]- self._adata.X[idx]
-        displacement = self._adata.X[neighbors_idx].toarray() - self._adata.X[idx].toarray()
-        return displacement
+        return neighbors_idx, displacement
     
 
-    def update_transitions(self, probabilities, logits, neighbors):
+    def update_transitions(self, probabilities: np.ndarray, logits: np.ndarray, neighbors: np.ndarray):
         """
         Function that updates the object's fields to construct csr_matrix. 
             params:
@@ -129,17 +151,18 @@ class Deterministic():
                 logits: (n_neighbors, ) array containing the cell_i logits
                 neighbors: (n_neighbors, ) array containing the cell_i neighbor indices
         """
-        if self._data is None: 
+        if self._probabilities is None: 
             self._probabilities = probabilities
             self._logits = logits 
             self._indices = neighbors
-            self._indptr = np.array([len(neighbors)])
+            self._indptr = np.array([0, len(neighbors)])
         
         else:
             self._indices = np.hstack((self._indices, neighbors))
-            self._indptr = np.hstack(self._indptr, len(neighbors))
-            self._probabilities = np.hstack(self._probabilities, probabilities)
-            self._logits = np.hstack(self._logits, logits)
+            self._indptr = np.hstack((self._indptr, self._indptr[-1]+len(neighbors)))
+            self._probabilities = np.hstack((self._probabilities, probabilities))
+            self._logits = np.hstack((self._logits, logits))
+
     
     @property
     def result(self):
@@ -155,23 +178,24 @@ class Deterministic():
 
     def __call__(self):
         "Function that computes the probability transition matrix"
-        for idx, barcode in enumerate(self._adata.var_names):
+        for idx, barcode in enumerate(self._adata.obs_names):
             neigh_idx, X = self.compute_displacement_vector(idx, key=self._key)
-            v_i = self._velocities.iloc[idx]
+            v_i = self._velocities[idx]
             
             if(np.all(v_i)==0):
-                return self.uniform(len(neigh_idx))
-            
-            probabilities, logits = self._similarity(v_i, X, softmax_scale = 1.0)
+                probabilities, logits =  self.uniform(len(neigh_idx))
+            else: 
+                probabilities, logits = self._similarity(v_i, X, softmax_scale = 1.0)
+
             self.update_transitions(probabilities=probabilities, logits=logits, neighbors=neigh_idx)
 
-        return self.result()
+        return self.result
         
 
         
 
 
-class TransitionMatrix_ATAC:
+class TransitionMatrix:
     """
         Class that given an AnnData for scATAC-seq data computes transition matrix for MCMC.
         1. Computes displacement vector between one cell and its neighbors according to the neighborhood graph.
@@ -185,7 +209,11 @@ class TransitionMatrix_ATAC:
     """
 
 
-    def __init__(self, adata, velocities, promoter_key = None, softmax_scale=None):
+    def __init__(self, 
+                 adata: AnnData, 
+                 velocities, 
+                 promoter_key : Optional[str] = None, 
+                 softmax_scale: Optional[float]= None):
         """
             param:
                 adata : AnnData
