@@ -14,6 +14,7 @@ class Test(unittest.TestCase):
     obs_names = ['cell1', 'cell2', 'cell3', 'cell4', 'cell5']
     var_names = ['peak1', 'peak2', 'peak3', 'peak4']
     X = np.random.uniform(size=(5,4))
+    X = csr_matrix(X)
     gene_names = ['gene0', 'gene1','gene2', 'gene3', 'gene4', 'gene5']
     df = pd.DataFrame({'gene': ['gene5', 'gene2', 'gene0', 'gene1']}, index = var_names)
     velocities = pd.DataFrame(np.random.uniform(size=(5,6)), index = obs_names, columns = gene_names)
@@ -139,7 +140,7 @@ class Test(unittest.TestCase):
         self.assertEqual(displacement.shape, (2,4))
         self.assertEqual(neighbors.shape, (2,))
 
-        expected_result_0 = self.X[1]-self.X[0]
+        expected_result_0 = (self.X[1].A-self.X[0].A).flatten()
         self.assertEqual(displacement[0][0], expected_result_0[0])
         self.assertEqual(displacement[0][1], expected_result_0[1])
         self.assertEqual(displacement[0][2], expected_result_0[2])
