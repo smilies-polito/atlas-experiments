@@ -3,7 +3,7 @@ import numpy as np
 
 from enum import Enum
 from anndata import AnnData
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, issparse
 from typing import Literal, Union, Optional
 
 class Similarity(Enum):
@@ -129,7 +129,7 @@ class Deterministic():
             prarams: 
                 n_neighbors: number of neighbors for cell_i
         """
-        return np.ones(n_neighbors)/n_neighbors, np.zeros(n_neighbors)
+        return np.ones(n_neighbors)/n_neighbors, np.ones(n_neighbors)*1e-6
     
 
     def compute_displacement_vector(self, idx: int, key: str ='connectivities'):
@@ -142,7 +142,11 @@ class Deterministic():
         indptr, indices = self._adata.obsp[key].indptr, self._adata.obsp[key].indices
         start, end = indptr[idx], indptr[idx+1]
         neighbors_idx = indices[start:end]
-        displacement = self._adata.X[neighbors_idx]- self._adata.X[idx]
+        if issparse(self._adata.X):
+            displacement = self._adata.X[neighbors_idx].A- self._adata.X[idx].A
+        else:
+            displacement =  self._adata.X[neighbors_idx]- self._adata.X[idx]
+
         return neighbors_idx, displacement
     
 
