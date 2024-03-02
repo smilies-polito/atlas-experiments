@@ -2,21 +2,36 @@
 R [function](https://gitlabtsgroup.polito.it/root/scvemo/-/blob/developer/conversion_utils/save_scATAC.R) that enables to save in csv format a Seurat Object for scATAC-seq data (when SeuratDisk doesn't work). \
 params: 
 
-    - adata: SeuratObject with scATAC-seq data preprocessed using Signac. 
-    - path: path of the folder where files are stored. It should either be an empty folder, otherwise a sub-folder named "SeuratCSV" is created.
+    - object: SeuratObject with scATAC-seq data preprocessed using Signac (v5). 
+    - path: path of the folder where files should be stored. 
     - assay: Assay for SeuratObject. Default: `'peaks'`.
     - reduction.list: array of dimensionality reductions to store. Default `c('lsi')`.
     - verbose: boolean for verbosity. Default `TRUE`.
 
 
-
-output: Every file is stored in _path_. 
+output: every file is stored in _path_. 
 
     - metadata.csv: file storing metadata with header and barcodes.
     - metafeature.csv: file storing metafeature with header and peaks.
-    - {reduction}_cell_embdedding.csv: file storing the cell embedding for the reduction method of interest. For example, if {reduction} is LSI, then lsi_cell_embedding.csv contains `Embeddings(adata, reduction='lsi')`. 
-    - {reduction}_std.csv: file storing the standard deviation for the reduction method of interest. For example, if {reduction} is LSI, then  lsi_cell_std.csv contains `Stdev(adata, reduction='lsi')`. 
-    - data.csv: file containing sparse reprsentation of the data matrix `summary(adata[[assay]]@data)`. The following is a table composed by three columns: "i" is the gene index, "j" is the cell index, "x" is the value-ij of `adata[[assay]]@data`. Only non-zero values are stored. 
+    - {reduction}_cell_embdedding.csv: file storing the cell embedding for the reduction method of interest. For example, if {reduction} is LSI, then lsi_cell_embedding.csv contains `Embeddings(object, reduction='lsi')`. 
+    - {reduction}_std.csv: file storing the standard deviation for the reduction method of interest. For example, if {reduction} is LSI, then  lsi_cell_std.csv contains `Stdev(object, reduction='lsi')`. 
+    - neighbor_idx.csv: file storing the cell neighbor indices, hence `object@neighbors$peaks.nn@nn.idx`
+    - neighbor_dist.csv: file storing the cell neighbor distances, hence `object@neighbors$peaks.nn@nn.dist`
+
+# SaveSeuratDATA
+R [function](https://gitlabtsgroup.polito.it/root/scvemo/-/blob/developer/conversion_utils/save_scATAC.R) that enables to save in csv format the `data` matrix of a SeuratObject for scATAC-seq data.
+params: 
+
+    - object: SeuratObject with scATAC-seq data preprocessed using Signac (v5). 
+    - path: path of the folder where the file should be stored. 
+    - assay: Assay for SeuratObject. Dafult: `'peaks'`.  
+    - verbose: boolean for verbosity. Default `TRUE`.
+
+
+output: file is stored in _path_. 
+
+    - data.csv: file containing sparse reprsentation of the data matrix `summary(object[[assay]]@data)`. The following is a table composed by three columns: "i" is the gene index, "j" is the cell index, "x" is the value-ij of `object[[assay]]@data`. Only non-zero values are stored.
+
 
 # CSVLoader 
 Python [class](https://gitlabtsgroup.polito.it/root/scvemo/-/blob/developer/conversion_utils/csvLoader.py) that enables to create an `anndata.AnnData` object from the files saved with [SaveSeuratCSV](https://gitlabtsgroup.polito.it/root/scvemo/-/blob/developer/conversion_utils/save_scATAC.R).   \
