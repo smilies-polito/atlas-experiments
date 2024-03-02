@@ -13,7 +13,7 @@ SaveSeuratDATA <- function(object,
 SaveSeuratCSV <- function(object, 
                           path,
                           assay = 'peaks',
-                          reduction.list = c('lsi'),
+                          reduction.list = c('lsi', 'umap'),
                           verbose = T){
   
   if(verbose){print("Save metadata")}
@@ -26,6 +26,7 @@ SaveSeuratCSV <- function(object,
   
   
   for(reduction in reduction.list){
+    if(verbose){print(paste("save reduction", reduction))}
     cell.red.file <- file.path(path, paste0(paste(reduction, "cell", "embedding", sep='_'), '.csv'))
     feature.red.file  <- file.path(path, paste0(paste(reduction, "feature", "embedding", sep='_'), '.csv'))
     std.red.file  <- file.path(path, paste0(paste(reduction, "std", sep='_'), '.csv'))
