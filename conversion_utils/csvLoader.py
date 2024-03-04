@@ -35,13 +35,14 @@ class Embedding(Enum):
     """Enum for the embeddings"""
     LSI = 'lsi'
     PCA = 'pca'
+    UMAP = 'umap'
 
 
 class EmbeddingWrapper:
     """Class that allows to create and manage different embeddings"""  
     def create(embedding, path):
         """Returns a reader object given a specific embedding"""
-        return LSIReader(path) if embedding == Embedding.LSI else PCAReader(path)
+        return LSIReader(path) if embedding == Embedding.LSI else PCAReader(path) if embedding == Embedding.PCA else UMAPReader(path)
 
 
 class Reader: 
@@ -87,6 +88,16 @@ class PCAReader(Reader):
     def __call__(self):
         pass
 
+
+class UMAPReader(Reader):
+    """Class that reads UMAP data"""
+    def __init__(self, path):
+        super().__init__(path)
+
+    def __call__(self):
+        file_name = os.path.join(self._path, 'umap_cell_embedding.csv')
+        self._embedding = pd.read_csv(file_name, index_col =0, header=0, sep=',').values    
+
     
 class CSVLoader:
     """
@@ -105,6 +116,7 @@ class CSVLoader:
         self._metafeature = None
         self._embeddings = {}
         self._adata = None
+        self._neighbors = None
                 
  
     def set_X(self, 
@@ -177,7 +189,7 @@ class CSVLoader:
 
 
     def set_embedding(self, 
-                      embedding: Union[Literal['lsi', 'pca'], Embedding] = Embedding.PCA
+                      embedding: Union[Literal['lsi', 'pca', 'umap'], Embedding] = Embedding.PCA
         ):
         """
         Loads an embedding. 
@@ -191,26 +203,55 @@ class CSVLoader:
         reader = EmbeddingWrapper.create(embedding, self._path)
         reader()
         self._embeddings[embedding.value] = reader
+
+
+    def set_neighbors(self):
+        """
+        Function that loads neighborhood. 
+        """    
+        try:     
+            idx_path = os.path.join(self._path, 'neighbor_idx.csv')  
+            dist_path = os.path.join(self._path, 'neighbor_dist.csv')
+            indices = pd.read_csv(idx_path, header=0, index_col=0, sep=',').values
+            n_obs = indices.shape[0]
+
+            indptr = np.apply_along_axis(lambda r: len(r), 1, indices)
+            indptr = np.insert(indptr, [0], [0])
+
+            indices  -= 1 #R indices start from 1
+            indices = indices.flatten()
+
+            distances = pd.read_csv(idx_path, header=0, index_col=0, sep=',').values.flatten()
+
+            self._neighbors = csr_matrix((distances, indices, indptr), shape=(n_obs, n_obs))
+        except:
+            print("Unable to load neighborhood.")
         
     
     def create_adata(self, 
-                     embeddings : Optional[Union[Sequence[str], Literal['lsi', 'pca'], Embedding, Sequence[Embedding]]] = ['pca']
+                     embeddings : Optional[Union[Sequence[str], Literal['lsi', 'pca', 'umap'], Embedding, Sequence[Embedding]]] = ['pca'],
+                     neighbors: bool = False
         ):
         """
         Function that creates adata from csv
         params: 
             embeddings: list of embeddings one wants to read for the data either string, list of strings, object of cass Embedding,
             list of objects of class Embedding. Default is 'pca' 
+            neighbors: boolean indicated whether to load the neighborhood. Default is False. 
         """
-        self.set_X()
-        self.set_metadata()
-        self.set_metafeature()
 
-        if isinstance(embeddings, str) or isinstance(embeddings, Embedding):
-            embeddings = [embeddings]
+        if(self._X is None):
+            print('Loading data, metadata and metafeature')
+            self.set_X()
+            self.set_metadata()
+            self.set_metafeature()
 
-        for emdb in embeddings:
-            self.set_embedding(emdb)
+            print('Loading embeddings')
+            if isinstance(embeddings, str) or isinstance(embeddings, Embedding):
+                embeddings = [embeddings]
+
+            for emdb in embeddings:
+                self.set_embedding(emdb)
 
         adata = anndata.AnnData(X = self._X, obs = self._metadata, var = self._metafeature)
         adata.obs_names = self._obs_names
@@ -220,17 +261,18 @@ class CSVLoader:
             adata.obsm[f'X_{embeddingKey}'] = reader.embedding
             if embeddingKey == 'lsi': #adding variance for lsi 
                 adata.uns[f'{embeddingKey}'] = {'variance': reader.variance} 
+
+        if neighbors:
+            self.set_neighbors()
+            adata.obsp['distances'] = self._neighbors
         
         self._adata = adata
 
     @property
     def adata(self):
         return self._adata
-
-
-
         
-        
+
             
         
 
