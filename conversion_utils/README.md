@@ -18,6 +18,7 @@ output: every file is stored in _path_.
     - neighbor_idx.csv: file storing the cell neighbor indices, hence `object@neighbors$peaks.nn@nn.idx`
     - neighbor_dist.csv: file storing the cell neighbor distances, hence `object@neighbors$peaks.nn@nn.dist`
 
+
 # SaveSeuratDATA
 R [function](https://gitlabtsgroup.polito.it/root/scvemo/-/blob/developer/conversion_utils/save_scATAC.R) that enables to save in csv format the `data` matrix of a SeuratObject for scATAC-seq data.
 params: 
@@ -43,7 +44,10 @@ fields:
 - _metafeature: dataframe of shape n_var x n_features containing values for the features
 - _obs_names: sequence of shape n_obs containing observations' names
 - _var_names: sequence of shape n_var containing variables' names
-- embeddings: dictionary with embeddings' names as key and embeddings' representations as values. Representaion is an object of class Reader.  
+- _embeddings: dictionary with embeddings' names as key and embeddings' representations as values. Representation is an object of class Reader. 
+- _neighbors: csr_matrix of shape n_obs x n_obs containing the neighborhood graph 
+- _adata: AnnData object 
+
 
 > `init` 
 >> params:
@@ -81,10 +85,18 @@ fields:
 >> output
 >>> a CSVLoader object with updated field `._embeddings`.
 
+> `set_neighbors`
+>> params:
+>>> None
+
+>> output:
+>>> a CSVLoader object with updated field `._neighbors`
+
 
 > `create_adata`
 >> params:
->>> embedding: string or list of strings among 'pca' or 'lsi', indicating the embeddings to load. Default ['pca']. Accepts also an Embedding object or list of Embedding objects. 
+>>> embedding: string or list of strings among 'pca', 'umap' or 'lsi', indicating the embeddings to load. Default ['pca']. Accepts also an Embedding object or list of Embedding objects. 
+>>> neighbors: boolean indicating whether to load the neighborhood graph. Default False.
 
 >> output: 
 >>> a CSVLoader object with updated `._adata` field. This contains an anndata.AnnData object with the following fields: \
@@ -92,19 +104,20 @@ fields:
     - adata.obs is CSVLoader._metadata and adata.obs_names is CSVLoader._obs_names  \
     - adata.var is CSVLoader._metafeature and adata.var_names is CSVLoader._var_names \
     - adata.uns[{embedding}]['variance'] is CSVLoader._embeddings[{embedding}]._variance if {embedding} is 'lsi' \
-    - adata.obsm['X_{embedding}'] is CSVLoader._embeddings[{embedding}]._embedding
+    - adata.obsm['X_{embedding}'] is CSVLoader._embeddings[{embedding}]._embedding \
+    - adata.obsp['distances'] is CSVLoader.neighbors if `neighbors`= True.
 
 # LSIReader
 Python [class](https://gitlabtsgroup.polito.it/root/scvemo/-/blob/developer/conversion_utils/csvLoader.py) that enables to read LSI embedding files saved using [SaveSeuratCSV](https://gitlabtsgroup.polito.it/root/scvemo/-/blob/developer/conversion_utils/save_scATAC.R).   \
 fields: 
 
-- path: path of the directory with files to be loaded. It expects to contain lsi_cell_embedding.csv and lsi_std.csv.
+- _path: path of the directory with files to be loaded. It expects to contain lsi_cell_embedding.csv and lsi_std.csv.
 - _embedding: matrix of shape n_obs x n_lsi_dimensions with observations embedding from lsi_cell_embedding.csv.
 - _variance: array of shape n_lsi_dimensions with variance from lsi_std.csv.
 
 > `init` 
 >> params:
->>> path: path of the folder where files to lead are stored. 
+>>> path: path of the folder where files to load are stored. 
 
 >> output:
 >>> a LSIReader object.
@@ -117,3 +130,23 @@ fields:
 # PCAReader
 Python [class](https://gitlabtsgroup.polito.it/root/scvemo/-/blob/developer/conversion_utils/csvLoader.py) that enables to read PCA embedding files saved using [SaveSeuratCSV](https://gitlabtsgroup.polito.it/root/scvemo/-/blob/developer/conversion_utils/save_scATAC.R).  \
 Will be removed if not used otherwise fully implemented. 
+
+# UMAPReader
+Python [class](https://gitlabtsgroup.polito.it/root/scvemo/-/blob/developer/conversion_utils/csvLoader.py) that enables to read UMAP embedding files saved using [SaveSeuratCSV](https://gitlabtsgroup.polito.it/root/scvemo/-/blob/developer/conversion_utils/save_scATAC.R).   \
+fields: 
+
+- _path: path of the directory with files to be loaded. It expects to contain umap_cell_embedding.csv.
+- _embedding: matrix of shape n_obs x n_umap_dimensions (default 2) with observations embedding from umap_cell_embedding.csv.
+
+
+> `init` 
+>> params:
+>>> path: path of the folder where files to load are stored. 
+
+>> output:
+>>> an UMAPReader object.
+
+> `__call__`
+
+>> output:
+>>> a UMAReader object with updated field `._embedding`.
