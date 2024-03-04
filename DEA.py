@@ -20,12 +20,13 @@ CWD = os.getcwd()
 seed= 52
 
 parser = argparse.ArgumentParser()
-parser.add_argument('k', type=int, help='Integer describing the size of the local neighborhood')
-parser.add_argument('pc', type=int, help='Integer describing the number of principal components')
-parser.add_argument('res', type=float, help='Float describing the resolution of the Louvain community detection algorithm')
+parser.add_argument('-k', type=int, help='Integer describing the size of the local neighborhood')
+parser.add_argument('-pc', type=int, help='Integer describing the number of principal components')
+parser.add_argument('-res', type=float, help='Float describing the resolution of the Louvain community detection algorithm')
 args= parser.parse_args()
 
-DATA_PATH= os.path.join(CWD, 'scRNA_adata', f"scVeloDynamical_{args.k}K{args.pc}PC{args.res}res.h5ad")
+ADATA_PATH = os.path.join(CWD, 'scRNA_adata')
+DATA_PATH= os.path.join(ADATA_PATH, f"10xMouse_{args.k}K{args.pc}PC{args.res}res.h5ad")
 adata = sc.read_h5ad(DATA_PATH)
 
 title = f'Marker genes for every cluster (Wilcoxon) K={args.k}, PC={args.pc}, res={args.res}'
@@ -45,17 +46,17 @@ df.to_csv(path, sep=',', header=True)
 
 # Genes from litterature
 markers = {
-    'cajal-retzius' : ['Reln', 'Trp73', 'Lhx5', 'Nhlh2'],
-    'layer2to4' : ['Satb2', 'Nrgn', 'Inhba', 'Neurod6'],
+    'cajal-retzius' : ['Reln', 'Nrxn1', 'Trp73', 'Lhx5', 'Nhlh2'],
+    'layer2to4' : ['Satb2', 'Nrgn', 'Inhba',  'Cux2', 'Prox1'],
     'forebrainGABA' : ['Slc32a1'],
     'interneurons' : ['Dlx1', 'Dlx2', 'Gad1', 'Gad2', 'Bcl11b', 'Lhx6', 'Adarb2'],
     'opc' : ['Olig2', 'Pdgfra', 'Sox10'],
     'astrocytes' : ['Vim', 'Slc1a3', 'Nes', 'Aldoc'],
-    'layer5to6' : ['Neurod6', 'Bcl11b', 'Fezf2', 'Nrgn', 'Crym'], 
+    'layer5to6' : [ 'Bcl11b', 'Fezf2', 'Nrgn', 'Crym', 'Rorb', 'Nr4a2'], 
     'ipc' : ['Eomes', 'Top2a', 'Elavl2', 'Elavl4'],    
     'radialGlia' : [ 'Vim',  'Nes'],
-    'ependymal' : ['Stat3', 'Ednrb', 'Sulf1'],
-    'SVZ' : ['Neurod6', 'Sema3c', 'Eomes']
+    'ependymal' : ['Ednrb', 'Sulf1'],
+    'SVZ' : [ 'Sema3c', 'Eomes']
 }
 
 genes = [] 
@@ -66,4 +67,4 @@ for gene in genes:
 
 title = f'Markers K={args.k} PC={args.pc} res={args.res}'
 path = f'litteratureMarkers_{args.k}K{args.pc}PC{args.res}res.png'
-sc.pl.dotplot(adata, markers, 'louvain', dendrogram=True, title = title, save = path, show=False)
+sc.pl.dotplot(adata, markers, 'louvain', dendrogram=True, title = title, save = path, show=False) 
