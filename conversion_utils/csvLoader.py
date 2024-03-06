@@ -221,7 +221,7 @@ class CSVLoader:
             indices  -= 1 #R indices start from 1
             indices = indices.flatten()
 
-            distances = pd.read_csv(idx_path, header=0, index_col=0, sep=',').values.flatten()
+            distances = pd.read_csv(dist_path, header=0, index_col=0, sep=',').values.flatten()
 
             self._neighbors = csr_matrix((distances, indices, indptr), shape=(n_obs, n_obs))
         except:
