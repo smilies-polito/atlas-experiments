@@ -216,6 +216,7 @@ class CSVLoader:
             n_obs = indices.shape[0]
 
             indptr = np.apply_along_axis(lambda r: len(r), 1, indices)
+            indptr = np.cumsum(indptr)
             indptr = np.insert(indptr, [0], [0])
 
             indices  -= 1 #R indices start from 1
