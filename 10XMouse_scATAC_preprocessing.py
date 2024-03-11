@@ -19,14 +19,13 @@ parser.add_argument('-lsi', type = int, help='Integer indicating the number of d
 parser.add_argument('-res_rna', type = float, help='Float indicating the number resolution for Louvain community detection algorithm for scRNA-seq data')
 args = parser.parse_args()
 
-res_atac = 1.0 #Kept constant
 embeddings_atac = ['umap', 'lsi']
 
 loader = CSVLoader(SIGNAC_FOLDER)
 loader.create_adata(embeddings= embeddings_atac, neighbors=True)
 
 atac = loader.adata
-atac_path = os.path.join(RESULT_FOLDER, f'10xMouse_{args.k_atac}K{args.lsi}LSI{res_atac}res.h5ad')
+atac_path = os.path.join(RESULT_FOLDER, f'10xMouse_{args.k_atac}K{args.lsi}LSI.h5ad')
 atac.write_h5ad(atac_path)
 
 # Load scRNA-seq data
@@ -71,10 +70,10 @@ rna.write_h5ad(rna_path)
 
 
 # Plot clusters 
-title = f'Seurat K={args.k_atac} LSI={args.lsi} res={res_atac}'
-path = f'_scATAC_seurat_{args.k_atac}K{args.lsi}LSI{res_atac}res.png'
+title = f'Seurat K={args.k_atac} LSI={args.lsi}}'
+path = f'_scATAC_seurat_{args.k_atac}K{args.lsi}LSI.png'
 sc.pl.umap(atac, color=['seurat_clusters'], title=title, show = False, save = path)
 
-title = f'Louvain rna K={args.k_atac} LSI={args.lsi} res={res_atac}'
-path = f'_scATAC_louvain_{args.k_atac}K{args.lsi}LSI{res_atac}res.png'
+title = f'Louvain rna K={args.k_atac} LSI={args.lsi}'
+path = f'_scATAC_louvain_{args.k_atac}K{args.lsi}LSI.png'
 sc.pl.umap(atac, color=['louvain'], title=title, show = False, save = path)
