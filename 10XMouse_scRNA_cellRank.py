@@ -4,6 +4,8 @@ import pandas as pd
 import scanpy as sc 
 import cellrank as cr
 
+from utils import _check_conjugate
+
 seed = 52
 
 parser = argparse.ArgumentParser()
@@ -14,7 +16,7 @@ args = parser.parse_args()
 
 CWD = os.getcwd()
 FIGURE_FOLDER = os.path.join(CWD, 'figures')
-ADATA_FOLDER = os.path.join(CWD, 'scRNA_adata')
+ADATA_FOLDER = os.path.join(CWD, 'adata_folder')
 DATA_PATH = os.path.join(ADATA_FOLDER, f'10xMouse_{args.k}K{args.pc}PC{args.res}res.h5ad')
 
 starting_cells = pd.read_csv('starting_cells.csv', header=None, index_col = 0).to_numpy().flatten()
@@ -39,26 +41,29 @@ g.plot_spectrum(title=title, save=path)
  
 
 eigenvalues = g.eigendecomposition['D']
-for idx, eig in enumerate(eigenvalues):
-    #At least two macrostates otherwise no sense, at most 12 macrostates to limit computations (should be enough) and considering only real values
-    if(eig.imag == 0) and idx > 0 and idx < 12: 
-        ns = idx+1
-        g.compute_macrostates(n_states=ns, cluster_key='louvain')
-        tile = f'Macrostate ({ns}) Composition K={args.k} PC={args.pc} res={args.res}'
-        path = f'macrostateComposition{ns}_{args.k}K{args.pc}PC{args.res}res.png'
-        g.plot_macrostate_composition(key='louvain', show=False, save = path, title=title)
-        title = f'Coarse Transition Matrix ({ns}) K={args.k} PC={args.pc} res={args.res}'
-        path = f'coarseT{ns}_{args.k}K{args.pc}PC{args.res}res.png'
-        g.plot_coarse_T(annotate=True, save=path, title=title)
-        g.predict_initial_states()
-        g.predict_terminal_states(allow_overlap=True)
-        title = f'Initial states ({ns}) K={args.k} PC={args.pc} res={args.res}'
-        path = f'initial{ns}_{args.k}K{args.pc}PC{args.res}res.png'
-        g.plot_macrostates(which="initial", legend_loc="right", s=100, show=False, save=path, title=title)
-        path = f'terminal{ns}_{args.k}K{args.pc}PC{args.res}res.png'
-        title = f'Terminal states ({ns}) K={args.k} PC={args.pc} res={args.res}'        
-        g.plot_macrostates(which="terminal", legend_loc="right", s=100, show=False, save=path, title=title)
-        g.compute_fate_probabilities()
-        path = f'fateProb{ns}_{args.k}K{args.pc}PC{args.res}res.png'
-        title = f'Fate Probabilities ({ns}) K={args.k} PC={args.pc} res={args.res}'
-        g.plot_fate_probabilities(same_plot=True, save = path, title=title)
+idx = 1
+
+
+while idx<10:
+    # Mi aspetto 1 iniziale 4 terminali (almeno 5 stati) 
+    eig = eigenvalues[idx]
+    idx = _check_conjugate(idx,eig) 
+    g.compute_macrostates(n_states=idx, cluster_key='louvain')
+    title = f'Macrostate ({idx}) Composition K={args.k} PC={args.pc} res={args.res}'
+    path = f'macrostateComposition{idx}_{args.k}K{args.pc}PC{args.res}res.png'
+    g.plot_macrostate_composition(key='louvain', show=False, save = path, title=title)
+    title = f'Coarse Transition Matrix ({idx}) K={args.k} PC={args.pc} res={args.res}'
+    path = f'coarseT{idx}_{args.k}K{args.pc}PC{args.res}res.png'
+    g.plot_coarse_T(annotate=True, save=path, title=title)
+    g.predict_initial_states()
+    g.predict_terminal_states(allow_overlap=True)
+    title = f'Initial states ({idx}) K={args.k} PC={args.pc} res={args.res}'
+    path = f'initial{idx}_{args.k}K{args.pc}PC{args.res}res.png'
+    g.plot_macrostates(which="initial", legend_loc="right", s=100, show=False, save=path, title=title)
+    path = f'terminal{idx}_{args.k}K{args.pc}PC{args.res}res.png'
+    title = f'Terminal states ({idx}) K={args.k} PC={args.pc} res={args.res}'        
+    g.plot_macrostates(which="terminal", legend_loc="right", s=100, show=False, save=path, title=title)
+    g.compute_fate_probabilities(tol=1e-10, use_petsc=True, preconditioner='ilu')
+    path = f'fateProb{idx}_{args.k}K{args.pc}PC{args.res}res.png'
+    title = f'Fate Probabilities ({idx}) K={args.k} PC={args.pc} res={args.res}'
+    g.plot_fate_probabilities(same_plot=True, save = path, title=title)
