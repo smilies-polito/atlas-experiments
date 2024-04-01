@@ -65,10 +65,10 @@ while idx<len(eigenvalues):
     title = f'Terminal states ({idx}) K={args.k} PC={args.pc} res={args.res}'        
     g.plot_macrostates(which="terminal", legend_loc="right", s=100, show=False, save=path, title=title)
     g.compute_fate_probabilities(tol=1e-10, use_petsc=True, preconditioner='ilu')
-    path = f'fasteProb{idx}_{args.k}K{args.pc}PC{args.res}res.png'
+    path = f'fateProb{idx}_{args.k}K{args.pc}PC{args.res}res.png'
     title = f'Fate Probabilities ({idx}) K={args.k} PC={args.pc} res={args.res}'
     g.plot_fate_probabilities(same_plot=True, save = path, title=title)
-    quality_dict[idx] = _check_macrostate_quality(g)
+    quality_dict[idx] = _check_macrostate_quality(g, idx)
 
 # Save results for GPCCA
 path = os.path.join(os.getcwd(), f"quality_{args.k}K{args.pc}PC{args.res}res.csv")
