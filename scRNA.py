@@ -34,43 +34,40 @@ class scRNA():
 
         self._starting_cells = pd.read_csv(os.path.join(os.getcwd(), 'rw_starting_barcodes.csv'), 
                                            header=0, index_col = 0).to_numpy().flatten()
-
-                                
-    def _basic_preprocessing(self, plot: bool = False):
-        """
-            Basic preprocessing: loading from loom + qc + qc plots + filtering + pca + pcs plots
-            params:
-                - plot: if to save figures for PCA.
-        """
+        
         path = os.path.join(os.getcwd(), '10X_multiome_mouse_brain.loom')
         adata = sc.read_loom(path)
         adata.var_names_make_unique()
         adata.obs_names = [obs.split(':')[1][:-1] + '-1' for obs in adata.obs_names]
+        self._adata = adata
 
-        # QC metrics
-        adata.var['mt'] = adata.var_names.str.startswith('mt-')
-        sc.pp.calculate_qc_metrics(adata, qc_vars=['mt'],log1p=False, percent_top=None, inplace=True)
+
+                                
+    def _basic_preprocessing(self, plot: bool = False):
+        """
+            Basic preprocessing: loading from loom + qc + qc plots + filtering
+            params:
+                - plot: if to save figures for preprocessing
+        """
+
+        self._adata.var['mt'] = self._adata.var_names.str.startswith('mt-')
+        sc.pp.calculate_qc_metrics(self._adata, qc_vars=['mt'],log1p=False, percent_top=None, inplace=True)
 
         if plot:
-            sc.pl.violin(adata, ['n_genes_by_counts', 'total_counts',  'pct_counts_mt'], jitter = 0.04, 
+            sc.pl.violin(self._adata, ['n_genes_by_counts', 'total_counts',  'pct_counts_mt'], jitter = 0.04, 
                         multi_panel= True, save = "_scRNA.png", show=False)
-            sc.pl.scatter(adata, x='n_genes_by_counts', y='total_counts', save = "_scRNA_totalCounts.png", show=False)
-            sc.pl.scatter(adata, x='n_genes_by_counts', y='pct_counts_mt', save = "_scRNA_mitoPercent.png", show=False)
+            sc.pl.scatter(self._adata, x='n_genes_by_counts', y='total_counts', save = "_scRNA_totalCounts.png", show=False)
+            sc.pl.scatter(self._adata, x='n_genes_by_counts', y='pct_counts_mt', save = "_scRNA_mitoPercent.png", show=False)
 
-        lower, upper = np.percentile(adata.obs.n_genes_by_counts, [2,98]).astype(int)
+        lower, upper = np.percentile(self._adata.obs.n_genes_by_counts, [2,98]).astype(int)
         print(f'Retaining cells with {lower} < n_genes_by_counts < {upper}')
-        sc.pp.filter_cells(adata, min_genes=lower)
-        sc.pp.filter_cells(adata, max_genes=upper)
-        scv.pp.filter_and_normalize(adata, min_shared_counts=10, n_top_genes=2000)
-        sc.pp.highly_variable_genes(adata, n_top_genes=2000)
-
-        # PCA
-        scv.pp.pca(adata, n_comps=50, use_highly_variable=True)
-        if plot:
-            self._save_pca_figures(adata)
+        sc.pp.filter_cells(self._adata, min_genes=lower)
+        sc.pp.filter_cells(self._adata, max_genes=upper)
+        scv.pp.filter_and_normalize(self._adata, min_shared_counts=10, n_top_genes=2000)
+        sc.pp.highly_variable_genes(self._adata, n_top_genes=2000)
 
         preprocessing_path = os.path.join(self._adata_path, '10xMouse_loom_preprocessed.h5ad')
-        adata.write_h5ad(preprocessing_path)   
+        self._adata.write_h5ad(preprocessing_path)   
 
 
     def _save_pca_figures(self, adata):
@@ -113,22 +110,24 @@ class scRNA():
         self._adata = self._adata[self._adata.obs_names.isin(barcodes)]
 
 
-    def _rna_preprocessing(self):
+    def _rna_preprocessing(self, plot: bool= False):
         """
-            Terminates preprocessing neighborhood + umap + louvain
+            Terminates preprocessing pca + neighborhood + umap + louvain
             params:
-                - save: if to save adata in h5ad format. 
+                - plot: if to plot PCA elbow plot and explained variance. 
         """
-        adata =sc.read_h5ad(os.path.join(self._adata_path, '10xMouse_loom_preprocessed.h5ad'))
-        sc.pp.neighbors(adata, n_neighbors=self._k, n_pcs=self._pc, random_state = self._seed)
-        sc.tl.louvain(adata, resolution=self._res, random_state=self._seed)
-        scv.pp.moments(adata, n_neighbors=self._k, n_pcs=self._pc)
+                # PCA
+        scv.pp.pca(self._adata, n_comps=50, use_highly_variable=True)
+        if plot:
+            self._save_pca_figures(self._adata)
+
+        sc.pp.neighbors(self._adata, n_neighbors=self._k, n_pcs=self._pc, random_state = self._seed)
+        sc.tl.louvain(self._adata, resolution=self._res, random_state=self._seed)
         title = f'K={self._k} PC={self._pc} res={self._res}'
         path =  f'_scRNA_{self._k}K{self._pc}PC{self._res}res.png'
-        sc.tl.umap(adata, random_state=self._seed)
-        sc.pl.umap(adata, color=['louvain'], title=title, show=False, save=path)
+        sc.tl.umap(self._adata, random_state=self._seed)
+        sc.pl.umap(self._adata, color=['louvain'], title=title, show=False, save=path)
 
-        self._adata = adata 
         if self._save:
             path = os.path.join(self._adata_path, f"10xMouse_{self._k}K{self._pc}PC{self._res}res.h5ad")
             self._adata.write_h5ad(path)
@@ -138,6 +137,7 @@ class scRNA():
         """
             Computes velocities using dynamical model scVELO.
         """
+        scv.pp.moments(self._adata, n_neighbors=self._k, n_pcs=self._pc)
         scv.tl.recover_dynamics(self._adata, n_jobs=-1)
         scv.tl.velocity(self._adata, mode='dynamical')
         scv.tl.velocity_graph(self._adata, n_jobs=-1)
@@ -191,7 +191,10 @@ class scRNA():
         while idx<12:
             eig = eigenvalues[idx]
             idx = _check_conjugate(idx, eig)
-            self._quality_dict[idx] = self._compute_macrostates(idx)
+            try:
+                self._quality_dict[idx] = self._compute_macrostates(idx)
+            except ValueError as e:
+                print(e)
 
         df = pd.DataFrame(self._quality_dict, index = ["spectral_gap", 'minChi', 'crispness']).T
         _plot_quality_gpcca(df, k=self._k, pc=self._pc, res=self._res)
@@ -225,3 +228,29 @@ class scRNA():
             
             return _check_macrostate_quality(self._gpcca, idx)
 
+
+
+if __name__ == "__main__": 
+    from itertools import product
+
+    k = [10, 20, 30, 50, 60, 80]
+    pc = [10, 15, 20, 25, 30]
+    res = [0.7, 1.0, 1.4]
+    grid = product(k, pc, res)
+
+    multivelo_barcodes = pd.read_csv(os.path.join(os.getcwd(), 'cell_annotations.tsv'), sep='\t',
+                                    index_col = 0, header=0)
+    multivelo_barcodes = multivelo_barcodes[~multivelo_barcodes.celltype.isin(['Interneurons1', 'Interneurons2', 'Interneurons3'])]
+
+    sim = scRNA(k=30, pc=20, res=1.0, save = True)
+    sim._subset_cells(multivelo_barcodes.index)
+    sim._basic_preprocessing(plot=True)
+    sim._rna_preprocessing(plot=True)
+
+
+    for k, pc, res in grid:
+        sim = scRNA(k=k, pc=pc, res = res, save = False)
+        sim._load_preprocessed_adata(os.path.join(os.getcwd(),'adata_folder','10xMouse_loom_preprocessed.h5ad'))
+        sim._rna_preprocessing(plot=False)
+        sim._rna_velocities()
+        sim._cell_rank()  
