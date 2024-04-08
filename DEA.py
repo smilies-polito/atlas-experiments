@@ -25,7 +25,7 @@ parser.add_argument('-pc', type=int, help='Integer describing the number of prin
 parser.add_argument('-res', type=float, help='Float describing the resolution of the Louvain community detection algorithm')
 args= parser.parse_args()
 
-ADATA_PATH = os.path.join(CWD, 'scRNA_adata')
+ADATA_PATH = os.path.join(CWD, 'adata_folder')
 DATA_PATH= os.path.join(ADATA_PATH, f"10xMouse_{args.k}K{args.pc}PC{args.res}res.h5ad")
 adata = sc.read_h5ad(DATA_PATH)
 
@@ -41,22 +41,23 @@ df = pd.DataFrame(
     {group + '_' + key[:1]: result[key][group]
     for group in groups for key in ['names', 'pvals']}).head(10)
 
-path = os.path.join(CWD, 'scRNA_adata', f'geneExpression_{args.k}K{args.pc}PC{args.res}res.csv')
+path = os.path.join(ADATA_PATH, f'geneExpression_{args.k}K{args.pc}PC{args.res}res.csv')
 df.to_csv(path, sep=',', header=True)
 
 # Genes from litterature
 markers = {
     'cajal-retzius' : ['Reln', 'Nrxn1', 'Trp73', 'Lhx5', 'Nhlh2'],
     'layer2to4' : ['Satb2', 'Nrgn', 'Inhba',  'Cux2', 'Prox1'],
-    'forebrainGABA' : ['Slc32a1'],
-    'interneurons' : ['Dlx1', 'Dlx2', 'Gad1', 'Gad2', 'Bcl11b', 'Lhx6', 'Adarb2'],
+    # 'forebrainGABA' : ['Slc32a1'],
+    # 'interneurons' : ['Dlx1', 'Dlx2', 'Gad1', 'Gad2', 'Bcl11b', 'Lhx6', 'Adarb2'],
     'opc' : ['Olig2', 'Pdgfra', 'Sox10'],
     'astrocytes' : ['Vim', 'Slc1a3', 'Nes', 'Aldoc'],
     'layer5to6' : [ 'Bcl11b', 'Fezf2', 'Nrgn', 'Crym', 'Rorb', 'Nr4a2'], 
     'ipc' : ['Eomes', 'Top2a', 'Elavl2', 'Elavl4'],    
     'radialGlia' : [ 'Vim',  'Nes'],
     'ependymal' : ['Ednrb', 'Sulf1'],
-    'SVZ' : [ 'Sema3c', 'Eomes']
+    'SVZ' : [ 'Sema3c', 'Eomes'],
+    'Microglia': ['Trem2', 'Ctss',]
 }
 
 genes = [] 
