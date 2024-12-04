@@ -20,8 +20,7 @@ def preprocess_names(multimodalData, experiment_string):
 		multimodalData[modality].obs["sample"] = experiment_string
 
 if __name__ == "__main__":
-	os.chdir("/Users/lrcq/Documents/devtraj/scvemo/preprocessing/brainChromatinGreenLeaf") #Set working dir
-
+	os.chdir() #set working dir
 	data_path= os.path.join(os.getcwd(), "dc1r3_r1") #add frolder where data is stored
 	metadata_path = os.path.join(os.getcwd(), "multiome_cell_metadata.txt") # add path to multiome_cell_metadata.txt file
 	cluster_path = os.path.join(os.getcwd(), "multiome_cluster_names.txt") # add path to multiome_cluster_names.txt file
