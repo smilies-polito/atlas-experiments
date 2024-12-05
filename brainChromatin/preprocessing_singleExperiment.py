@@ -13,9 +13,9 @@ import scanpy as sc
 from muon import atac as ac
 
 def preprocess_names(modality, experiment_string):
-		modality.obs_names = modality.obs_names.str.replace("-1","",regex=False)
-		modality.obs_names = experiment_string + "_" + modality.obs_names
-		modality.obs["sample"] = experiment_string
+	modality.obs_names = modality.obs_names.str.replace("-1","",regex=False)
+	modality.obs_names = experiment_string + "_" + modality.obs_names
+	modality.obs["sample"] = experiment_string
 
 def preprocess_count_matrix(counts, experiment_string):
 	valid_columns = (counts.columns.str.startswith(experiment_string)) | (counts.columns=="gene")
@@ -26,15 +26,16 @@ def preprocess_count_matrix(counts, experiment_string):
 if __name__ == "__main__":
 	seed=52
 
-	os.chdir("...")
-	data_path=os.path.join(os.getcwd(), "dc2r2_r1") #add folder where data is stored
+	os.chdir("...")  #set working dir
+	experiment_folder = "" #add experiment
+	data_path=os.path.join(os.getcwd(), experiment_folder) #add folder where data is stored
 	metadata_path = os.path.join(os.getcwd(), "multiome_cell_metadata.txt") # add path to multiome_cell_metadata.txt file
 	cluster_path = os.path.join(os.getcwd(), "multiome_cluster_names.txt") # add path to multiome_cluster_names.txt file
 	spliced_path = os.path.join(os.getcwd(), "multiome_spliced_rna_counts.tsv")
 	unspliced_path = os.path.join(os.getcwd(), "multiome_unspliced_rna_counts.tsv")
 	peak_path = os.path.join(data_path, "atac_peak_annotation.tsv")
 
-	experiment = "hft_ctx_w21_dc2r2_r1" 
+	experiment = "hft_ctx_w21_" + experiment_folder
 
 	data = mu.read_10x_h5(os.path.join(data_path, "filtered_feature_bc_matrix.h5"))
 		
