@@ -26,7 +26,7 @@ def preprocess_count_matrix(counts, experiment_string):
 if __name__ == "__main__":
 	seed=52
 
-	os.chdir("...")  #set working dir
+	os.chdir("...") 
 	experiment_folder = "" #add experiment
 	data_path=os.path.join(os.getcwd(), experiment_folder) #add folder where data is stored
 	metadata_path = os.path.join(os.getcwd(), "multiome_cell_metadata.txt") # add path to multiome_cell_metadata.txt file
@@ -79,6 +79,10 @@ if __name__ == "__main__":
 	data["atac"].obs= pd.merge(data["atac"].obs, atac_cls["Cluster.Name"], left_index=True, right_index= True, how="left")
 	data.update()
 	mu.pp.intersect_obs(data)
+
+	# Remove non developmental lineages
+	atac_non_developmental = ["IN1", "IN2", "IN3", "IN4", "MG/EC/Peric."]
+	mu.pp.filter_obs(data, var=~data.obs["atac:Cluster.Name"].isin(atac_non_developmental))
 	
 
 	# RNA preprocessing
