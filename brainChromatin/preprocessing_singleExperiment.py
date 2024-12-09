@@ -26,7 +26,7 @@ def preprocess_count_matrix(counts, experiment_string):
 if __name__ == "__main__":
 	seed=52
 
-	os.chdir("...") 
+	os.chdir("...")
 	experiment_folder = "" #add experiment
 	data_path=os.path.join(os.getcwd(), experiment_folder) #add folder where data is stored
 	metadata_path = os.path.join(os.getcwd(), "multiome_cell_metadata.txt") # add path to multiome_cell_metadata.txt file
@@ -111,6 +111,9 @@ if __name__ == "__main__":
 	mu.pp.neighbors(data, n_neighbors=30, key_added="wnn")
 	mu.tl.umap(data, neighbors_key = "wnn", random_state=seed)
 	mu.pl.embedding(data, basis = "X_umap", color=["rna:Cluster.Name", "atac:Cluster.Name"], save="multimodal.png")
+	mu.tl.leiden(data, random_state=seed, key_added="leiden_clusters")
+	mu.tl.louvain(data, random_state = seed, key_added="louvain_clusters")
+	mu.pl.embedding(data, basis="X_umap", color=["leiden_clusters", "louvain_clusters"], save=f"{experiment}_clusters.png")
 
 	# Scvelo RNA velocities computations  
 	scv.pp.moments(data["rna"])
