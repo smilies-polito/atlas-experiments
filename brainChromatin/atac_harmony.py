@@ -36,12 +36,11 @@ def add_clusters(data, rna_cls, atac_cls):
 if __name__ == "__main__":
 	seed=52
 
-	os.chdir("/Users/lrcq/Documents/devtraj/preprocessing/brainChromatinGreenLeaf") 
-
+	os.chdir("...")
 	dc1r3_r1 = read_multiomics("dc1r3_r1")
 	dc2r2_r1 = read_multiomics("dc2r2_r1")
 	dc2r2_r2 = read_multiomics("dc2r2_r2")
- 
+
 	metadata_path = os.path.join(os.getcwd(), "multiome_cell_metadata.txt") # add path to multiome_cell_metadata.txt file
 	cluster_path = os.path.join(os.getcwd(), "multiome_cluster_names.txt") # add path to multiome_cluster_names.txt file
 
@@ -64,27 +63,21 @@ if __name__ == "__main__":
 	add_clusters(dc2r2_r2, rna_cls, atac_cls)
 	
 	# merge atac into single AnnData
-	atac = sc.concat([dc1r3_r1["atac"], dc2r2_r1["atac"], dc2r2_r2["atac"]], join='outer', label='sample')
-	print(dc1r3_r1.shape, dc2r2_r1.shape, dc2r2_r2.shape, atac.shape)
-	print(atac.obs_names[:5], atac.obs_names[4002:4005], atac.obs_names[7500:7505])
-	print(atac.obs.head(10))
-	print(atac.var.head(13))	
+	atac = sc.concat([dc1r3_r1["atac"], dc2r2_r1["atac"], dc2r2_r2["atac"]], join='outer', label="experiment")
 
 	# ATAC preprocessing
-	#ac.pp.tfidf(dc["atac"])
-	#ac.tl.lsi(data["atac"])
-	#data["atac"].obsm["X_lsi"]=data["atac"].obsm["X_lsi"][:,1:]
-	#data["atac"].varm["LSI"]= data["atac"].varm["LSI"][:, 1:]
-	#data["atac"].uns["lsi"]["stdev"] = data["atac"].uns["lsi"]["stdev"][1:]
+	ac.pp.tfidf(atac)
+	ac.tl.lsi(atac)
+	atac.obsm["X_lsi"]=atac.obsm["X_lsi"][:,1:]
+	atac.varm["LSI"]= atac.varm["LSI"][:, 1:]
+	atac.uns["lsi"]["stdev"] = atac.uns["lsi"]["stdev"][1:]
 
 	# Compute nearest neighbor graph + umap
-	#k = 30
-	#pca = 30
-	#lsi = 10
-	#sc.pp.neighbors(data["rna"], n_neighbors=k, n_pcs = pca, use_rep="X_pca", random_state=seed)
-	#sc.pp.neighbors(data["atac"], n_neighbors=k, n_pcs=lsi, use_rep="X_lsi", random_state=seed)
-	#mu.pp.neighbors(data, n_neighbors=30, key_added="wnn")
-	#mu.tl.umap(data, neighbors_key = "wnn", random_state=seed)
-	#mu.pl.embedding(data, basis = "X_umap", color=["rna:Cluster.Name", "atac:Cluster.Name"], save="multimodal.png")
+	k = 30
+	lsi = 10
+	sc.pp.neighbors(atac, n_neighbors=k, n_pcs=lsi, use_rep="X_lsi", random_state=seed)
+	sc.tl.umap(atac, random_state=seed)
+	sc.pl.embedding(atac, basis="umap", color="sample")
 
-	
+	sc.external.pp.harmony_integrate(atac, key="sample", basis ="X_lsi", adjusted_basis="X_lsi_harmony")
+	sc.pl.embedding(atac, basis = "X_lsi_harmony", color="sample")
