@@ -29,9 +29,9 @@ def filter_cell_metadata(data, metadata, experiment):
 	meta = subset_metadata(metadata, experiment)
 	mu.pp.filter_obs(data, var=meta.index)
 	
-def add_clusters(data, clusters, experiment, cluster_key="Cluster.Name", modality="rna"):
+def add_clusters(data, clusters, experiment, modality="rna"):
 	clu = subset_metadata(clusters, experiment)
-	data[modality].obs = pd.merge(data[modality].obs, clu[cluster_key], left_index=True, right_index = True, how="left")
+	data[modality].obs = pd.merge(data[modality].obs, clu, left_index=True, right_index = True, how="left")
 	data.update()
 	mu.pp.intersect_obs(data)
 
@@ -82,7 +82,7 @@ def update_obs_names(data, experiment):
 if __name__ == "__main__":
 	seed=52
 
-	os.chdir("/Users/lrcq/Documents/devtraj/preprocessing/brainChromatinGreenLeaf")
+	os.chdir("...")
 	metadata_path = os.path.join(os.getcwd(), "multiome_cell_metadata.txt") # add path to multiome_cell_metadata.txt file
 	cluster_path = os.path.join(os.getcwd(), "multiome_cluster_names.txt") # add path to multiome_cluster_names.txt file
 	spliced_path = os.path.join(os.getcwd(), "multiome_spliced_rna_counts.tsv")
@@ -109,20 +109,25 @@ if __name__ == "__main__":
 	
 	# Add cluster names and clusters 
 	clusters = pd.read_csv(cluster_path, sep="\t", header=0)
-	clusters = metadata["ATAC_cluster"].reset_index().merge(clusters[clusters.Assay=="Multiome ATAC"], how="left", left_on = "ATAC_cluster", right_on = "Cluster.ID").set_index("Cell.ID")
+	clusters_atac = metadata["ATAC_cluster"].reset_index().merge(clusters[clusters.Assay=="Multiome ATAC"], how="left", left_on = "ATAC_cluster", right_on = "Cluster.ID")
+	clusters_rna = metadata["seurat_clusters"].reset_index().merge(clusters[clusters.Assay=="Multiome RNA"], how="left", left_on="seurat_clusters", right_on = "Cluster.ID")
+	clusters = pd.merge(clusters_atac, clusters_rna, how = "left", left_on = "Cell.ID", right_on="Cell.ID").set_index("Cell.ID")
+	clusters = clusters.loc[:, ["Cluster.Name_x", "Cluster.Name_y"]]
+	clusters.columns = ["ATAC.Clusters", "RNA.Clusters"]
+
 	add_clusters(dc1r3_r1, clusters, f"{prefix}dc1r3_r1")	
 	add_clusters(dc2r2_r1, clusters, f"{prefix}dc2r2_r1")
 	add_clusters(dc2r2_r2, clusters, f"{prefix}dc2r2_r2")
-
+	print(dc1r3_r1.obs)
 	add_rna_counts(dc1r3_r1, spliced_counts, unspliced_counts, f"{prefix}dc1r3_r1")
 	add_rna_counts(dc2r2_r2, spliced_counts, unspliced_counts, f"{prefix}dc2r2_r2")
 	add_rna_counts(dc2r2_r1, spliced_counts, unspliced_counts, f"{prefix}dc2r2_r1")
 
 	# Remove non developmental lineages
 	atac_non_developmental = ["IN1", "IN2", "IN3", "IN4", "MG/EC/Peric."]
-	mu.pp.filter_obs(dc1r3_r1, var=~dc1r3_r1.obs["rna:Cluster.Name"].isin(atac_non_developmental))
-	mu.pp.filter_obs(dc2r2_r1, var=~dc2r2_r1.obs["rna:Cluster.Name"].isin(atac_non_developmental))	
-	mu.pp.filter_obs(dc2r2_r2, var=~dc2r2_r2.obs["rna:Cluster.Name"].isin(atac_non_developmental))
+	mu.pp.filter_obs(dc1r3_r1, var=~dc1r3_r1.obs["rna:ATAC.Clusters"].isin(atac_non_developmental))
+	mu.pp.filter_obs(dc2r2_r1, var=~dc2r2_r1.obs["rna:ATAC.Clusters"].isin(atac_non_developmental))	
+	mu.pp.filter_obs(dc2r2_r2, var=~dc2r2_r2.obs["rna:ATAC.Clusters"].isin(atac_non_developmental))
 		
 	# Gene Activity
 	dc1r3_r1_GA = compute_gene_activity(dc1r3_r1)
@@ -167,7 +172,7 @@ if __name__ == "__main__":
 	data = MuData({'rna': rna.copy(), 'activity': activity.copy()})
 	mu.pp.neighbors(data, n_neighbors=30, random_state=seed, key_added = "wnn")
 	mu.tl.umap(data, neighbors_key = "wnn", random_state=seed)
-	mu.pl.embedding(data, basis = "X_umap", color=["rna:Cluster.Name"], save=f"_multimodal.png")
+	mu.pl.embedding(data, basis = "X_umap", color=["rna:RNA.Clusters", "rna:ATAC.Clusters"], save=f"_multimodal.png")
 
 	scv.pp.moments(data["rna"])	
 	scv.tl.recover_dynamics(data["rna"], n_jobs=-1)
