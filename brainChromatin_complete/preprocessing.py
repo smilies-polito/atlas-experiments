@@ -113,21 +113,21 @@ if __name__ == "__main__":
 	clusters_rna = metadata["seurat_clusters"].reset_index().merge(clusters[clusters.Assay=="Multiome RNA"], how="left", left_on="seurat_clusters", right_on = "Cluster.ID")
 	clusters = pd.merge(clusters_atac, clusters_rna, how = "left", left_on = "Cell.ID", right_on="Cell.ID").set_index("Cell.ID")
 	clusters = clusters.loc[:, ["Cluster.Name_x", "Cluster.Name_y"]]
-	clusters.columns = ["ATAC.Clusters", "RNA.Clusters"]
+	clusters.columns = ["ATAC_Clusters", "RNA_Clusters"]
 
 	add_clusters(dc1r3_r1, clusters, f"{prefix}dc1r3_r1")	
 	add_clusters(dc2r2_r1, clusters, f"{prefix}dc2r2_r1")
 	add_clusters(dc2r2_r2, clusters, f"{prefix}dc2r2_r2")
-	print(dc1r3_r1.obs)
+
 	add_rna_counts(dc1r3_r1, spliced_counts, unspliced_counts, f"{prefix}dc1r3_r1")
 	add_rna_counts(dc2r2_r2, spliced_counts, unspliced_counts, f"{prefix}dc2r2_r2")
 	add_rna_counts(dc2r2_r1, spliced_counts, unspliced_counts, f"{prefix}dc2r2_r1")
 
 	# Remove non developmental lineages
 	atac_non_developmental = ["IN1", "IN2", "IN3", "IN4", "MG/EC/Peric."]
-	mu.pp.filter_obs(dc1r3_r1, var=~dc1r3_r1.obs["rna:ATAC.Clusters"].isin(atac_non_developmental))
-	mu.pp.filter_obs(dc2r2_r1, var=~dc2r2_r1.obs["rna:ATAC.Clusters"].isin(atac_non_developmental))	
-	mu.pp.filter_obs(dc2r2_r2, var=~dc2r2_r2.obs["rna:ATAC.Clusters"].isin(atac_non_developmental))
+	mu.pp.filter_obs(dc1r3_r1, var=~dc1r3_r1.obs["rna:ATAC_Clusters"].isin(atac_non_developmental))
+	mu.pp.filter_obs(dc2r2_r1, var=~dc2r2_r1.obs["rna:ATAC_Clusters"].isin(atac_non_developmental))	
+	mu.pp.filter_obs(dc2r2_r2, var=~dc2r2_r2.obs["rna:ATAC_Clusters"].isin(atac_non_developmental))
 		
 	# Gene Activity
 	dc1r3_r1_GA = compute_gene_activity(dc1r3_r1)
@@ -158,6 +158,7 @@ if __name__ == "__main__":
 	# Gene Activity preprocessing
 	sc.pp.normalize_per_cell(activity)
 	mu.pp.filter_var(activity, var=rna.var_names)
+	sc.pp.log1p(activity)
 	sc.tl.pca(activity) 
 	sc.pl.pca_variance_ratio(activity, n_pcs=50, save=f"_gene_activity.png")
 	
@@ -172,7 +173,7 @@ if __name__ == "__main__":
 	data = MuData({'rna': rna.copy(), 'activity': activity.copy()})
 	mu.pp.neighbors(data, n_neighbors=30, random_state=seed, key_added = "wnn")
 	mu.tl.umap(data, neighbors_key = "wnn", random_state=seed)
-	mu.pl.embedding(data, basis = "X_umap", color=["rna:RNA.Clusters", "rna:ATAC.Clusters"], save=f"_multimodal.png")
+	mu.pl.embedding(data, basis = "X_umap", color=["rna:RNA_Clusters", "rna:ATAC_Clusters"], save=f"_multimodal.png")
 
 	scv.pp.moments(data["rna"])	
 	scv.tl.recover_dynamics(data["rna"], n_jobs=-1)

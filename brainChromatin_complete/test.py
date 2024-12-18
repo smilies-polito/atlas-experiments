@@ -24,7 +24,7 @@ if __name__=="__main__":
 	data.obsp[tm_key] = tm.transition_matrix
 
 	kernel = cr.kernels.PrecomputedKernel(object=tm.transition_matrix, adata=data["rna"])
-	start_ixs = data.obs[data.obs["rna:ATAC.Clusters"]=="RG"].index
+	start_ixs = data.obs[data.obs["rna:ATAC_Clusters"]=="RG"].index
 	kernel.plot_random_walks(start_ixs = start_ixs, n_sims = 1, seed=seed, save = f"rw_1.png")
 	kernel.plot_random_walks(start_ixs = start_ixs, n_sims = 1, seed=seed+50, save = f"rw_2.png")
 	kernel.plot_random_walks(start_ixs = start_ixs, n_sims = 1, seed=seed//2, save = f"rw_3.png")
@@ -33,13 +33,12 @@ if __name__=="__main__":
 	g = cr.estimators.GPCCA(kernel)
 	g.compute_schur()
 	
-	cell_type_key = "ATAC.Clusters"
+	cell_type_key = "..."
 	eigenvalues = g.eigendecomposition["D"]
-		
-	for ns in range(2,15):
-		try:	
+	for ns in range(...):
+		try:
 			g.compute_macrostates(n_states = ns, cluster_key=cell_type_key)
-			g.plot_coarse_T(title=f"{cell_type_key} {ns} macrostates", save=f"{cell_type_key}_{ns}macristates.png")
+			g.plot_coarse_T(title=f"{ns} macrostates", save=f"coarse_grained_matrix_{ns}")
 			g.predict_initial_states()
 			g.predict_terminal_states(allow_overlap=True)
 			g.plot_macrostate_composition(key = cell_type_key, show=False, title=f"{cell_type_key}, {ns} macrostates",
