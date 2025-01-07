@@ -1,0 +1,62 @@
+import os
+import muon as mu
+import scanpy as sc
+import numpy as np
+import pandas as pd
+import cellrank as cr 
+from scipy.sparse import csr_matrix
+from transitionMatrix import TransitionMatrix #note that in gitlab transitionMatrix.py not in same folder as this file. Should be moved
+
+
+def check_conjugate(eigenvalue):
+	return np.iscomplex(eig)
+
+
+if __name__=="__main__":
+	seed = 52
+	
+	os.chdir("...")
+	tm_key = "transition_matrix"
+	data = mu.read_h5mu(os.path.join(os.getcwd(), "data.h5mu"))
+	data["rna"].obsm["X_umap"] = data.obsm["X_umap"] #brutto ma anche qui necessario	
+	tm = TransitionMatrix(data=data, velocity_key= "velocity") 
+	tm.compute_transition_matrix()
+	data.obsp[tm_key] = tm.transition_matrix
+
+	kernel = cr.kernels.PrecomputedKernel(object=tm.transition_matrix, adata=data["rna"])
+	start_ixs = data.obs[data.obs["rna:ATAC_Clusters"]=="RG"].index
+	kernel.plot_random_walks(start_ixs = start_ixs, n_sims = 1, seed=seed, save = f"rw_1.png")
+	kernel.plot_random_walks(start_ixs = start_ixs, n_sims = 1, seed=seed+50, save = f"rw_2.png")
+	kernel.plot_random_walks(start_ixs = start_ixs, n_sims = 1, seed=seed//2, save = f"rw_3.png")
+
+
+	g = cr.estimators.GPCCA(kernel)
+	g.compute_schur()
+	
+	cell_type_key = "..."
+	eigenvalues = g.eigendecomposition["D"]
+	for ns in range(...):
+		try:
+			g.compute_macrostates(n_states = ns, cluster_key=cell_type_key)
+			g.plot_coarse_T(title=f"{ns} macrostates", save=f"coarse_grained_matrix_{ns}")
+			g.predict_initial_states()
+			g.predict_terminal_states(allow_overlap=True)
+			g.plot_macrostate_composition(key = cell_type_key, show=False, title=f"{cell_type_key}, {ns} macrostates",
+					save =f"composition_{ns}_{cell_type_key}.png")
+			g.plot_macrostates(which="initial", legend_loc="right", s=100, show=False,
+					title = f"Initial {cell_type_key}, {ns} macrostates",
+					save = f"initialstates_{cell_type_key}_{ns}.png")
+			g.plot_macrostates(which="terminal", legend_loc="right", s=100, show=False,
+					title = f"Terminal {cell_type_key}, {ns} macrostates", 
+					save = f"terminalstates_{cell_type_key}_{ns}.png")
+			g.compute_fate_probabilities(tol=1e-10, use_petsc=True, preconditioner = "ilu")
+			g.plot_fate_probabilities(same_plot= True, title=f"{cell_type_key} {ns} macrostates", save=f"fate_{cell_type_key}_{ns}.png", show=False)
+			
+			fate_path = os.path.join(os.getcwd(), f"fates_{ns}_{cell_type_key}.tsv")
+			df = pd.DataFrame(g.fate_probabilities.X, columns =g.fate_probabilities.names, index=data.obs_names)
+			df["entropy"] = g.compute_lineage_priming(method="entropy")
+			df["KL div"] = g.compute_lineage_priming(method="kl_divergence")
+			# aggiungere colonna pseudotime 
+			df.to_csv(fate_path)
+		except ValueError as e:
+			print(e)	
