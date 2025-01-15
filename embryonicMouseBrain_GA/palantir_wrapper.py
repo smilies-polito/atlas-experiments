@@ -9,7 +9,7 @@ import scanpy as sc
 import pandas as pd
 import muon as mu
 import palantir
-from typing import Union, Optional
+from typing import Union, Optional, List, Dict
 from anndata import AnnData
 from muon import MuData
 from scipy.sparse import csr_matrix, find
@@ -140,19 +140,80 @@ class PalantirWrapper():
 		data.obsm[out_key] = result.values
 
 
-	def run_palantur(self, data):
+	def run_palantir(self, data: MuData, 
+					early_cell,
+					terminal_states: Optional[Union[List, Dict, pd.Series]]= None, 
+					knn:int=30,
+					num_waypoints:int=1200,
+					n_jobs:int = -1,
+					scale_components: bool = True,
+					use_early_cell_as_start:bool = False,
+					max_iterations: int= 25,
+					eigvec_key: str = "DM_EigenVectors_multiscaled",
+					pseudo_time_key: str = "palantir_pseudotime", 
+					entropy_key: str = "palantir_entropy",
+					fate_prob_key: str = "palantir_fate_probabilities", 
+					save_as_df: bool = True, 
+					waypoints_key: str = "palantir_waypoints",
+					seed:int = 20):
+						
+		"""
+		Params:
+		-------
+		data: muon.MuData
+		early_cell: 
+			Early Cell specified by the user 
+		terminal_states: list, dictionary or pandas.Series, optional
+			User-defined terminal states in the form {terminal_name:cell_name}. Default is None.
+		knn: int
+			Number of nearest neighbors for graph construction. Default is 30.
+		num_waypoints: int
+			Number of waypoints to sample. Default is 1200.
+		n_jobs: int 
+			Number of jobs for parallel preprocessing. Default is -1.
+		scale_components: bool
+			If True components are scaled. Default is True. 
+		use_early_cell_as_start: bool
+			If True the early cell is used as start. Default is False.
+		max_iterations: int
+			Maximum number of iterations for pseudotime convergence. Default is 25.
+		eigevec_key: str
+			Key in data.obsm where the multiscale space diffusion compontents are stored. Default is "DM_EigenVectors_multiscaled".
+		pseudo_time_key: str
+			Key in data.obs where the pseudotime is stored. Default is "palantir_pseudotime".
+		entropy_key: str
+			Key in data.obs where the pseudotime is stored. Default is "palantir_entropy".
+		fate_prob_key: str
+			Key in data.obsm where the fate probabilities are stored. Default is "palantir_fate_probabilities".
+		save_as_df: bool
+			If True, then the fate probabilities are stored into a dictionary with columns names corresponding to the terminal states.
+			Otherwise they are sotred as a numpy array and the terminal states names are stored in uns[fate_probability_key]. Default is True. 
+		waypoints_key: str
+			Key is data.uns where to store the waypoints. Default is "palantir_waypoints". 
+		seed: int 
+			Seed for waypoint sampling. Default is 20.
+		"""
+		if not eigvec_key in data.obsm.keys():
+			raise KeyError(f"{eigvec_key} not in data.obsm")
 
+		# Palantir either requires an AnnData object or pandas DataFrame. Using this latter sturcture to avoid data management issues. 
+		input_df = pd.DataFrame(data.obsm[eigvec_key], index = data.obs_names)	
 
-if __name__=="__main__":
-	data_path = ... 
-	data = mu.read_h5mu(os.path.join(data_path, "data.h5mu"))
-	pw = PalantirWrapper()
-	pw.compute_kernel(data)
-	pw.run_diffusion_maps(data)
-	pw.determine_multiscale_space(data)	
+		#knn is used to construct a graph G_E connecting cells based on  multiscale distances. G_E used to compute pseudotime.
+		res = palantir.core.run_palantir(data=input_df, early_cell=early_cell, terminal_states=terminal_states, knn=knn, num_waypoints=num_waypoints,
+				n_jobs=n_jobs, scale_components=scale_components, use_early_cell_as_start=use_early_cell_as_start, max_iterations = max_iterations, 
+				eigvec_key = eigvec_key, pseudo_time_key=pseudo_time_key, entropy_key=entropy_key, fate_prob_key=fate_prob_key, save_as_df=save_as_df,
+				waypoints_key = waypoints_key, seed=seed)
 
-	np,.random.seed(seed)
-	starting_cell = np.random.choice(data.obs[data.obs["rna:celltype"]=="RG, Astro, OPC"].index, size = 1, replace=False)
-	print(f"Starting cell: {starting_cell}") 
-	pr_res = pw.run_palantir()
+		data.obs[pseudo_time_key] = res.pseudotime
+		data.obs[entropy_key] = res.entropy
+		data.uns[waypoints_key] = res.waypoints.values
+		if isinstance(terminal_states, pd.Series):
+				res.branch_probs.columns = terminal_states[res.branch_probs.columns]
+		if save_as_df:
+			data.obsm[fate_prob_key] = res.branch_probs
+		else:
+			data.obsm[fate_prob_key]= res.branch_probs.values
+			data.uns[fate_probs_key + "_columns"] = res.branch_probs.columns.values
+
 
