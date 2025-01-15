@@ -13,10 +13,25 @@ from typing import Union, Optional, List, Dict
 from anndata import AnnData
 from muon import MuData
 from scipy.sparse import csr_matrix, find
+from palantir.presults import PResults
+
+
+
+def _check_keys(data: Union[AnnData, MuData], embedding_basis: Optional[str]= None, pseudo_time_key: Optional[str]= None, entropy_key: Optional[str]= None, fate_prob_key: Optional[str]=None):
+	if embedding_basis is not None and embedding_basis not in data.obsm.keys():
+		raise KeyError(f"{embedding_basis} not in data.obsm")
+	if pseudo_time_key is not None and pseudo_time_key not in data.obs.columns:
+		raise KeyError(f"{pseudo_time_key} not in data.obs")
+	if entropy_key is not None and entropy_key not in data.obs.columns:
+		raise KeyError(f"{entropy_key} not in data.obs")
+	if fate_prob_key is not None and fate_prob_key not in data.obsm.keys():
+		raise KeyError(f"{fate_prob_key} not in data.obsm")
+
+
 
 
 class PalantirWrapper():
-	def compute_kernel(self, data: MuData,	
+	def compute_kernel(self, data: Union[MuData, AnnData], 
 						knn_key: str = "wnn",	
 						distance_key: str="wnn_distances",  
 						knn:Optional[int]=None, 
@@ -27,7 +42,7 @@ class PalantirWrapper():
 		Follows Palantir implementation.
 		Params:
 		--------
-		data: muon.MuData 
+		data: muon.MuData or anndata.AnnData 
 		knn_key: str
 			String in data.uns where WNN parameters are set. By default "wnn".
 		distance_key: str
@@ -71,7 +86,7 @@ class PalantirWrapper():
 
 		data.obsp[kernel_key] = kernel
 
-	def run_diffusion_maps(self, data: MuData,
+	def run_diffusion_maps(self, data: Union[MuData, AnnData],
 							n_components:int=10,
 							seed: int = 52, 
 							kernel_key: str = "DM_Kernel", 
@@ -83,7 +98,7 @@ class PalantirWrapper():
 		Wrapper for palantir.utils.diffusion_maps_from_kernel. 
 		Params:
 		------
-		data: muon.MuData
+		data: muon.MuData or anndata.AnnData
 		n_components: int 
 			Number of Diffusion components to compute. By default 10.
 		seed: int
@@ -108,7 +123,7 @@ class PalantirWrapper():
 		data.uns[eigval_key] = res["EigenValues"].values
 
 
-	def determine_multiscale_space(self, dm_res: MuData,
+	def determine_multiscale_space(self, data: Union[MuData, AnnData],
 									n_eigs: Union[int, None]= None,
 									eigval_key: str= "DM_EigenValues",
 									eigvec_key: str= "DM_EigenVectors",
@@ -117,7 +132,7 @@ class PalantirWrapper():
 		Wrapper for palantir.utils.determine_multiscale_space. 
 		Params:
 		------
-		dm_res: mudata.MuData
+		data: mudata.MuData or anndata.AnnData
 		n_eigs: int, optional
 			Number of eigen vectors to use. If None the eigen gap heuristic is used. Default is None.
 		eigval_key: str
@@ -140,7 +155,7 @@ class PalantirWrapper():
 		data.obsm[out_key] = result.values
 
 
-	def run_palantir(self, data: MuData, 
+	def run_palantir(self, data: Union[MuData, AnnData],
 					early_cell,
 					terminal_states: Optional[Union[List, Dict, pd.Series]]= None, 
 					knn:int=30,
@@ -158,9 +173,10 @@ class PalantirWrapper():
 					seed:int = 20):
 						
 		"""
+		Wrapper for the palantir.core.run_palantir function.
 		Params:
 		-------
-		data: muon.MuData
+		data: muon.MuData or anndata.AnnData
 		early_cell: 
 			Early Cell specified by the user 
 		terminal_states: list, dictionary or pandas.Series, optional
@@ -217,3 +233,52 @@ class PalantirWrapper():
 			data.uns[fate_probs_key + "_columns"] = res.branch_probs.columns.values
 
 
+	
+
+	def plot_palantir_results(self, data: Union[MuData, AnnData],
+								modality_key: Optional[str] = None,  
+								embedding_basis: str = "X_umap",
+								pseudo_time_key: str = "palantir_pseudotime", 
+								entropy_key: str= "palantir_entropy",
+								fate_prob_key: str = "palantir_fate_probabilities"):
+						
+		"""
+		Function that wraps palantir.plot.plot_palantir_results. It plots the palantir results over the multiomics embedding for comparison purposes,
+		also when modality_key is specified. 
+		Params:
+		------
+		data: muon.MuData or anndata.AnnData	
+		modality_key: str, optional
+			If specified retrieves palantir run from specific modality and plots on multiomics embedding. Default is None.
+		embedding_basis: str
+			Key in data.obsm with the embedding to be plot. Default is "X_umap". 
+		pseudo_time_key: str
+			Key in data.obs where palantir pseudotime is stored. Default is "palantir_pseudotime".
+		entropy_key : str
+			Key in data.obs where palantir entropy is stored. Default is "palantir_entropy".
+		fate_prob_key: str
+			Key in data.obsm to access fate probabilities. Default is "palantir_fate_probabilities".
+		"""
+		if modality_key is None:
+			print("No modality has been specified, using MuData Palantir run.")
+			_check_keys(data, embedding_basis=embedding_basis, pseudo_time_key=pseudo_time_key, entropy_key=entropy_key, fate_prob_key=fate_prob_key)
+			palantir_results = PResults(data.obs[pseudo_time_key], data.obs[entropy_key], data.obsm[fate_prob_key], None)
+		else:
+			if modality_key not in data.mod.keys():
+				raise KeyError(f"Modality {modality_key} not in data")
+			print(f"Modality specified. Using {modality_key} Palantir run")
+			_check_keys(data, embedding_basis=embedding_basis)
+			_check_keys(data.mod[modality_key], pseudo_time_key=pseudo_time_key, entropy_key=entropy_key, fate_prob_key=fate_prob_key)  		
+			palantir_results = PResults(data.mod[modality_key].obs[pseudo_time_key], data.mod[modality_key].obs[entropy_key], 
+							data.mod[modality_key].obsm[fate_prob_key], None)
+
+		embedding_data = pd.DataFrame(data.obsm[embedding_basis], index=data.obs_names)
+		
+		return palantir.plot.plot_palantir_results(data=embedding_data, pr_res = palantir_results)
+
+	
+		 
+
+
+
+				
