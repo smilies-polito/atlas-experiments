@@ -15,7 +15,6 @@ if __name__=="__main__":
 
 
 	starting_cell = np.random.choice(data.obs[data.obs["rna:celltype"]=="RG, Astro, OPC"].index.values, 1)[0]
-	print(f"Starting cell is {starting_cell}")
 	data.obs["is_starting"] = data.obs.index == starting_cell
 	# sc.pl.embedding(data, basis="X_umap", color = ["is_starting"], palette="PuRd")
 	
@@ -50,7 +49,6 @@ if __name__=="__main__":
 	as_cell= np.random.choice(data[astro_mask.all(axis=1)].obs_names, 1)
 	op_cell= np.random.choice(data[opcs_mask.all(axis=1)].obs_names, 1)
 	terminal_states = np.concatenate((ul_cell, dl_cell, as_cell, op_cell), axis=0)
-
 	data.obs["is_terminal"] = data.obs.index.isin(terminal_states)
 	# sc.pl.embedding(data, basis="X_umap", color = ["is_terminal"], palette = "PuRd")
 
@@ -62,5 +60,8 @@ if __name__=="__main__":
 #	plt.show()
 
 	pc = PalantirComparator()
-	pc.plot_avg_probability(multiomics=data, rna=data["rna"], group_key="rna:celltype")
-	plt.show() 
+	pc.linear_model(multiomics=data, rna=data["rna"], group_key="rna:celltype")
+	plots = pc.plot_probability_distribution(data, data["rna"], group_key="rna:celltype")
+	
+	for p in plots:
+		plt.show()
