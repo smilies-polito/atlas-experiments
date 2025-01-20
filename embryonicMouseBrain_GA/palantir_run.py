@@ -60,8 +60,9 @@ if __name__=="__main__":
 #	plt.show()
 
 	pc = PalantirComparator()
-	pc.linear_model(multiomics=data, rna=data["rna"], group_key="rna:celltype")
-	plots = pc.plot_probability_distribution(data, data["rna"], group_key="rna:celltype")
-	
-	for p in plots:
-		plt.show()
+	saving_folder = os.path.join(os.getcwd(), "palantir_results")
+	if not os.path.exists(saving_folder):
+		os.mkdir(saving_folder)
+	pc.linear_model(multiomics=data, rna=data["rna"], group_key="rna:celltype", saving_path = saving_folder)
+	pc.plot_probability_distribution(multiomics=data, rna = data["rna"], group_key="rna:celltype", saving_path = saving_folder)	
+		

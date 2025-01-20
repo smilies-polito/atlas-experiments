@@ -2,18 +2,13 @@
 # Palantir Wrapper class to call Palantir routines using muon.MuData object
 ###########################################################################
 
-import os
 import warnings
-import numpy as np
-import scanpy as sc
-import pandas as pd
 import muon as mu
+import scanpy as sc
 import palantir
-from typing import Union, Optional, List, Dict
-from anndata import AnnData
-from muon import MuData
-from scipy.sparse import csr_matrix, find
+from palantir_environment import *
 from palantir.presults import PResults
+from scipy.sparse import csr_matrix, find
 
 
 
