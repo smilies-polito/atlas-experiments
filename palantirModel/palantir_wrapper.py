@@ -6,7 +6,7 @@ import warnings
 import muon as mu
 import scanpy as sc
 import palantir
-from palantir_environment import *
+from .palantir_environment import *
 from palantir.presults import PResults
 from scipy.sparse import csr_matrix, find
 
