@@ -76,8 +76,8 @@ if __name__ == "__main__":
 	sc.pp.pca(data["rna"], random_state = seed)
 	sc.pp.pca(data["activity"], random_state = seed)
 	# print plot variance ratio
-#	sc.pl.pca_variance_ratio(data["rna"])
-#	sc.pl.pca_variance_ratio(data["activity"])
+	sc.pl.pca_variance_ratio(data["rna"])
+	sc.pl.pca_variance_ratio(data["activity"])
 	
 	# NEIGHBORS
 	n_pcs_rna = 30
@@ -89,15 +89,15 @@ if __name__ == "__main__":
 	sc.pp.neighbors(data["activity"], n_neighbors = knn_activity, n_pcs= n_pcs_activity, random_state = seed)
 	
 	# Used for differential expreession analysis and gene annotation later
-	# sc.tl.umap(data["rna"], random_state = seed)
-	# sc.tl.leiden(data["rna"])
-	# print("RNA embedding alone")
-	# sc.pl.embedding(data["rna"], basis="X_umap", color="leiden")
+	sc.tl.umap(data["rna"], random_state = seed)
+	sc.tl.leiden(data["rna"])
+	print("RNA embedding alone")
+	sc.pl.embedding(data["rna"], basis="X_umap", color="leiden")
 
-	# sc.tl.umap(data["activity"],  random_state = seed)
-	# sc.tl.leiden(data["activity"])
-	# print("Activity embedding alone")
-	# sc.pl.embedding(data["activity"], basis="X_umap", color="leiden")
+	sc.tl.umap(data["activity"],  random_state = seed)
+	sc.tl.leiden(data["activity"])
+	print("Activity embedding alone")
+	sc.pl.embedding(data["activity"], basis="X_umap", color="leiden")
 
 	# Shared Nearest Neighbors
 	mu.pp.neighbors(data, key_added="wnn", n_neighbors=30)
@@ -107,18 +107,12 @@ if __name__ == "__main__":
 	
 	mu.pl.embedding(data, basis="X_umap", color=["leiden", "louvain", "rna:celltype"])
 	
-	#sc.tl.rank_genes_groups(data["rna"], 'leiden', method='t-test')
-	#result = data["rna"].uns['rank_genes_groups']
-	#groups = result['names'].dtype.names
-	#genes = pd.DataFrame({group + '_' + key[:1]: result[key][group]for group in groups for key in ['names', 'pvals']}).head(10)
-	#genes.to_csv("geni.csv")
+	sc.tl.rank_genes_groups(data["rna"], 'leiden', method='t-test')
+	result = data["rna"].uns['rank_genes_groups']
+	groups = result['names'].dtype.names
+	genes = pd.DataFrame({group + '_' + key[:1]: result[key][group]for group in groups for key in ['names', 'pvals']}).head(10)
+	genes.to_csv("geni.csv")
 
 	data.write(os.path.join(data_path, "data.h5mu"))	
 
-	# MOFA
-	mu.tl.mofa(data, n_factors=10, outfile=os.path.join(data_path, "mofa.hdf5"), gpu_mode=True)
-	sc.pp.neighbors(data, use_rep="X_mofa")
-	sc.tl.umap(data, random_state=seed)	
-	sc.tl.leiden(data)
-	mu.pl.embedding(data, basis="X_umap", color=["rna:celltype", "leiden"])
 	
