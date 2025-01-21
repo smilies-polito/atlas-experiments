@@ -10,7 +10,7 @@ np.random.seed(52)
 
 
 if __name__=="__main__":
-	data_path = ... 
+	data_path = ...
 	data = mu.read_h5mu(os.path.join(data_path, "data.h5mu"))
 	saving_path = os.path.join(os.getcwd(), "palantir_results")
 	if not os.path.exists(saving_path):
@@ -52,5 +52,7 @@ if __name__=="__main__":
 	saving_folder = os.path.join(os.getcwd(), "palantir_results")
 	pc.linear_model(data, data["rna"], "rna:celltype", save=True, saving_path = os.path.join(saving_folder, "fates"))
 	pc.linear_model(data, data["rna"], "rna:celltype", is_fate=False, save=True, saving_path = os.path.join(saving_folder, "entropy"), key1="palantir_entropy", key2="palantir_entropy")
+	pc.save_palantir_matrix(data, data["rna"], "rna:celltype", saving_path = os.path.join(saving_folder, "fates.tsv"))
+	pc.save_palantir_matrix(data, data["rna"], "rna:celltype", is_fate=False, key1="palantir_entropy", key2="palantir_entropy", saving_path= os.path.join(saving_folder, "entropy.tsv"))
 	pc.plot_probability_distribution(data, data["rna"], "rna:celltype", saving_path = os.path.join(saving_folder, "fates"))	
 	pc.plot_entropy_distribution(data, data["rna"], "rna:celltype", saving_path = os.path.join(saving_folder, "entropy"))

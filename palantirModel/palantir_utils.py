@@ -43,7 +43,43 @@ class PalantirComparator:
 		else: 
 			lm = EntropyLinearModel(data1, data2, group_key, key1=key1, key2=key2, model1=model1, model2=model2, save=save, saving_path=saving_path)
 		lm.fit()	
-	
+
+	def save_palantir_matrix(self, data1:Union[MuData, AnnData], data2: Union[MuData, AnnData], 
+							group_key:str, is_fate:bool=True,  
+							key1:str = "palantir_fate_probabilities", key2: str= "palantir_fate_probabilities", 
+							model1: str= "multiomics", model2:str = "rna",
+							saving_path: Optional[str] = None):
+		"""
+		Function that saves palantir matrix for linear model as .tsv.
+		Params:
+		--------
+		- data1: anndata.AnnData or muon.MuData
+		- data2: anndata.AnnData or muon.MuData
+		- group_key: str
+			Key in either data1.obs or data2.obs identifying cell types.
+		- is_fate: boolean
+			Indicates whether fate probabilities or entropy is investigated. Default is True (meaning fate probs).
+		- key1: str
+			Key in data1.obsm where fate probabilities are stored if is_fate is True, else key in data.obs where entropy values are stored. Default is "palantir_fate_probabilities".
+		- key2: str
+			Key in data2.obs, where fate probabilities are stored in if_fate is True, else key in data.obs where entropy values are stored. Default is "palantir_fate_probabilities".
+		- model1: str
+			String identifying which model is data1. Default is "multiomics", suggesting data1 contains results of Palantir algorithm based on multiomics data.
+		- model2: str
+			String identifying which model is data2. Default is "rna", suggesting data2 contains results of Palantir algorithms based on rna data only. 
+		_ saving_path: str, optional
+			Path where to store the results. If not provided, then cwd()/results/model.tsv is used.
+		"""
+		if is_fate:
+			lm = FatesLinearModel(data1, data2, group_key, key1=key1, key2=key2, model1=model1, model2=model2, save=False)
+		else: 
+			lm = EntropyLinearModel(data1, data2, group_key, key1=key1, key2=key2, model1=model1, model2=model2, save= False)
+
+		if saving_path is None:
+			saving_path = os.path.join(os.getcwd(), "results", "model.tsv")
+		lm.data.to_csv(saving_path, sep="\t", header=True, index=False)
+
+		
 
 	def plot_entropy_distribution(self, data1:Union[MuData, AnnData], data2:Union[MuData, AnnData], group_key:str,
 						data1_key: str = "palantir_entropy", data2_key: str= "palantir_entropy", 
@@ -282,3 +318,5 @@ class EntropyLinearModel(LinearModel):
 		formula = f"entropy~ model"
 		super().fit(formula)
  
+
+
