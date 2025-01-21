@@ -6,7 +6,6 @@
 ####################### 
 
 import os
-import scvi
 import anndata
 import muon as mu
 import numpy as np
@@ -34,7 +33,7 @@ def create_feature_map(rna, strand:bool = False):
 if __name__ == "__main__":
 	seed=52
 
-	data_path = ...
+	data_path = ... 
 	rna = sc.read_loom(os.path.join(data_path, "multivelo.loom"))
 	rna.obs_names = [cell.split(":")[1][:-1] + "-1" for cell in rna.obs_names]
 	rna.var_names_make_unique()

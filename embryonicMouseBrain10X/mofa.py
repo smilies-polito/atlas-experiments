@@ -16,11 +16,22 @@ import matplotlib.pyplot as plt
 from muon import atac as ac
 from muon import MuData
 
+def create_feature_map(rna, strand:bool = False):
+	features = rna.var.copy()
+	columns = ["Chromosome", "Start", "End"]
+	if strand:
+		columns.append("Strand")
+	features = features[columns]
+	features = features.loc[~features.Start.isnull()]
+	features.Start = features.Start.astype(int)
+	features.End = features.End.astype(int)
+	features.Chromosome = ["chr" + chrom if chrom!="JH584304.1" else chrom for chrom in features.Chromosome]
+	return features
 
 
 if __name__ == "__main__":
 	seed = 52
-	data_path = "/Users/lrcq/Documents/devtraj/preprocessing/embryonicMouseBrain10X/"
+	data_path = ... 
 	rna = sc.read_loom(os.path.join(data_path, "multivelo.loom"))
 	rna.obs_names = [cell.split(":")[1][:-1] + "-1" for cell in rna.obs_names]
 	rna.var_names_make_unique()
@@ -33,44 +44,56 @@ if __name__ == "__main__":
 	atac = atac[:, atac.var["feature_types"]=="Peaks"]
 	sc.pp.filter_cells(atac, min_counts =1000)
 	sc.pp.filter_cells(atac, max_counts=20000)
-	ac.pp.tfidf(atac, scale_factor=1e4)
-	sc.pp.highly_variable_genes(atac, min_mean=0.05, max_mean=0.1, min_disp=0.5)	
-	print(f"Number of highly varaible peaks: {np.sum(atac.var.highly_variable)}")	
+	# ac.pp.tfidf(atac, scale_factor=1e4)
+	# sc.pp.highly_variable_genes(atac, min_mean=0.05, max_mean=0.1, min_disp=0.5)	
+	# print(f"Number of highly varaible peaks: {np.sum(atac.var.highly_variable)}")	
 	
 	# Find common barcodes
 	intersection = set(rna.obs_names).intersection(set(atac.obs_names))
 	atac = atac[atac.obs_names.isin(intersection), :]
 	rna = rna[rna.obs_names.isin(intersection), :]
+
+	mu.atac.tl.locate_file(data=atac, file=os.path.join(data_path, "fragments.tsv.gz"), key="fragments")
+	features = create_feature_map(rna, strand=True)
+	activity = ac.tl.count_fragments_features(data=atac, features=features, stranded=True)
 	
-	# Add cell types 
+	# Add cell types and filter accordind to non dev lineages
 	annotations = pd.read_csv(os.path.join(data_path, "cell_annotations.tsv"), sep="\t", header=0, index_col=0)
-	union = pd.merge(rna.obs, annotations, how="left", left_index = True, right_index = True)
-	non_developmental_celltype = ["Interneurons1", "Interneurons2", "Interneurons3", "Cajal-Retzius", "Microglia"]	
-	rna.obs = union
+	non_developmental_celltype = ["Interneurons1", "Interneurons2", "Interneurons3", "Cajal-Retzius", "Microglia"]
+	union_rna = pd.merge(rna.obs, annotations, how="left", left_index = True, right_index = True)
+	# union_atac = pd.merge(atac.obs, annotations, how="left", left_index=True, right_index=True)
+	rna.obs = union_rna
+	# atac.obs = union_atac
+	# rna = rna[~rna.obs.celltype.isin(non_developmental_celltype), :]
+	# atac = atac[~atac.obs.celltype.isin(non_developmental_celltype), :]
 	
-	data = mu.MuData({"rna": rna, "atac":atac})
-	
-	# Subset for non developmental cell types
+	# data = mu.MuData({"rna": rna, "atac":atac})
+	data = mu.MuData({"rna": rna, "activity":activity	})
 	data.obs["is_developmental"] = ~data.obs["rna:celltype"].isin(non_developmental_celltype)
 	mu.pp.filter_obs(data, "is_developmental")
+	sc.pp.normalize_total(data["activity"])
 	print(f"Number of cells retained = {data.shape[0]}") 
 	
-	# Perform MOFA
+	# Perform PCA
 	n_pcs = 30
 	sc.pp.pca(data["rna"], random_state = seed)
-	ac.tl.lsi(data["atac"])
+	sc.pp.pca(data["activity"], random_state= seed)
+	# ac.tl.lsi(data["atac"])
 	# remove first LSI dimension since highly correlated with read sequencing
-	data["atac"].obsm["X_lsi"] = data["atac"].obsm["X_lsi"][:, 1:]
-	data["atac"].varm["LSI"] = data["atac"].varm["LSI"][:, 1:]
-	data["atac"].uns["lsi"]["stdev"] = data["atac"].uns["lsi"]["stdev"][1:]
+	# data["atac"].obsm["X_lsi"] = data["atac"].obsm["X_lsi"][:, 1:]
+	# data["atac"].varm["LSI"] = data["atac"].varm["LSI"][:, 1:]
+	# data["atac"].uns["lsi"]["stdev"] = data["atac"].uns["lsi"]["stdev"][1:]
 
 	# Neighbors
 	n_pcs_rna = 30
-	n_lsi_atac = 10
+	# n_lsi_atac = 10
+	n_pcs_activity = 30
 	knn_rna = 30
-	knn_atac = 10
+	knn_activity = 30
+	# knn_atac = 10
 	sc.pp.neighbors(data["rna"], n_neighbors= knn_rna, n_pcs= n_pcs_rna, random_state=seed)
-	sc.pp.neighbors(data["atac"], n_neighbors = knn_atac, n_pcs =n_lsi_atac, use_rep="X_lsi", random_state = seed)
+	# sc.pp.neighbors(data["atac"], n_neighbors = knn_atac, n_pcs =n_lsi_atac, use_rep="X_lsi", random_state = seed)
+	sc.pp.neighbors(data["activity"], n_neighbors= knn_activity, n_pcs= n_pcs_activity, random_state=seed)
 
 	# MOFA
 	mu.tl.mofa(data, n_factors =20, outfile=os.path.join(data_path, "mofa.hdf5"), gpu_mode = True)
