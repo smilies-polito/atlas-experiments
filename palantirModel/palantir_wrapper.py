@@ -6,6 +6,7 @@ import warnings
 import muon as mu
 import scanpy as sc
 import palantir
+import scipy.stats as sc
 from .palantir_environment import *
 from palantir.presults import PResults
 from scipy.sparse import csr_matrix, find
@@ -228,6 +229,44 @@ class PalantirWrapper():
 			data.uns[fate_probs_key + "_columns"] = res.branch_probs.columns.values
 
 
+	def compute_priming_degree(data:Union[MuData, AnnData], fate_prob_key:str = "palantir_fate_probabilities", entropy_type: str = "entropy", early_cells: Optional[np.ndarray]=None):
+		"""
+		Function that computes KL-divergence and entropy as in CellRank.
+		Given cell i and fates probabilities towards the k-th terminal state pk, CellRank defines the entropy measure as in Setty et al (palantir paper).
+		Shannon entropy defined as H_i = -sum(pk, * log(pk))
+
+		Given cell i and fates probabilities towards the k-th terminal state pk, CellRank KL divergence measures how far the fate distribution is
+		from the average fate distribution. 
+		
+		
+		Params:
+		--------
+		- data: muon.MuData or anndata.AnnData
+		- fate_prob_key: str
+			Key in data.obsm where fates probabilities towards terminal states are stored. Default is "palantir_fate_probabiltities". 
+		- entropy_type: str
+			Which type of  entropy measure to use, either "kl_divergence" or "entropy". Default is "entropy".
+		- early_cell: np.ndarray, optional
+			Contains the cell id or a masking that defines the starting cells. Default is None, meaning all cells are used. 
+		"""
+		if fate_prob_key not in data.obsm.keys():
+			raise KeyError(f"{fate_prob_key} not in data.obsm")
+		probabilities = data.obsm[fate_prob_key]
+		
+		if entropy_type == "entropy":
+			entropy = sc.entropy(pk=probabilities, qk=None, axis=1) 
+		elif entropy_type == "kl_divergence":
+			early_subset = np.ones() if early_cell is None else early_cells
+			early_probabilities = probabilities[early_subset, :]
+			entropy = np.nan_to_num(
+						np.sum(probabilities * np.log2(probs/np.mean(early_probabilities, axis=0)), axis=1), 
+						nan = 1.0,
+						copy = False
+					)
+		else:
+			raise ValueError(f"{entropy_type} must be either entropy or kl_divergence"}
+		
+		return entropy
 	
 
 	def plot_palantir_results(self, data: Union[MuData, AnnData],
