@@ -13,17 +13,6 @@ from scipy.sparse import csr_matrix, find
 
 
 
-def _check_keys(data: Union[AnnData, MuData], embedding_basis: Optional[str]= None, pseudo_time_key: Optional[str]= None, entropy_key: Optional[list]= None, fate_prob_key: Optional[str]=None):
-	if embedding_basis is not None and embedding_basis not in data.obsm.keys():
-		raise KeyError(f"{embedding_basis} not in data.obsm")
-	if pseudo_time_key is not None and pseudo_time_key not in data.obs.columns:
-		raise KeyError(f"{pseudo_time_key} not in data.obs")
-	if entropy_key is not None:
-		entropy_key = [key for key in entropy_key if key in data.obs.columns]
-	if fate_prob_key is not None and fate_prob_key not in data.obsm.keys():
-		raise KeyError(f"{fate_prob_key} not in data.obsm")
-	return None if len(entropy_key)==0 else entropy_key
-
 
 class PalantirWrapper():
 	def compute_kernel(self, data: Union[MuData, AnnData], 
@@ -263,77 +252,12 @@ class PalantirWrapper():
 						copy = False
 					)
 		else:
-			raise ValueError(f"{entropy_type} must be either entropy or kl_divergence"}
+			raise ValueError(f"{entropy_type} must be either entropy or kl_divergence")
 		
 		return entropy
 	
 
-def plot_palantir_results(data: Union[MuData, AnnData],
-							modality_key: Optional[str] = None,  
-							embedding_basis: str = "X_umap",
-							pseudo_time_key: str = "palantir_pseudotime", 
-							entropy_key: Optional[Union[list, str]]= "palantir_entropy",
-							fate_prob_key: str = "palantir_fate_probabilities"):
-						
-	"""
-	Function that wraps palantir.plot.plot_palantir_results. It plots the palantir results over the multiomics embedding for comparison purposes,
-	also when modality_key is specified. 
-	Params:
-	------
-	data: muon.MuData or anndata.AnnData	
-	modality_key: str, optional
-		If specified retrieves palantir run from specific modality and plots on multiomics embedding. Default is None.
-	embedding_basis: str
-		Key in data.obsm with the embedding to be plot. Default is "X_umap". 
-	pseudo_time_key: str
-		Key in data.obs where palantir pseudotime is stored. Default is "palantir_pseudotime".
-	entropy_key : str or list, optional
-		Keys in data.obs where palantir entropies (entropy or KL-divergence) are stored. Default is "palantir_entropy".
-	fate_prob_key: str
-		Key in data.obsm to access fate probabilities. Default is "palantir_fate_probabilities".
-	"""
-	if isinstance(entropy_key, str):
-		entropy_key= [entropy_key]
-	if modality_key is None:
-		print("No modality has been specified, using MuData Palantir run.")
-		entropy_key = _check_keys(data, embedding_basis=embedding_basis, pseudo_time_key = pseudo_time_key, entropy_key=entropy_key, fate_prob_key = fate_prob_key)
-		data = data
-	else:
-		if modality_key not in data.mod.keys():
-			raise KeyError(f"Modality {modality_key} not in data")
-		print(f"Modality specified. Using {modality_key} Palantir run")
-		entropy_key = _check_keys(data[modality_key], embedding_basis=embedding_basis, pseudo_time_key= pseudo_time_key, entropy_key = entropy_key, fate_prob_key=fate_prob_key)		
-		data = data[modality_key]
-	
 
-def plot_probabilities(data:Union[MuData, AnnData], embedding_key:str ="X_umap", fate_prob_key: str ="palantir_fate_probabilities"):
-    """
-    Creates scatter plots for each terminal state and highlights the corresponding temrinal state. 
-    """
-    _ = _check_keys(data, embedding_key=embedding_key, fate_prob_key=fate_prob_key)
-	
-	df = data.obsm[fate_prob_key]
-	df.index = data.obs_names
-	terminal_cells = df.columns 
-	# if isinstance(df, np.ndarray):
-		# add management of columns + transform in pandas.dataframe
-	df["x"] = data.obsm[embedding].iloc[:,0]
-	df["y"] = data.obsm[embedding].iloc[:,1]
-	
-	for terminal in terminal_cells:
-		plt.figure(figsize=(8, 6))
-		scatter = plt.scatter(df['x'], df['y'])
-		
-		terminal_x, terminal_y = df.loc[terminal, "x"], df.loc[terminal, "y"]  
-		plt.scatter(terminal_x, terminal_y, color="red", edgecolor="black", s=100)
-		plt.title(f'Fates probabilities towards {terminal}')
-		plt.xticks([])
-		plt.yticks([])
-		cbar = plt.colorbar(scatter)
-		plt.legend()
-		# Save the plot to the specified path
-        #    plt.savefig(f"{save_path}/{col}.png", bbox_inches='tight')
-        #    plt.close()  # Close the plot to free up memory
 
 		 
 

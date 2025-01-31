@@ -10,9 +10,9 @@ import numpy as np
 import muon as mu 
 
 
-np.random.seed(52)
+np.random.seed(42)
 
-data_path = ... 
+data_path = ...
 data = mu.read_h5mu(os.path.join(data_path, "data.h5mu"))
 
 ul = np.random.choice(data.obs[data.obs["rna:celltype"]=="Upper Layer"].index.values, 1)
@@ -26,7 +26,6 @@ gex_mask = data["rna"][:, genes].X.A > threshold
 as_op_cell = np.random.choice(data[gex_mask.all(axis=1)].obs_names, 1)
 
 starting_cell= np.random.choice(data.obs[data.obs["rna:celltype"]=="RG, Astro, OPC"].index.values, 1)[0]
-print(starting_cell)
 terminal_cells = np.concatenate((ul, dl, as_op_cell), axis=0)
 
 result = {"starting_cell": starting_cell, "terminal_cells": list(terminal_cells)}

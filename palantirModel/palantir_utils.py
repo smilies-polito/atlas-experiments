@@ -3,6 +3,32 @@ import matplotlib.pyplot as plt
 import statsmodels.formula.api as smf
 from .palantir_environment import * 
 
+def _check_keys(data: Union[AnnData, MuData], modality_key:Optional[str]=None, 
+				embedding_key: Optional[str]=None, pseudo_time_key: Optional[str]=None,
+				entropy_key: Optional[Union[str, list]]=None, fate_prob_key: Optional[str]=None):
+	is_mudata = isinstance(data, Mudata) and modality_key is None
+	is_anndata = isinstance(data, AnnData)
+	is_modality = isinstance(data, Mudata) and modality_key is None
+
+	if is_modality and modality_key not in data.mod.keys():
+		raise KeyError(f"{modality_key} not in data.mod.keys()")
+	if is_mudata and embedding_key is not None and embedding_key not in data.obsm.keys():
+ 		raise KeyError(f"{embedding_key} nopt in data.obsm") 
+	if is_mudata or is_anndata and pseudo_time_key not in data.obs.columns:
+		raise KeyError(f"{pseudo_time_key} not in data.obs")
+	if is_modality and pseudo_time_key not in data[modality_key].obs.columns:
+		raise KeyError(f"{pseudo_time_key} not in data.obs")
+	if is_mudata or is_anndata and entropy_key not in data.obsm.keys():
+		raise KeyError(f"{fate_prob_key} not in data.obsm")
+	if is_modality and fate_probs_key not in data[modality_key].obsm.keys(): 
+		raise KeyError(f"{fate_prob_key} not in data.obsm") 
+	if isinstance(entropy_key, str):  
+		entropy_key = [entropy_key]
+	if is_mudata or is_anndata: 
+		entropy_key = [key for key in entropy_key if key in data.obs.columns] 
+	if is_modality:
+		 entropy_key = [key for key in entropy_key if key in data[modality_key].obs.columns]  
+	return entropy_key
 
 class PalantirComparator:
 	def linear_model(self, data1: Union[MuData, AnnData], data2: Union[MuData, AnnData],
