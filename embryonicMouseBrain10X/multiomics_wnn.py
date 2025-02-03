@@ -30,7 +30,7 @@ def create_feature_map(rna, strand:bool = False):
 if __name__ == "__main__":
 	seed=42
 	np.random.seed(seed)
-	data_path = "/Users/lrcq/Documents/devtraj/preprocessing/embryonicMouseBrain10X"
+	data_path = ... 
 	rna = sc.read_loom(os.path.join(data_path, "multivelo.loom"))
 	rna.obs_names = [cell.split(":")[1][:-1] + "-1" for cell in rna.obs_names]
 	rna.var_names_make_unique()
@@ -74,14 +74,11 @@ if __name__ == "__main__":
 	rna.obs = union
 
 	# Read cells with high atac modality weight and low rna weight ("outliers")
-	cells_to_remove = pd.read_csv(os.path.join(data_path, "outliers.csv"), index_col=0)
+#	cells_to_remove = pd.read_csv(os.path.join(data_path, "outliers.csv"), index_col=0)
 	# Create multimodal dataset
 	data = mu.MuData({"rna":rna, "activity":activity})
-	print(data.shape)
 	data = data[~data.obs["rna:celltype"].isin(non_developmental_celltype)] # removing non developmental cell_types	
-	print(data.shape)
-	data = data[~data.obs_names.isin(cells_to_remove.iloc[:,0])]
-	print(data.shape)
+#	data = data[~data.obs_names.isin(cells_to_remove.iloc[:,0])]
 
 	sc.pp.normalize_total(data["activity"])
 
@@ -107,6 +104,6 @@ if __name__ == "__main__":
 	mu.pl.embedding(data, basis="X_umap", color="rna:celltype")
 	
 	print(data)
-
+	data.write(os.path.join(data_path, "data.h5mu"))
 
 	

@@ -30,7 +30,7 @@ def create_feature_map(rna, strand:bool = False):
 if __name__ == "__main__":
 	seed=42
 	np.random.seed(seed)
-	data_path = "/Users/lrcq/Documents/devtraj/preprocessing/embryonicMouseBrain10X"
+	data_path = ... 
 	rna = sc.read_loom(os.path.join(data_path, "multivelo.loom"))
 	rna.obs_names = [cell.split(":")[1][:-1] + "-1" for cell in rna.obs_names]
 	rna.var_names_make_unique()
@@ -135,9 +135,12 @@ if __name__ == "__main__":
 	
 	print("IDENTIFY CELLS FOR WHICH ACTIVITY_MOD_WEIGHTS > RNA_MOD_WEIGHTS (OUTLIERS IN UMAP PLOT)")
 	data.obs["high:activityW_low:rnaW"] = (data.obs["rna:mod_weight"] - data.obs["activity:mod_weight"]) < 0
+	print("Number of outliers {}".format(np.sum(data.obs["high:activityW_low:rnaW"])))
 	mu.pl.embedding(data, basis="X_umap", color="high:activityW_low:rnaW")
 	print("SAVING OUTLIERS INTO CSV FILE")
-	pd.Series(data.obs["high:activityW_low:rnaW"].index).to_csv(os.path.join(data_path, "outliers.csv"))
+	outliers = pd.Series(data.obs[data.obs["high:activityW_low:rnaW"]==True].index)
+	print(len(outliers))
+	outliers.to_csv(os.path.join(data_path, "outliers.csv"))
 	
 	print("PCA_i VS PCA_j FOR RNA AND ACTIVITY WITH OUTLIERS IDENTIFICATION")
 	data["activity"].obs = pd.merge(data["activity"].obs, data.obs["high:activityW_low:rnaW"], how="left", left_index=True, right_index=True)
