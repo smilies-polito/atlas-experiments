@@ -6,7 +6,7 @@ import warnings
 import muon as mu
 import scanpy as sc
 import palantir
-import scipy.stats as sc
+import scipy.stats as st
 from .palantir_environment import *
 from palantir.presults import PResults
 from scipy.sparse import csr_matrix, find
@@ -65,7 +65,7 @@ class PalantirWrapper():
 		if alpha > 0:
 			D = np.ravel(kernel.sum(axis=1))
 			D[D!=0] = D[D!=0]**(-alpha)
-			mat = csr_matrix((D, (range(N). range(N))), shape=[N,N])
+			mat = csr_matrix((D, (range(N), range(N))), shape=[N,N])
 			kernel = mat.dot(kernel).dot(mat)
 
 		data.obsp[kernel_key] = kernel
@@ -217,7 +217,7 @@ class PalantirWrapper():
 			data.uns[fate_probs_key + "_columns"] = res.branch_probs.columns.values
 
 
-	def compute_priming_degree(data:Union[MuData, AnnData], fate_prob_key:str = "palantir_fate_probabilities", entropy_type: str = "entropy", early_cells: Optional[np.ndarray]=None):
+	def compute_priming_degree(self, data:Union[MuData, AnnData], fate_prob_key:str = "palantir_fate_probabilities", entropy_type: str = "entropy", early_cells: Optional[np.ndarray]=None):
 		"""
 		Function that computes KL-divergence and entropy as in CellRank.
 		Given cell i and fates probabilities towards the k-th terminal state pk, CellRank defines the entropy measure as in Setty et al (palantir paper).
@@ -240,21 +240,22 @@ class PalantirWrapper():
 		if fate_prob_key not in data.obsm.keys():
 			raise KeyError(f"{fate_prob_key} not in data.obsm")
 		probabilities = data.obsm[fate_prob_key]
-		
+		print(type(probabilities), probabilities.shape) 		
 		if entropy_type == "entropy":
-			entropy = sc.entropy(pk=probabilities, qk=None, axis=1) 
+			entropy = st.entropy(pk=probabilities, qk=None, axis=1) 
+			entropy = np.max(probs) - probs
 		elif entropy_type == "kl_divergence":
-			early_subset = np.ones() if early_cell is None else early_cells
-			early_probabilities = probabilities[early_subset, :]
+			early_subset = np.ones((len(probabilities),), dtype=bool) if early_cells is None else early_cells
+			early_probabilities = probabilities.iloc[early_subset]
 			entropy = np.nan_to_num(
-						np.sum(probabilities * np.log2(probs/np.mean(early_probabilities, axis=0)), axis=1), 
+						np.sum(probabilities * np.log2(probabilities/np.mean(early_probabilities, axis=0)), axis=1), 
 						nan = 1.0,
 						copy = False
 					)
 		else:
 			raise ValueError(f"{entropy_type} must be either entropy or kl_divergence")
-		
-		return entropy
+		minn, maxx = np.min(entropy), np.max(entropy)
+		return (entropy - minn) / (maxx - minn)
 	
 
 
