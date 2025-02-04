@@ -12,7 +12,7 @@ import muon as mu
 
 np.random.seed(42)
 
-data_path = ... 
+data_path = #INSERT PATH 
 data = mu.read_h5mu(os.path.join(data_path, "data.h5mu"))
 
 ul = np.random.choice(data.obs[data.obs["rna:celltype"]=="Upper Layer"].index.values, 1)

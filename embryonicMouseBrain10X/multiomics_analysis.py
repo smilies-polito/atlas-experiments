@@ -30,7 +30,7 @@ def create_feature_map(rna, strand:bool = False):
 if __name__ == "__main__":
 	seed=42
 	np.random.seed(seed)
-	data_path = ... 
+	data_path = # INSERT PATH  
 	rna = sc.read_loom(os.path.join(data_path, "multivelo.loom"))
 	rna.obs_names = [cell.split(":")[1][:-1] + "-1" for cell in rna.obs_names]
 	rna.var_names_make_unique()
@@ -63,6 +63,7 @@ if __name__ == "__main__":
 	low_tss, high_tss = np.percentile(atac.obs["tss_score"], 5), np.percentile(atac.obs["tss_score"], 95)
 	low_nucleo, high_nucleo = np.percentile(atac.obs["nucleosome_signal"], 5), np.percentile(atac.obs["nucleosome_signal"], 95)
 	low_atac, high_atac = np.percentile(atac.obs["total_counts"], 5), np.percentile(atac.obs["total_counts"], 95)
+	print(low_tss, high_tss, low_nucleo, high_nucleo, low_atac, high_atac)
 
 	sc.pp.filter_cells(atac, min_counts = low_atac)
 	sc.pp.filter_cells(atac, max_counts = high_atac) 
@@ -91,7 +92,7 @@ if __name__ == "__main__":
 	# Create multimodal dataset
 	print("CREATE MULTIMODAL MUON.MUDATA")
 	data = mu.MuData({"rna":rna, "activity":activity})
-
+	data = data[~data.obs["rna:celltype"].isin(non_developmental_celltype)] # removing non developmental cell_types
 	print("NORMALIZING ACTIVITY")
 	sc.pp.normalize_total(data["activity"])
 
@@ -105,9 +106,9 @@ if __name__ == "__main__":
 	
 	# NEIGHBORS
 	print("SINGLE MODALITY NEIGHBORS")
-	n_pcs_rna = 30
+	n_pcs_rna = 20
 	knn_rna = 30
-	n_pcs_activity = 20
+	n_pcs_activity = 10
 	knn_activity = 30
 	
 	sc.pp.neighbors(data["rna"], n_neighbors = knn_rna, n_pcs = n_pcs_rna, random_state = seed)  
@@ -139,7 +140,6 @@ if __name__ == "__main__":
 	mu.pl.embedding(data, basis="X_umap", color="high:activityW_low:rnaW")
 	print("SAVING OUTLIERS INTO CSV FILE")
 	outliers = pd.Series(data.obs[data.obs["high:activityW_low:rnaW"]==True].index)
-	print(len(outliers))
 	outliers.to_csv(os.path.join(data_path, "outliers.csv"))
 	
 	print("PCA_i VS PCA_j FOR RNA AND ACTIVITY WITH OUTLIERS IDENTIFICATION")
@@ -155,21 +155,6 @@ if __name__ == "__main__":
 	data["activity"].obs["ga"] = data["activity"].X.sum(axis=1)
 	data.update()
 	mu.pl.embedding(data, basis="X_umap", color=["activity:ga"], title="Normal GA")
-
-	# 3D umap 
-	print("3D MULTIOME UMAP")
-	mu.tl.umap(data, neighbors_key="wnn", random_state=seed, n_components=3)
-	sc.pl.umap(data, projection="3d", color="rna:celltype")
-	sc.pl.umap(data, projection="3d", color="leiden")
-
-	# Removing outliers
-	print("N. outliers {}".format(np.sum(data.obs["high:activityW_low:rnaW"])))
-	data = data[~data.obs["high:activityW_low:rnaW"]].copy()
-	print("COMPUTE NN MULTIMODAL GRAPH WITHOUT OUTLIERS")
-	mu.pp.neighbors(data, key_added="wnn", n_neighbors=30)
-	mu.tl.umap(data, neighbors_key="wnn", random_state=seed)
-	mu.pl.embedding(data, basis="X_umap", color="rna:celltype")
-	print(data)
 
 
 	

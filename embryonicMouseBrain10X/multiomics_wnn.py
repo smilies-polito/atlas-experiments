@@ -30,7 +30,7 @@ def create_feature_map(rna, strand:bool = False):
 if __name__ == "__main__":
 	seed=42
 	np.random.seed(seed)
-	data_path = ... 
+	data_path = #INSERT PATH 
 	rna = sc.read_loom(os.path.join(data_path, "multivelo.loom"))
 	rna.obs_names = [cell.split(":")[1][:-1] + "-1" for cell in rna.obs_names]
 	rna.var_names_make_unique()
@@ -73,13 +73,10 @@ if __name__ == "__main__":
 	non_developmental_celltype = ["Interneurons1", "Interneurons2", "Interneurons3", "Cajal-Retzius", "Microglia", "Ependymal cells"]
 	rna.obs = union
 
-	# Read cells with high atac modality weight and low rna weight ("outliers")
-#	cells_to_remove = pd.read_csv(os.path.join(data_path, "outliers.csv"), index_col=0)
 	# Create multimodal dataset
 	data = mu.MuData({"rna":rna, "activity":activity})
 	data = data[~data.obs["rna:celltype"].isin(non_developmental_celltype)] # removing non developmental cell_types	
-#	data = data[~data.obs_names.isin(cells_to_remove.iloc[:,0])]
-
+	
 	sc.pp.normalize_total(data["activity"])
 
 	# PCA 
@@ -87,9 +84,9 @@ if __name__ == "__main__":
 	sc.pp.pca(data["activity"], random_state = seed)
 	
 	# NEIGHBORS
-	n_pcs_rna = 30
+	n_pcs_rna = 20
 	knn_rna = 30
-	n_pcs_activity = 20
+	n_pcs_activity = 10
 	knn_activity = 30
 	
 	sc.pp.neighbors(data["rna"], n_neighbors = knn_rna, n_pcs = n_pcs_rna, random_state = seed)  
@@ -103,7 +100,6 @@ if __name__ == "__main__":
 	mu.tl.louvain(data, random_state = seed)
 	mu.pl.embedding(data, basis="X_umap", color="rna:celltype")
 	
-	print(data)
 	data.write(os.path.join(data_path, "data.h5mu"))
 
 	
