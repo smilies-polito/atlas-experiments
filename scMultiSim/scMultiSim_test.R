@@ -1,9 +1,9 @@
 #######################
 # simulate scATAC-seq and scRNA-seq data using scMultiSim
 #######################
-if(!requireNamespace("BiocManager", quietly=TRUE))
-  install.packages("BiocManager")
-BiocManager::install("scMultiSim")
+#if(!requireNamespace("BiocManager", quietly=TRUE))
+#  install.packages("BiocManager")
+#BiocManager::install("scMultiSim")
 set.seed(0)
 
 library("scMultiSim")
@@ -19,7 +19,6 @@ list_modify <- function(curr_list, ...){
 # Minimal input: differentiation tree as a R pyhlo object and controls cell population 
 # structure. Each node represents a cell type and connected nodes represent differentiation
 # replationship between cell types. 
-par(mrow=c(1,2))
 # Già previsti da scMultiSim ci sono i seguenti
 Phyla5(plotting=TRUE) # 5 stati terminali e 4 nodi interni 
 Phyla3(plotting=TRUE) # 3 stati terminali e 2 nodi interni 
@@ -45,23 +44,10 @@ head(GRN_params)
 # diff.cif.fraction indica quanto diff-CIF impattano su creazione dei dati rispetto a non-diff-CIF
 
 # do.velocity simula RNA velocity data
-options <- list(rand.seed = 42, GRN = GRN_params, num.cells = 1000, num.cifs=50, cif.sigma=0.5, tree=Phyla5()
+options <- list(rand.seed = 0, GRN = GRN_params, num.cells = 1000, num.cifs=50, cif.sigma=0.5, tree=Phyla5()
                 , diff.cif.fraction = 0.8, do.velocity=TRUE)
 results <- sim_true_counts(options)
-names(results)
-
-
-plot_tsne(log2(results$counts+1), results$cell_meta$pop, legend="pop", 
-plot.name = "True RNA Counts Tnse")
-
-plot_tsne(log2(results$atacseq_data+1), results$cell_meta$pop, legend="pop", 
-          plot.name = "True ATAC-Seq Tnse")
 results$pseudotime <- (results$cell_time - min(results$cell_time))/(max(results$cell_time) - min(results$cell_time))
-
-plot_tsne(log2(results$counts+1), results$pseudotime, legend="pseudotime", 
-          plot.name= "Pseudotime on RNA-Tsne", continuous=TRUE)
-plot_rna_velocity(results, arrow.length=2)
-
 
 rownames(results$atacseq_data) <- paste0("peak_", 1:dim(results$atac_counts)[1])
 colnames(results$atacseq_data) <- results$cell_meta$cell_id

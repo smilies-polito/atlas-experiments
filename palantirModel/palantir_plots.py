@@ -113,6 +113,7 @@ def simple_scatter(x, y, c, cmap:Optional[str]=None, title:Optional[str]=None, s
 		plt.xticks([])
 		plt.yticks([])
 		plt.title(title)
+		plt.colorbar(scatter)
 		if save:
 			plt.savefig(os.path.join(saving_path, f"{title}.png"))
 		plt.close()
