@@ -12,7 +12,7 @@ if __name__=="__main__":
 	seed=42
 	np.random.seed(seed)
 	
-	data_path =  ...
+	data_path = ... 
 	saving_path_multiomics = os.path.join(os.getcwd(), "palantir_results_multiomics")
 	saving_path_rna = os.path.join(os.getcwd(), "palantir_results_rna")
 
@@ -47,11 +47,10 @@ if __name__=="__main__":
 	early_cell = np.random.choice(data.obs_names[data.obs["rna:celltype"]=="TAC-1"])
 	medulla_cell = np.random.choice(data.obs_names[data.obs["rna:celltype"]=="Medulla"])
 	irs_cell = np.random.choice(data.obs_names[data.obs["rna:celltype"]=="IRS"])
-	cuticle_cell = np.random.choice(data.obs_names[data.obs["rna:celltype"]=="Hair Shaft-cuticle.cortex"])
-	terminal_states = [medulla_cell, irs_cell, cuticle_cell]
+	terminal_states = [medulla_cell, irs_cell] 
 	
 
-	fix_terminal = True
+	fix_terminal = False
 	pw = PalantirWrapper()
 
 	# Multiomics run
