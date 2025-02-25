@@ -1,9 +1,11 @@
 import os
 import numpy as np
+import pandas as pd
 import scanpy as sc
 import warnings
 import matplotlib.pyplot as plt
 from muon import MuData
+from scipy.stats import pearsonr
 from .palantir_utils import _check_keys
 from anndata import AnnData
 from typing import Union, Optional
@@ -15,8 +17,6 @@ def plot_palantir_results(data: Union[AnnData, MuData], modality_key: Optional[s
 							fate_prob_key: str = "palantir_fate_probabilities",
 							save:bool = True,
 							saving_path: Optional[str]=None):
-	"""
-	"""
 	if isinstance(entropy_key, str):
 		entropy_key = [entropy_key]
 	if modality_key is None:
@@ -41,8 +41,6 @@ def plot_palantir_results(data: Union[AnnData, MuData], modality_key: Optional[s
 
 def plot_probabilities(data: Union[AnnData, MuData], embedding: np.ndarray, fate_prob_key: str = "palantir_fate_probabilities",
 						save:bool = True, saving_path: Optional[str]=None):
-	"""
-	"""
 	_ = _check_keys(data, fate_prob_key = fate_prob_key)
 	if save:
 		if saving_path is not None and not os.path.exists(saving_path):
@@ -50,7 +48,6 @@ def plot_probabilities(data: Union[AnnData, MuData], embedding: np.ndarray, fate
 		if saving_path is None:
 			os.mkdir(os.path.join(os.getcwd(), "palantir_results"))
 		
-	
 	df = data.obsm[fate_prob_key].copy()
 	terminal_states = df.columns
 	df["x"] = embedding[:,0]
@@ -67,6 +64,8 @@ def plot_probabilities(data: Union[AnnData, MuData], embedding: np.ndarray, fate
 		plt.scatter(terminal_x, terminal_y, color="red")
 		plt.xticks([])
 		plt.yticks([])
+		plt.title(f"Fates towards {terminal}")
+		plt.colorbar(scatter)
 		if save:
 			plt.savefig(os.path.join(saving_path, f"{terminal}_fates.png"))
 		plt.close()
@@ -84,8 +83,10 @@ def plot_entropy(data: MuData, embedding: np.ndarray, entropy_key: Union[str, li
 			os.mkdir(saving_path)
 		elif saving_path is None:
 			os.mkdir(os.path.join(os.getcwd(), "palantir_results"))
+			saving_path = os.path.join(os.getcwd(), "palantir_results")
 	for k in keys:
-		simple_scatter(x=df.x, y=df.y, c=df[k], title=k, save=save, saving_path=saving_path)
+		simple_scatter(x=df.x, y=df.y, c=df[k], title=f"{k}", save=save, saving_path=os.path.join(saving_path, f"{k}.png"), xticks = None, xlim=None,
+			xlabel = None, yticks= None, ylim=None, ylabel=None)
 
 
 def plot_pseudotime(data:MuData, embedding: np.ndarray, pseudo_time_key:str="palantir_psedotime", save:bool=True, 
@@ -101,21 +102,64 @@ def plot_pseudotime(data:MuData, embedding: np.ndarray, pseudo_time_key:str="pal
 			os.mkdir(saving_path)
 		elif saving_path is None:
 			os.mkdir(os.path.join(os.getcwd(), "palantir_results"))
+			saving_path = os.path.join(os.getcwd(), "palantir_results")
 
-	simple_scatter(x = df.x, y=df.y, c=df[pseudo_time_key], title=pseudo_time_key, save=save, saving_path=saving_path)
+	simple_scatter(x = df.x, y=df.y, c=df[pseudo_time_key], title= "Palantir Pseudotime", save=save, saving_path = os.path.join(saving_path, "pseudotime.png"),
+				xticks = None, xlim=None, yticks=[], ylim = None, xlabel = None, ylabel=None) 
 
 
+def correlation_plot(data:MuData, modality_key: Optional[str]=None, pseudotime_key: str= "pseudotime", entropy_key:str="entropy", group_key:Optional[str]="celltype",
+				 save:bool=True, saving_path:Optional[str]=None):
+	
+	if modality_key is not None and modality_key not in data.mod.keys():
+		raise KeyError(f"{modality_key} not in data.obs")
+	adata = data if modality_key is None else data[modality_key]
+	if pseudotime_key not in adata.obs.columns:
+		raise KeyError(f"{pseudotime_key} not in data.obs.columns")
+	if entropy_key not in adata.obs.columns:
+		raise KeyError(f"{entropy_key} not in data.obs.columns")
+	if group_key not in adata.obs.columns:
+		raise KeyError(f"{group_key} not in data.obs.columns")
+	
+	for group in adata.obs[group_key].unique():
+		subdata = adata[adata.obs[group_key] == group]
+		x = subdata.obs[pseudotime_key]
+		y = subdata.obs[entropy_key]
+		simple_scatter(x,y,c=None, cmap=None, title=f"{group} correlation", saving_path = os.path.join(saving_path, f"{group}_correlation.png"), save = save,
+						xticks = np.linspace(0,1,10), yticks = np.linspace(0, y.max(), 10), ylim=(0, y.max()+0.1), xlim=(0,1.1), xlabel = "pseudotime", ylabel="entropy")
+		group_correlation = pearsonr(x, y)
+		print(f"{group} pearson correlation = {group_correlation.statistic} with p-val {group_correlation.pvalue}")
 
-def simple_scatter(x, y, c, cmap:Optional[str]=None, title:Optional[str]=None, save:bool=True, saving_path:Optional[str]=None):
-		plt.figure(figsize=(8,6))
-		cmap = cmap if cmap is not None else "YlOrBr"
+
+def simple_scatter(x, y, c:Optional[Union[list, np.ndarray, pd.Series]] = None, cmap:Optional[str]="YlOrBr", title:Optional[str]=None, save:bool=True, 
+							saving_path:Optional[str]=None, xticks: Optional[np.ndarray]=None, yticks: Optional[np.ndarray]=None, 
+							ylim: Optional[tuple] = None, xlim:Optional[tuple] = None, xlabel:Optional[str] = None, ylabel:Optional[str]=None):
+	plt.figure(figsize=(8,6))
+
+	if cmap is not None:
 		scatter= plt.scatter(x, y, c=c, cmap=cmap)
-		plt.xticks([])
-		plt.yticks([])
-		plt.title(title)
 		plt.colorbar(scatter)
-		if save:
-			plt.savefig(os.path.join(saving_path, f"{title}.png"))
-		plt.close()
+	else:
+		scatter = plt.scatter(x,y)
+
+	if ylim is not None:
+		plt.ylim(ylim[0], ylim[1])
+	if xlim is not None:
+		plt.xlim(xlim[0], xlim[1]) 
+
+	plt.xticks([] if xticks is None else xticks)
+	plt.yticks([] if yticks is None else yticks)
+	
+	if xlabel is not None:
+		plt.xlabel(xlabel)
+	if ylabel is not None:
+		plt.ylabel(ylabel)
+
+	if title is not None:
+		plt.title(title)
+	
+	if save:
+		plt.savefig(saving_path)
+	plt.close()
 		
-		
+
