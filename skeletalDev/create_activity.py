@@ -16,15 +16,15 @@ def create_feature_map(rna, strand:bool = False):
 	return features
 
 data_path = ... 
-fragment_path = ...
+fragment_path = os.path.join(os.getcwd(), "fragment")
 
 
-rna = sc.read_h5ad(os.path.join(data_path, f"Whole_ATAC_326532_564709.h5ad"))
+rna = sc.read_h5ad( ... )
 atac = rna[:, rna.var.modality=="Peaks"]
 rna = rna[:, rna.var.modality=="Gene Expression"]
 gc.collect() #removing old anndata 
 
-gtf = pd.read_csv(os.path.join(os.getcwd(), "gene_annotations.tsv"), sep="\t", index_col=0)
+gtf = pd.read_csv( ... , sep="\t", index_col=0)
 gtf.set_index("gene_name", inplace=True)
 gtf.rename(columns={"start":"Start", "end":"End", "seqname":"Chromosome", "strand":"Strand"}, inplace=True)
 

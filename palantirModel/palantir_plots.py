@@ -54,7 +54,7 @@ def plot_probabilities(data: Union[AnnData, MuData], embedding: np.ndarray, fate
 	df["y"] = embedding[:,1]
 	if len(terminal_states)==0:
 		warnings.warn("No terminal states detected!")
-		simple_scatter(x=df.x, y=df.y, c=np.zeros(len(df)), cmap="GnBu", title=fate_prob_key, saving_path= saving_path)
+		simple_scatter(x=df.x, y=df.y, c=np.zeros(len(df)), cmap="GnBu", title=fate_prob_key, saving_path= os.path.join(saving_path, "no_probs.png"))
 		return
 
 	for terminal in terminal_states:
@@ -108,32 +108,44 @@ def plot_pseudotime(data:MuData, embedding: np.ndarray, pseudo_time_key:str="pal
 				xticks = None, xlim=None, yticks=[], ylim = None, xlabel = None, ylabel=None) 
 
 
-def correlation_plot(data:MuData, modality_key: Optional[str]=None, pseudotime_key: str= "pseudotime", entropy_key:str="entropy", group_key:Optional[str]="celltype",
-				 save:bool=True, saving_path:Optional[str]=None):
+def correlation_plot(data:MuData, modality_key: Optional[str]=None, key1: str= "pseudotime", key2:str="entropy", group_key:Optional[str]="celltype", save:bool=True, saving_path:Optional[str]=None):
 	
 	if modality_key is not None and modality_key not in data.mod.keys():
 		raise KeyError(f"{modality_key} not in data.obs")
 	adata = data if modality_key is None else data[modality_key]
-	if pseudotime_key not in adata.obs.columns:
-		raise KeyError(f"{pseudotime_key} not in data.obs.columns")
-	if entropy_key not in adata.obs.columns:
-		raise KeyError(f"{entropy_key} not in data.obs.columns")
-	if group_key not in adata.obs.columns:
+	if key1 not in adata.obs.columns:
+		raise KeyError(f"{key1} not in data.obs.columns")
+	if key2 not in adata.obs.columns:
+		raise KeyError(f"{key2} not in data.obs.columns")
+	if group_key is not None and group_key not in adata.obs.columns:
 		raise KeyError(f"{group_key} not in data.obs.columns")
-	
-	for group in adata.obs[group_key].unique():
-		subdata = adata[adata.obs[group_key] == group]
-		x = subdata.obs[pseudotime_key]
-		y = subdata.obs[entropy_key]
-		simple_scatter(x,y,c=None, cmap=None, title=f"{group} correlation", saving_path = os.path.join(saving_path, f"{group}_correlation.png"), save = save,
-						xticks = np.linspace(0,1,10), yticks = np.linspace(0, y.max(), 10), ylim=(0, y.max()+0.1), xlim=(0,1.1), xlabel = "pseudotime", ylabel="entropy")
-		group_correlation = pearsonr(x, y)
-		print(f"{group} pearson correlation = {group_correlation.statistic} with p-val {group_correlation.pvalue}")
+	if group_key is not None:	
+		correlations = {}
+		for group in adata.obs[group_key].unique():
+			subdata = adata[adata.obs[group_key] == group]
+			x = subdata.obs[key1]
+			y = subdata.obs[key2]
+			simple_scatter(x,y,c=None, cmap=None, title=f"{group} correlation", 
+				saving_path = os.path.join(saving_path, f"{group}_correlation.png"), save = save, 
+				xticks = np.linspace(0,1,10), xlim=(0,1.1), xlabel = key1, ylabel= key2)
+			corr = pearsonr(x, y)
+			correlations[group] = (corr.statistic, corr.pvalue)
+		pd.DataFrame(correlations).to_csv(os.path.join(saving_path, "correlations.tsv"), sep="\t", header=True, index=True)
+			
+	else:
+		x = adata.obs[key1]
+		y = adata.obs[key2]
+		simple_scatter(x,y,c=None, title = "correlation", save = save, 
+						saving_path = os.path.join(saving_path, f"{key1}{key2}_correlation.png"), 
+						xticks = np.linspace(0,1,10), xlim = (0, 1.1), xlabel = key1, ylabel=key2)
+		
 
 
-def simple_scatter(x, y, c:Optional[Union[list, np.ndarray, pd.Series]] = None, cmap:Optional[str]="YlOrBr", title:Optional[str]=None, save:bool=True, 
-							saving_path:Optional[str]=None, xticks: Optional[np.ndarray]=None, yticks: Optional[np.ndarray]=None, 
-							ylim: Optional[tuple] = None, xlim:Optional[tuple] = None, xlabel:Optional[str] = None, ylabel:Optional[str]=None):
+
+
+def simple_scatter(x, y, c:Optional[Union[list, np.ndarray, pd.Series]] = None, cmap:Optional[str]="YlOrBr", title:Optional[str]=None, 
+					save:bool=True, saving_path:Optional[str]=None, xticks: Optional[np.ndarray]=None, yticks: Optional[np.ndarray]=None,
+					ylim: Optional[tuple] = None, xlim:Optional[tuple] = None, xlabel:Optional[str] = None, ylabel:Optional[str]=None):
 	plt.figure(figsize=(8,6))
 
 	if cmap is not None:
@@ -147,8 +159,10 @@ def simple_scatter(x, y, c:Optional[Union[list, np.ndarray, pd.Series]] = None, 
 	if xlim is not None:
 		plt.xlim(xlim[0], xlim[1]) 
 
-	plt.xticks([] if xticks is None else xticks)
-	plt.yticks([] if yticks is None else yticks)
+	if xticks is not None:
+		plt.xticks(xticks)
+	if yticks is not None:
+		plt.yticks(yticks)
 	
 	if xlabel is not None:
 		plt.xlabel(xlabel)
