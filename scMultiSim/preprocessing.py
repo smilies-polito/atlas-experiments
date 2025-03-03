@@ -10,9 +10,9 @@ from scipy.sparse import csr_matrix
 if __name__=="__main__":
 	seed = 42
 	np.random.seed(seed)
-	data_path = ... 
+	data_path = ...
 	activity = pd.read_csv(..., sep="\t", header=0, index_col=0)
-	spliced = pd.read_csv( ... , sep="\t", header=0, index_col=0)
+	spliced = pd.read_csv(..., sep="\t", header=0, index_col=0)
 	unspliced = pd.read_csv(..., sep="\t", header=0, index_col=0)
 	metadata = pd.read_csv(..., sep="\t", header=0, index_col=0)
 
