@@ -129,10 +129,11 @@ class MatrixAnalyser:
 		self._params['#sink'] = len(self._sink)   
 
         # Plot condensation graph
-		fig = plt.figure()
-		fig.suptitle("Condensation Graph", fontsize=11)
+		plt.figure()
+		plt.title("Condensation Graph")
 		nx.draw(self._H, pos=nx.spring_layout(self._H, seed=self._seed), node_color=colors, labels=labels)
-		fig.savefig(os.path.join(saving_folder, "condensation.png"))
+		plt.savefig(os.path.join(saving_folder, "condensation.png"))
+		plt.close()
     
         # Plot cluster composition for each node in H
 #        if self._cluster_key is not None and save_composition: 
