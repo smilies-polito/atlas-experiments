@@ -34,7 +34,7 @@ class PseudotimeKernelMuon():
 		var = adata.var
 		self.data = AnnData(X=csr_matrix((adata.obs.shape[0], adata.var.shape[0])), obs = obs, var = var)
 		self.data.obsp[connectivity_key] = adata.obsp[connectivity_key].copy()
-		self.data.obsm[embedding_key] = adata.obsm[embedding_key].copy()
+		self.data.obsm[embedding_key] = data.obsm[embedding_key].copy()
 		self.connectivity_key = connectivity_key
 		self.group_key = group_key
 		self.pseudotime_key = pseudotime_key

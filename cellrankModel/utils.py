@@ -92,7 +92,8 @@ def _plot_quality_gpcca(df: pd.DataFrame, saving_path:str, title: Optional[str]=
         contains minChi and crispness values.
 	
 	"""
-	plt.scatter(df['minChi'], df['crispness'])
+	plt.figure(figsize = (8,6))
+	scatter = plt.scatter(df['minChi'], df['crispness'])
 
 	if title is not None:
 		plt.title(title)
@@ -106,7 +107,7 @@ def _plot_quality_gpcca(df: pd.DataFrame, saving_path:str, title: Optional[str]=
 
 
 
-def _save_probabilities(gpcca, barcodes: Sequence, n_states: int, saving_path: str):
+def _save_probabilities(gpcca, barcodes: Sequence, saving_path: str, n_states:Optional[int]=None):
 	"""
     
     Function that saves fate probabilities towards terminal states.
@@ -125,7 +126,8 @@ def _save_probabilities(gpcca, barcodes: Sequence, n_states: int, saving_path: s
 	df = pd.DataFrame(gpcca.fate_probabilities.X, columns = gpcca.fate_probabilities.names, index=barcodes)
 	df['entropy'] = gpcca.compute_lineage_priming(method="entropy")
 	df['KL'] = gpcca.compute_lineage_priming(method="kl_divergence")
-	df.to_csv(os.path.join(saving_path, f"fates_{n_states}.csv"))
+	path = os.path.join(saving_path, f"fates_{n_states}.csv") if n_states is not None else  os.path.join(saving_path, f"fates.csv")
+	df.to_csv(path)
 
 
 def _compute_macrostates(gpcca: GPCCA,
