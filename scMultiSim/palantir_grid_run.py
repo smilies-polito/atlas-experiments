@@ -6,25 +6,37 @@ import scanpy as sc
 import pandas as pd
 import numpy as np
 from scipy.stats import pearsonr
-from palantirModel.palantir_wrapper import PalantirWrapper 
-from palantirModel.palantir_plots import plot_palantir_results, correlation_plot
-from palantirModel.palantir_utils import PalantirComparator
+from core.palantirModel.plots import plot_palantir_results
+from core.palantirModel.palantir_wrapper import PalantirWrapper 
+from core.palantirModel.utils import _save_results
+from core.utils import plot_branch_correlation
 
-def r_squared(truth, infer):
-	mean_truth = np.mean(truth)
-	denom = (truth - mean_truth)**2
-	num = (truth - infer)**2
-	r_value = 1 - np.sum(num)/np.sum(denom)
-	return r_value  
+def check_differences(data_dict):
+    # Create a set to store unique strings
+    unique_strings = set()
+
+    # Iterate through each list of strings in the dictionary
+    for string_list in data_dict.values():
+        # Update the set with strings from the current list
+        unique_strings.update(string_list)
+
+    # Check if the number of unique strings is greater than the total strings
+    # If so, there are differences
+    if len(unique_strings) > sum(len(strings) for strings in data_dict.values()):
+        return True  # There are different strings
+    else:
+        return False  # All strings are the same
+
 
 if __name__=="__main__":
 	seed=42
 	np.random.seed(seed)
+	state = np.random.get_state()
 	
-	grid = {"num_waypoints": [100, 300, 500, 700, 1000], 
-		"knn": [10, 30, 50, 70, 100]}	
-	data_path = ...
-	data = mu.read_h5mu( ... )
+	grid = {"num_waypoints": [500], 
+		"knn": [100,200,30]}	
+	data_path = os.path.join(os.getcwd(), "scMultiSim")
+	data = mu.read_h5mu(os.path.join(data_path, "data.h5mu"))
 	early_cell = np.random.choice(data.obs_names[data.obs["rna:pseudotime"]<0.1])
 	cell53 = np.random.choice(data.obs_names[(data.obs["rna:pop"]=="5_3") & (data.obs["rna:pseudotime"]>0.9)])
 	cell52 = np.random.choice(data.obs_names[(data.obs["rna:pop"]=="5_2") & (data.obs["rna:pseudotime"]>0.9)])
@@ -33,68 +45,60 @@ if __name__=="__main__":
 
 	fix_terminal = True
 	pw = PalantirWrapper()
-	rvalues_pseudotime = {}
-	rvalues_entropy= {}
-	failing_experiments = []
+	branch = {"4-5-2": ["4_5", "5_2"], "4-5-3": ["4_5", "5_3"], "4-1": ["4_1"]}
+	
+	# Multiomics kernel
+	pw.compute_kernel(data)
+	pw.run_diffusion_maps(data, seed=seed)
+	pw.determine_multiscale_space(data)
+
+	# RNA kernel
+	pw.compute_kernel(data["rna"], knn_key ="neighbors", distance_key="distances")
+	pw.run_diffusion_maps(data["rna"], seed=seed)
+	pw.determine_multiscale_space(data["rna"])
+
+
+	waypoints = {}
+	
 	for values in itertools.product(*grid.values()):
-		try:
-			n_waypoints, knn = values
-			saving_multiomics = os.path.join(os.getcwd(), "results_grid", f"{n_waypoints}_{knn}_multiomics")
-			saving_rna = os.path.join(os.getcwd(), "results_grid", f"{n_waypoints}_{knn}_rna")	
+		n_waypoints, knn = values
+		save_multiomics = os.path.join(os.getcwd(), "results_grid", f"{n_waypoints}_{knn}_multiomics")
+		save_rna = os.path.join(os.getcwd(), "results_grid", f"{n_waypoints}_{knn}_rna")	
+
+		if not os.path.exists(save_multiomics):
+			os.mkdir(save_multiomics)
+		if not os.path.exists(save_rna):
+			os.mkdir(save_rna)
+
+		# Multiomics run
+		if not fix_terminal:
+			pw.run_palantir(data, early_cell = early_cell, num_waypoints = n_waypoints, knn=knn, seed=seed)
+		else:
+			pw.run_palantir(data, early_cell = early_cell, num_waypoints=n_waypoints, terminal_states = terminal_states, knn=knn, seed=seed)
+#			results = _save_results(data, saving_path= os.path.join(save_multiomics, f"results_{n_waypoints}_{knn}.tsv"), entropy_key = "palantir_entropy", pseudo_time_key = "palantir_pseudotime", fate_prob_key = "palantir_fate_probabilities", modality_key = None, return_frame=True, group_key = "rna:pop", true_pseudotime="rna:pseudotime")
+			waypoints[(n_waypoints, knn)] = data.uns["palantir_waypoints"]
+
+#			plot_branch_correlation(dataframe = results, key1 = "rna:pseudotime", key2 = "palantir_pseudotime", group_key = "rna:pop", branch=branch, saving_path= save_multiomics, title="Pseudotime {n_waypoints} {knn}", xlabel = "True Pseudotime", ylabel = "Palantir Pseudotime", xlim = (0, 1.1), ylim = (0,1.1))
+#			ylim = (0, results["palantir_entropy"].max() + 0.05)
+#			plot_branch_correlation(dataframe = results, key1 = "rna:pseudotime", key2 = "palantir_entropy", group_key = "rna:pop", branch=branch, saving_path= save_multiomics, title="Entropy {n_waypoints} {knn}", xlabel = "True Pseudotime", ylabel = "Palantir Entropy", xlim = (0, 1.1), ylim = ylim)
+
+#		plot_palantir_results(data = data, modality_key=None, embedding_key= "X_umap", pseudo_time_key = "palantir_pseudotime", entropy_key = "palantir_entropy", fate_prob_key = "palantir_fate_probabilities", save = True, saving_path = save_multiomics)
+		print(check_differences(waypoints))
+
 	
-			if not os.path.exists(saving_multiomics):
-				os.mkdir(saving_multiomics)
-			if not os.path.exists(saving_rna):
-				os.mkdir(saving_rna)
-
-			# Multiomics run
-			pw.compute_kernel(data)
-			pw.run_diffusion_maps(data)
-			pw.determine_multiscale_space(data)
-			if not fix_terminal:
-				pw.run_palantir(data, early_cell = early_cell, num_waypoints = n_waypoints, knn=knn)
-			else:
-				pw.run_palantir(data, early_cell = early_cell, num_waypoints=n_waypoints, terminal_states = terminal_states, knn=knn)
-				correlation_plot(data, modality_key=None, key1= "rna:pseudotime", key2 = "palantir_pseudotime", group_key=None, 
-						save = True, saving_path = saving_multiomics)
-				r_value = r_squared(data.obs["rna:pseudotime"].values, data.obs["palantir_pseudotime"].values)
-				corr = pearsonr(data.obs["rna:pseudotime"].values, data.obs["palantir_pseudotime"].values)
-				rvalues_pseudotime[f"multiomics_{n_waypoints}_{knn}"] = (r_value, corr.statistic, corr.pvalue)
-			corr = pearsonr(data.obs["rna:pseudotime"].values, data.obs["palantir_entropy"].values)
-			rvalues_entropy[f"multiomics_{n_waypoints}_{knn}"] = (corr.statistic, corr.pvalue)
-			
-			plot_palantir_results(data, saving_path = saving_multiomics, entropy_key=["palantir_entropy"])
-		
-
 		# RNA run
-			pw.compute_kernel(data["rna"], knn_key="neighbors", distance_key="distances")
-			pw.run_diffusion_maps(data["rna"])
-			pw.determine_multiscale_space(data["rna"])
-			if not fix_terminal:
-				pw.run_palantir(data["rna"], early_cell = early_cell, num_waypoints = n_waypoints, knn=knn)
-			else:
-				pw.run_palantir(data["rna"], early_cell = early_cell, num_waypoints = n_waypoints, terminal_states=terminal_states, knn=knn)
-				correlation_plot(data, modality_key="rna", key1 = "pseudotime", key2="palantir_pseudotime", group_key = None, 
-								save = True, saving_path = saving_rna)
-				r_value = r_squared(data["rna"].obs["pseudotime"].values, data["rna"].obs["palantir_pseudotime"].values) 
-				corr = pearsonr(data["rna"].obs["pseudotime"].values, data["rna"].obs["palantir_pseudotime"].values)
-				rvalues_pseudotime[f"rna_{n_waypoints}_{knn}"] = (r_value, corr.statistic, corr.pvalue)
-			corr = pearsonr(data["rna"].obs["pseudotime"].values, data["rna"].obs["palantir_entropy"].values)
-			rvalues_entropy[f"rna_{n_waypoints}_{knn}"]= (corr.statistic, corr.pvalue)
-
-			plot_palantir_results(data, modality_key = "rna", saving_path = saving_rna, entropy_key=["palantir_entropy"])
-
-			if fix_terminal:
-				pc = PalantirComparator()
-				pc.save_palantir_matrix(data, data["rna"], "rna:pop", saving_path = os.path.join(saving_multiomics, "fates.tsv"))
-				pc.save_palantir_matrix(data, data["rna"], "rna:pop", is_fate=False, key1 = "palantir_entropy", key2="palantir_entropy", saving_path = os.path.join(saving_multiomics, "entropy.tsv"))
-				correlation_plot(data, key1="rna:pseudotime", key2="palantir_entropy", group_key="rna:pop", save=True, saving_path=saving_multiomics)
-				correlation_plot(data, modality_key = "rna", key1 = "pseudotime", key2="palantir_entropy", group_key="pop", save=True, saving_path = saving_rna)
-		except Exception as e:
-			failing_experiments.append((n_waypoints, knn))
-	
-		gc.collect()
-
-	pd.DataFrame(rvalues_pseudotime).T.to_csv(os.path.join(data_path, "correlations_pseudotime.tsv"), sep="\t", header=True, index=True)
-	pd.DataFrame(rvalues_entropy).T.to_csv(os.path.join(data_path, "correlations_entropy.tsv"), sep="\t", header=True, index=True)
-	print(failing_experiments)
+	##		if not fix_terminal:
+	#			pw.run_palantir(data["rna"], early_cell = early_cell, num_waypoints = n_waypoints, knn=knn)
+	#		else:
+	#			pw.run_palantir(data["rna"], early_cell = early_cell, num_waypoints = n_waypoints, terminal_states=terminal_states, knn=knn)
+	#			results = _save_results(data, saving_path= os.path.join(saving_multiomics, f"results_{n_waypoints}_{knn}.tsv"), entropy_key = "entropy", pseudo_time_key = "palantir_pseudotime", fate_prob_key = "palantir_fate_probabilities", modality_key = "rna", return_frame=True, group_key = "pop", true_key="pseudotime")
+	#			if results_rna is None:
+	#				results_rna= results
+	#			else:
+	#				results_rna = pd.concat((results_rna, results))
+#
+#			plot_palantir_results(data=data, modality_key = "rna", embedding_key="X_umap", pseudo_time_key = "palantir_pseudotime", entropy_key="palantir_entropy", fate_prob_key="palantir_fate_probabilities", save = True, saving_path = saving_rna)
+#
+#
+#
+#
