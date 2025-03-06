@@ -35,7 +35,7 @@ def _check_keys(data: Union[AnnData, MuData], modality_key:Optional[str]=None,
 	if is_modality and obs_key is not None and obs_key not in data[modality_key].obs.columns:
 		raise KeyError(f"{obs_key} not in data[{modality_key}].obs")
 
-def _save_results(data: MuData, saving_path: str, entropy_key:str = "entropy", pseudo_time_key: str = "palantir_entropy", fate_prob_key: str = "fates", modality_key: str = None, **kwargs):
+def _save_results(data: MuData, saving_path: str, entropy_key:str = "entropy", pseudo_time_key: str = "palantir_entropy", fate_prob_key: str = "fates", modality_key: str = None, return_frame:bool=True, **kwargs):
 	group_key = kwargs["group_key"] if "group_key" in kwargs else None
 	_check_keys(data, modality_key = modality_key, entropy_key = entropy_key, pseudo_time_key=pseudo_time_key, obs_key=group_key, fate_prob_key = fate_prob_key)
 	
@@ -58,3 +58,6 @@ def _save_results(data: MuData, saving_path: str, entropy_key:str = "entropy", p
 		dataframe.to_csv(saving_path, sep = "\t", index=True, header = False, mode="a")
 	else: 
 		dataframe.to_csv(saving_path, sep="\t", index = True, header=True)	
+	
+	if return_frame:
+		return dataframe

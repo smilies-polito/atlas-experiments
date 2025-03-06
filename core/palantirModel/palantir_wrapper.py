@@ -240,7 +240,6 @@ class PalantirWrapper():
 		if fate_prob_key not in data.obsm.keys():
 			raise KeyError(f"{fate_prob_key} not in data.obsm")
 		probabilities = data.obsm[fate_prob_key]
-		print(type(probabilities), probabilities.shape) 		
 		if entropy_type == "entropy":
 			entropy = st.entropy(pk=probabilities, qk=None, axis=1) 
 			entropy = np.max(probs) - probs

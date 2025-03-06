@@ -35,6 +35,7 @@ def simple_scatter(x,y,c=None, save:bool=True, saving_path:str=None, **kwargs):
 			plt.savefig(saving_path)
 		except:
 			print("Figure not saved. check path")
+	plt.close()
 
 
 
@@ -62,6 +63,8 @@ def simple_heatmap(data, mask, annot:bool=True, save:bool=True, saving_path:str=
 			plt.savefig(saving_path)
 		except:
 			print("Figure not saved. Check saving path")
+
+	plt.close()
 	
 
 def compute_branch_correlation(dataframe: pd.DataFrame, method_key:str, key1: str, key2: str, group_key:str, branch:dict, plot:bool= True, save:bool = True, saving_path:str=None, **kwargs): 	
@@ -101,5 +104,5 @@ def plot_branch_correlation(dataframe: pd.DataFrame, key1:str, key2:str, group_k
 		subsetdata = dataframe[dataframe[group_key].isin(v)]
 		path = os.path.join(saving_path, f"{k}_branch_scatter.png") if saving_path is not None else None
 		kwargs["title"] = title + f" {k}" 
-		simple_scatter(x=dataframe[key1], y=dataframe[key2], c=None, save=save, saving_path=path, **kwargs)
+		simple_scatter(x=subsetdata[key1], y=subsetdata[key2], c=None, save=save, saving_path=path, **kwargs)
 		
