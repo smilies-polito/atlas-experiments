@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from muon import MuData
 from anndata import AnnData
 from core.utils import simple_scatter
-from .palantir_utils import _check_keys
+from .utils import _check_keys
 from scipy.stats import pearsonr
 from typing import Union, Optional
 
