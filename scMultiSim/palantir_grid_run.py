@@ -43,6 +43,7 @@ if __name__=="__main__":
 	cell41 = np.random.choice(data.obs_names[(data.obs["rna:pop"]=="4_1") & (data.obs["rna:pseudotime"]>0.9)])
 	terminal_states = [cell53, cell52, cell41]
 
+	failures = []
 	fix_terminal = True
 	pw = PalantirWrapper()
 	branch = {"4-5-2": ["4_5", "5_2"], "4-5-3": ["4_5", "5_3"], "4-1": ["4_1"]}
@@ -57,8 +58,6 @@ if __name__=="__main__":
 	pw.run_diffusion_maps(data["rna"], seed=seed)
 	pw.determine_multiscale_space(data["rna"])
 
-
-	waypoints = {}
 	
 	for values in itertools.product(*grid.values()):
 		n_waypoints, knn = values
@@ -70,35 +69,34 @@ if __name__=="__main__":
 		if not os.path.exists(save_rna):
 			os.mkdir(save_rna)
 
-		# Multiomics run
-		if not fix_terminal:
-			pw.run_palantir(data, early_cell = early_cell, num_waypoints = n_waypoints, knn=knn, seed=seed)
-		else:
-			pw.run_palantir(data, early_cell = early_cell, num_waypoints=n_waypoints, terminal_states = terminal_states, knn=knn, seed=seed)
-#			results = _save_results(data, saving_path= os.path.join(save_multiomics, f"results_{n_waypoints}_{knn}.tsv"), entropy_key = "palantir_entropy", pseudo_time_key = "palantir_pseudotime", fate_prob_key = "palantir_fate_probabilities", modality_key = None, return_frame=True, group_key = "rna:pop", true_pseudotime="rna:pseudotime")
-			waypoints[(n_waypoints, knn)] = data.uns["palantir_waypoints"]
+	try:
+			# Multiomics run
+			if not fix_terminal:
+				pw.run_palantir(data, early_cell = early_cell, num_waypoints = n_waypoints, knn=knn, seed=seed)
+			else:
+				pw.run_palantir(data, early_cell = early_cell, num_waypoints=n_waypoints, terminal_states = terminal_states, knn=knn, seed=seed)
+				results = _save_results(data, saving_path= os.path.join(save_multiomics, f"results_{n_waypoints}_{knn}.tsv"), entropy_key = "palantir_entropy", pseudo_time_key = "palantir_pseudotime", fate_prob_key = "palantir_fate_probabilities", modality_key = None, return_frame=True, group_key = "rna:pop", true_pseudotime="rna:pseudotime")
 
-#			plot_branch_correlation(dataframe = results, key1 = "rna:pseudotime", key2 = "palantir_pseudotime", group_key = "rna:pop", branch=branch, saving_path= save_multiomics, title="Pseudotime {n_waypoints} {knn}", xlabel = "True Pseudotime", ylabel = "Palantir Pseudotime", xlim = (0, 1.1), ylim = (0,1.1))
-#			ylim = (0, results["palantir_entropy"].max() + 0.05)
-#			plot_branch_correlation(dataframe = results, key1 = "rna:pseudotime", key2 = "palantir_entropy", group_key = "rna:pop", branch=branch, saving_path= save_multiomics, title="Entropy {n_waypoints} {knn}", xlabel = "True Pseudotime", ylabel = "Palantir Entropy", xlim = (0, 1.1), ylim = ylim)
+				plot_branch_correlation(dataframe = results, key1 = "rna:pseudotime", key2 = "palantir_pseudotime", group_key = "rna:pop", branch=branch, saving_path= save_multiomics, title=f"Pseudotime {n_waypoints} {knn}", xlabel = "True Pseudotime", ylabel = "Palantir Pseudotime", xlim = (0, 1.05), ylim = (0,1.05))
+				ylim = (0, results["palantir_entropy"].max() + 0.05)
+				plot_branch_correlation(dataframe = results, key1 = "rna:pseudotime", key2 = "palantir_entropy", group_key = "rna:pop", branch=branch, saving_path= save_multiomics, title=f"Entropy {n_waypoints} {knn}", xlabel = "True Pseudotime", ylabel = "Palantir Entropy", xlim = (0, 1.05), ylim = ylim)
 
-#		plot_palantir_results(data = data, modality_key=None, embedding_key= "X_umap", pseudo_time_key = "palantir_pseudotime", entropy_key = "palantir_entropy", fate_prob_key = "palantir_fate_probabilities", save = True, saving_path = save_multiomics)
-		print(check_differences(waypoints))
+			plot_palantir_results(data = data, modality_key=None, embedding_key= "X_umap", pseudo_time_key = "palantir_pseudotime", entropy_key = "palantir_entropy", fate_prob_key = "palantir_fate_probabilities", save = True, saving_path = save_multiomics)
 
 	
-		# RNA run
-	##		if not fix_terminal:
-	#			pw.run_palantir(data["rna"], early_cell = early_cell, num_waypoints = n_waypoints, knn=knn)
-	#		else:
-	#			pw.run_palantir(data["rna"], early_cell = early_cell, num_waypoints = n_waypoints, terminal_states=terminal_states, knn=knn)
-	#			results = _save_results(data, saving_path= os.path.join(saving_multiomics, f"results_{n_waypoints}_{knn}.tsv"), entropy_key = "entropy", pseudo_time_key = "palantir_pseudotime", fate_prob_key = "palantir_fate_probabilities", modality_key = "rna", return_frame=True, group_key = "pop", true_key="pseudotime")
-	#			if results_rna is None:
-	#				results_rna= results
-	#			else:
-	#				results_rna = pd.concat((results_rna, results))
-#
-#			plot_palantir_results(data=data, modality_key = "rna", embedding_key="X_umap", pseudo_time_key = "palantir_pseudotime", entropy_key="palantir_entropy", fate_prob_key="palantir_fate_probabilities", save = True, saving_path = saving_rna)
-#
-#
-#
-#
+			# RNA run
+			if not fix_terminal:
+				pw.run_palantir(data["rna"], early_cell = early_cell, num_waypoints = n_waypoints, knn=knn)
+			else:
+				pw.run_palantir(data["rna"], early_cell = early_cell, num_waypoints = n_waypoints, terminal_states=terminal_states, knn=knn)
+				results = _save_results(data, saving_path= os.path.join(saving_rna, f"results_{n_waypoints}_{knn}.tsv"), entropy_key = "entropy", pseudo_time_key = "palantir_pseudotime", fate_prob_key = "palantir_fate_probabilities", modality_key = "rna", return_frame=True, group_key = "pop", true_key="pseudotime")
+
+				plot_branch_correlation(dataframe = results, key1= "pseudotime", key2 ="palantir_pseudotime", group_key="pop", branch=brach, saving_path = saving_rna, title = f"Pseudotime {n_waypoints} {knn}", xlabel = "True Pseudotime", ylabel = "Palantir Pseudotime", xlim = (0, 1.05), ylim= (0, 1.05))
+				ylim = (0, results["palantir_entropy"].max() + 0.05)
+				plot_branch_correlation(dataframe = results, key1 = "pseudotime", key2 = "palantir_entropy", group_key = "pop", branch = branch, saving_path = saving_rna, title= f"Entropy {n_waypoints} {knn}", xlabel = "True Pseudotime", ylabel = "Palantir Pseudotime", xlim = (0, 1.05), ylim =ylim) 
+
+			
+			plot_palantir_results(data=data, modality_key = "rna", embedding_key="X_umap", pseudo_time_key = "palantir_pseudotime", entropy_key="palantir_entropy", fate_prob_key="palantir_fate_probabilities", save = True, saving_path = saving_rna)
+
+			except:
+				failures.append((n_waypoints, knn))
