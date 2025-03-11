@@ -44,7 +44,7 @@ def plot_probabilities(fates: pd.DataFrame, terminal_states: np.array, embedding
 
 	for idx, terminal in enumerate(terminal_states):
 		plt.figure(figsize=(8,6))
-		scatter = plt.scatter(x, y, c=fates[terminal])
+		scatter = plt.scatter(x, y, c=fates[terminal], cmap="YlOrBr")
 		plt.xticks([])
 		plt.yticks([])
 		plt.title(f"Fates towards {terminal}")

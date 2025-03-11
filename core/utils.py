@@ -7,7 +7,8 @@ from scipy.stats import pearsonr, spearmanr
 def simple_scatter(x,y,c=None, save:bool=True, saving_path:str=None, **kwargs):
 
 	plt.figure(figsize=(8,6))
-	scatter = plt.scatter(x=x, y=y, c=c)
+	cmap = "YlOrBr" if c is not None else None
+	scatter = plt.scatter(x=x, y=y, c=c, cmap=cmap)
 
 	if c is not None:
 		clabel = kwargs.get("cbar_label", "")

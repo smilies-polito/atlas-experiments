@@ -33,8 +33,8 @@ if __name__=="__main__":
 	np.random.seed(seed)
 	state = np.random.get_state()
 	
-	grid = {"num_waypoints": [500], 
-		"knn": [100,200,30]}	
+	grid = {"num_waypoints": [100, 300, 500, 700, 1000], 
+		"knn": [10, 30, 50, 70, 100]}	
 	data_path = os.path.join(os.getcwd(), "scMultiSim")
 	data = mu.read_h5mu(os.path.join(data_path, "data.h5mu"))
 	early_cell = np.random.choice(data.obs_names[data.obs["rna:pseudotime"]<0.1])
@@ -69,7 +69,7 @@ if __name__=="__main__":
 		if not os.path.exists(save_rna):
 			os.mkdir(save_rna)
 
-	try:
+		try:
 			# Multiomics run
 			if not fix_terminal:
 				pw.run_palantir(data, early_cell = early_cell, num_waypoints = n_waypoints, knn=knn, seed=seed)
@@ -98,5 +98,7 @@ if __name__=="__main__":
 			
 			plot_palantir_results(data=data, modality_key = "rna", embedding_key="X_umap", pseudo_time_key = "palantir_pseudotime", entropy_key="palantir_entropy", fate_prob_key="palantir_fate_probabilities", save = True, saving_path = saving_rna)
 
-			except:
-				failures.append((n_waypoints, knn))
+		except:
+			failures.append((n_waypoints, knn))
+
+		print(failures)

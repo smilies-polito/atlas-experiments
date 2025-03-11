@@ -19,7 +19,7 @@ if __name__=="__main__":
 	
 	grid = {"diff_cif_fraction": [.1,.3,.5,.7,.9,], 
 		"cif_sigma": [.1,.3,.5,.7,.9]}	
-	data_path = os.path.join(os.getcwd(), "scMultiSim", "simulation")
+	data_path = os.path.join(os.getcwd(), "scMultiSim", "phyla5")
 	early_cell = "cell613"
 	cell53 = "cell594"
 	cell52 = "cell381"
