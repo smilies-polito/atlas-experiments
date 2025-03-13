@@ -4,15 +4,24 @@ import seaborn as sns
 import pandas as pd
 from scipy.stats import pearsonr, spearmanr
 
-def simple_scatter(x,y,c=None, save:bool=True, saving_path:str=None, **kwargs):
+def simple_scatter(x,y, c=None, categorical: bool= False, save:bool=True, saving_path:str=None, **kwargs):
 
 	plt.figure(figsize=(8,6))
-	cmap = "YlOrBr" if c is not None else None
-	scatter = plt.scatter(x=x, y=y, c=c, cmap=cmap)
 
 	if c is not None:
-		clabel = kwargs.get("cbar_label", "")
-		plt.colorbar(scatter, label=clabel)
+		if categorical:
+			scatter = plt.scatter(x=x, y=y, c=c.cat.codes, cmap="tab20", s=10)
+			labels = c.cat.categories
+			legend_loc = kwargs.get("legend_loc", "best")
+			legend_ncols = kwargs.get("legend_ncols", 1)
+			handles, _ = scatter.legend_elements()
+			plt.legend(handles, labels, loc=legend_loc, ncols = legend_ncols)
+		else:
+			scatter = plt.scatter(x=x, y=y, c=c, cmap="YlOrBr", s=10)
+			clabel = kwargs.get("cbar_label", "")
+			plt.colorbar(scatter, label=clabel)
+	else:
+		scatter(x=x, y=y, s=10)
 
 	if "title" in kwargs:
 		plt.title(kwargs["title"])
@@ -92,18 +101,20 @@ def compute_branch_correlation(dataframe: pd.DataFrame, method_key:str, key1: st
 	
 	return correlations
 
-def plot_branch_correlation(dataframe: pd.DataFrame, key1:str, key2:str, group_key:str, branch:dict, save:bool=True, saving_path:str = None, **kwargs):
+def plot_branch_correlation(dataframe: pd.DataFrame, key1:str, key2:str, group_key:str, color_key:str, branch:dict, save:bool=True, saving_path:str = None, **kwargs):
 	if key1 not in dataframe.columns:
 		raise KeyError(f"{key1} not in dataframe.columns")
 	if key2 not in dataframe.columns:
 		raise KeyError(f"{key2} not in dataframe.columns")
 	if group_key not in dataframe.columns:
 		raise KeyError(f"{group_key} not in dataframe.columns")
+	if color_key not in dataframe.columns:
+		raise KeyError(f"{color_key} not in dataframe.columns")
 	title = kwargs.get("title", "")
 
 	for k, v in branch.items():
 		subsetdata = dataframe[dataframe[group_key].isin(v)]
 		path = os.path.join(saving_path, f"{k}_branch_scatter.png") if saving_path is not None else None
 		kwargs["title"] = title + f" {k}" 
-		simple_scatter(x=subsetdata[key1], y=subsetdata[key2], c=None, save=save, saving_path=path, **kwargs)
+		simple_scatter(x=subsetdata[key1], y=subsetdata[key2], c=subsetdata[color_key], save=save, saving_path=path, categorical=True, **kwargs)
 		
