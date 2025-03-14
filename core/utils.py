@@ -21,7 +21,7 @@ def simple_scatter(x,y, c=None, categorical: bool= False, save:bool=True, saving
 			clabel = kwargs.get("cbar_label", "")
 			plt.colorbar(scatter, label=clabel)
 	else:
-		scatter(x=x, y=y, s=10)
+		scatter = plt.scatter(x=x, y=y, s=10)
 
 	if "title" in kwargs:
 		plt.title(kwargs["title"])
