@@ -107,29 +107,6 @@ def _plot_quality_gpcca(df: pd.DataFrame, saving_path:str, title: Optional[str]=
 
 
 
-def _save_probabilities(gpcca, barcodes: Sequence, saving_path: str, n_states:Optional[int]=None):
-	"""
-    
-    Function that saves fate probabilities towards terminal states.
-    
-    Parameters
-    -----------
-    gpcca: cellrank.estimators.GPCCA 
-        object containing terminal macrostates and fate probabilities. 
-    barcodes: Sequence
-        cell barcodes
-    n_states: int
-        number of macrostates
-
-	"""
-
-	df = pd.DataFrame(gpcca.fate_probabilities.X, columns = gpcca.fate_probabilities.names, index=barcodes)
-	df['entropy'] = gpcca.compute_lineage_priming(method="entropy")
-	df['KL'] = gpcca.compute_lineage_priming(method="kl_divergence")
-	path = os.path.join(saving_path, f"fates_{n_states}.csv") if n_states is not None else  os.path.join(saving_path, f"fates.csv")
-	df.to_csv(path)
-
-
 def _compute_macrostates(gpcca: GPCCA,
                          n_states: int, cell_type_key: str, 
                          barcodes: Optional[Sequence]=None,
@@ -194,7 +171,10 @@ def _compute_macrostates(gpcca: GPCCA,
 	if save_fate:
 		if barcodes is None:
 			raise ValueError("Barcodes must be speficied when save_fate is True")
-		_save_probabilities(gpcca, barcodes=barcodes, n_states = n_states, saving_path = saving_path)
+		df = pd.DataFrame(gpcca.fate_probabilities.X, columns = gpcca.fate_probabilities.names, index=barcodes)
+		df['entropy'] = gpcca.compute_lineage_priming(method="entropy")
+		df['KL'] = gpcca.compute_lineage_priming(method="kl_divergence")
+		df.to_csv(os.path.join(saving_path, f"terminal_{n_states}.tsv"), sep="\t", header=True, index=True)
     
 	return _check_macrostate_quality(gpcca, n_states)
     
