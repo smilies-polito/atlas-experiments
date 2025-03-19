@@ -13,7 +13,7 @@ def get_group_correlation(group, method_key, key1, key2, return_pvalue:bool=True
 		return corr
 
 if __name__=="__main__":
-	data_path = "/Users/lrcq/Desktop/results_no_terminal"
+	data_path = os.path.join(os.getcwd(), "results_grid")
 	pseudotime_path = os.path.join(data_path, "pseudotime_results")
 	entropy_path = os.path.join(data_path, "entropy_reults")
 	if not os.path.exists(pseudotime_path):
@@ -65,6 +65,10 @@ if __name__=="__main__":
 		diff_cif_fraction, cif_sigma = values
 		subdf = df[(df["diff_cif_fraction"] == diff_cif_fraction) & (df["cif_sigma"]==cif_sigma)]
 		path = os.path.join(data_path, f"{diff_cif_fraction}_{cif_sigma}_multiomics")
+		# pseudotime
 		plot_branch_correlation(dataframe=subdf, key1="true_pseudotime", key2="palantir_pseudotime", group_key="celltype", color_key="model", branch=branch, save=True, saving_path = path, title=f"Scatter True Pseudotime-Pseudotime rd={diff_cif_fraction} sigma_cif={cif_sigma}", legend_loc = "lower center", legend_ncols=2, xlabel= "True Pseudotime", ylabel="Palantir Pseudotime", xlim=(0, 1.01), ylim=(0, 1.01))
-	plot_branch_correlation(dataframe=subdf, key1="true_pseudotime", key2="palantir_entropy", group_key="celltype", color_key="model", branch=branch, save=True, saving_path = path, title=f"Scatter True Pseudotime-Entropy rd={diff_cif_fraction} sigma_cif={cif_sigma}", legend_loc = "lower center", legend_ncols=2, xlabel= "True Pseudotime", ylabel="Palantir Entropy", xlim=(0, 1.01), ylim=(0, subdf["palantir_entropy"].max()+0.01))
+		path = os.path.join(entropy_path, f"{diff_cif_fraction}_{cif_sigma}")
+		if not os.path.exists(path):
+			os.mkdir(path)
+		plot_branch_correlation(dataframe=subdf, key1="true_pseudotime", key2="palantir_entropy", group_key="celltype", color_key="model", branch=branch, save=True, saving_path = path, title=f"Scatter True Pseudotime-Entropy rd={diff_cif_fraction} sigma_cif={cif_sigma}", legend_loc = "lower center", legend_ncols=2, xlabel= "True Pseudotime", ylabel="Palantir Entropy", xlim=(0, 1.01), ylim=(0, subdf["palantir_entropy"].max()+0.01))
 

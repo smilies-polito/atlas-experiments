@@ -15,15 +15,14 @@ from core.utils import plot_branch_correlation
 if __name__=="__main__":
 	seed=42
 	np.random.seed(seed)
-	state = np.random.get_state()
 	
 	grid = {"diff_cif_fraction": [.1,.3,.5,.7,.9,], 
 		"cif_sigma": [.1,.3,.5,.7,.9]}	
-	data_path = os.path.join(os.getcwd(), "scMultiSim", "phyla5")
+	data_path = ... 
 	early_cell = "cell613"
-	cell53 = "cell594"
-	cell52 = "cell381"
-	cell41 = "cell698" 
+	cell53 = "cell602"
+	cell52 = "cell400"
+	cell41 = "cell992" 
 	terminal_states = [cell53, cell52, cell41]
 
 	failures = []
@@ -63,12 +62,7 @@ if __name__=="__main__":
 				pw.run_palantir(data, early_cell = early_cell, num_waypoints=n_waypoints, terminal_states = terminal_states, knn=knn, seed=seed)
 				results = _save_results(data, saving_path= os.path.join(save_multiomics, f"results_{diff_cif_fraction}_{cif_sigma}.tsv"), entropy_key = "palantir_entropy", pseudo_time_key = "palantir_pseudotime", fate_prob_key = "palantir_fate_probabilities", modality_key = None, return_frame=True, group_key = "rna:pop", true_pseudotime="rna:pseudotime")
 
-				plot_branch_correlation(dataframe = results, key1 = "rna:pseudotime", key2 = "palantir_pseudotime", group_key = "rna:pop", branch=branch, saving_path= save_multiomics, title=f"Pseudotime sigma={cif_sigma} rd={diff_cif_fraction}", xlabel = "True Pseudotime", ylabel = "Palantir Pseudotime", xlim = (0, 1.05), ylim = (0,1.05))
-				ylim = (0, results["palantir_entropy"].max() + 0.05)
-				plot_branch_correlation(dataframe = results, key1 = "rna:pseudotime", key2 = "palantir_entropy", group_key = "rna:pop", branch=branch, saving_path= save_multiomics, title=f"Entropy sigma={cif_sigma} rd={diff_cif_fraction}", xlabel = "True Pseudotime", ylabel = "Palantir Entropy", xlim = (0, 1.05), ylim = ylim)
-
 			plot_palantir_results(data = data, modality_key=None, embedding_key= "X_umap", pseudo_time_key = "palantir_pseudotime", entropy_key = "palantir_entropy", fate_prob_key = "palantir_fate_probabilities", save = True, saving_path = save_multiomics)
-
 	
 			# RNA run
 			if not fix_terminal:
@@ -77,15 +71,12 @@ if __name__=="__main__":
 			else:
 				pw.run_palantir(data["rna"], early_cell = early_cell, num_waypoints = n_waypoints, terminal_states=terminal_states, knn=knn)
 				results = _save_results(data, saving_path= os.path.join(save_rna, f"results_{diff_cif_fraction}_{cif_sigma}.tsv"), entropy_key = "palantir_entropy", pseudo_time_key = "palantir_pseudotime", fate_prob_key = "palantir_fate_probabilities", modality_key = "rna", return_frame=True, group_key = "pop", true_pseudotime="pseudotime")
-				plot_branch_correlation(dataframe = results, key1= "pseudotime", key2 ="palantir_pseudotime", group_key="pop", branch=branch, saving_path = save_rna, title = f"Pseudotime sigma={cif_sigma} rd={diff_cif_fraction}", xlabel = "True Pseudotime", ylabel = "Palantir Pseudotime", xlim = (0, 1.05), ylim= (0, 1.05))
-				ylim = (0, results["palantir_entropy"].max() + 0.05)
-				plot_branch_correlation(dataframe = results, key1 = "pseudotime", key2 = "palantir_entropy", group_key = "pop", branch = branch, saving_path = save_rna, title= f"Entropy sigma={cif_sigma} rd={diff_cif_fraction}", xlabel = "True Pseudotime", ylabel = "Palantir Pseudotime", xlim = (0, 1.05), ylim =ylim) 
 
-			
 			plot_palantir_results(data=data, modality_key = "rna", embedding_key="X_umap", pseudo_time_key = "palantir_pseudotime", entropy_key="palantir_entropy", fate_prob_key="palantir_fate_probabilities", save = True, saving_path = save_rna)
 
 		except Exception as e:
 			failures.append((diff_cif_fraction, cif_sigma))
 			print(e)
+			exit()
 
 	print(failures)
