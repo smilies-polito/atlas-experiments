@@ -2,7 +2,8 @@ import os
 import matplotlib.pyplot as plt 
 import seaborn as sns 
 import pandas as pd
-from scipy.stats import pearsonr, spearmanr
+from typing import Literal
+from scipy.stats import pearsonr, spearmanr, kendalltau
 
 def simple_scatter(x,y, c=None, categorical: bool= False, save:bool=True, saving_path:str=None, **kwargs):
 
@@ -77,30 +78,6 @@ def simple_heatmap(data, mask, annot:bool=True, save:bool=True, saving_path:str=
 	plt.close()
 	
 
-def compute_branch_correlation(dataframe: pd.DataFrame, method_key:str, key1: str, key2: str, group_key:str, branch:dict, plot:bool= True, save:bool = True, saving_path:str=None, **kwargs): 	
-	
-	if key1 not in dataframe.columns:
-		raise KeyError(f"{key1} not in dataframe.columns")
-	if key2 not in dataframe.columns:
-		raise KeyError(f"{key2} not in dataframe.columns")	
-	if group_key not in dataframe.columns:
-		raise KeyError(f"{group_key} not in dataframe.columns")
-	
-	correlations = {}
-	method = pearsonr if method_key=="pearson" else spearmanr
-	for k, v in branch.items():
-		subsetdata = dataframe[dataframe[group_key].isin(v)]
-		correlation = method(subsetdata[key1], subsetdata[key2])
-		correlations[k] = (correlation.statistic, correlation.pvalue)	
-		
-	correlations = pd.DataFrame(correlations, index=["statistic", "pvalue"])
-	if plot:
-		data = correlations.loc["statistic",:].values.reshape(-1,1)
-		mask = (correlations.loc["pvalue",:] >= 0.05).values.reshape(-1,1)
-		simple_heatmap(data = data, mask=mask, annot=True, save = save, saving_path= saving_path, cmap_range=(-1,1), **kwargs)
-	
-	return correlations
-
 def plot_branch_correlation(dataframe: pd.DataFrame, key1:str, key2:str, group_key:str, color_key:str, branch:dict, save:bool=True, saving_path:str = None, **kwargs):
 	if key1 not in dataframe.columns:
 		raise KeyError(f"{key1} not in dataframe.columns")
@@ -117,4 +94,19 @@ def plot_branch_correlation(dataframe: pd.DataFrame, key1:str, key2:str, group_k
 		path = os.path.join(saving_path, f"{k}_branch_scatter.png") if saving_path is not None else None
 		kwargs["title"] = title + f" {k}" 
 		simple_scatter(x=subsetdata[key1], y=subsetdata[key2], c=subsetdata[color_key], save=save, saving_path=path, categorical=True, **kwargs)
-		
+
+def compute_correlation(group, method_key: Literal["pearson", "kendall-tau", "spearman"], key1:str, key2:str, return_pvalue: bool = True):
+
+	if method_key == "pearson":
+		method = pearsonr
+	elif method_key == "kendall-tau":
+		method = kendalltau 
+	else:
+		method = spearmanr
+
+	corr,pvalue = method(group[key1], group[key2])
+	return pvalue if return_pvalue else corr 
+
+
+def f1_score_mean(df, group_key, key1, key2):
+	pass				

@@ -166,7 +166,7 @@ def _compute_macrostates(gpcca: GPCCA,
 	if plot: 
 		gpcca.plot_fate_probabilities(same_plot=True,                              
                                      save = os.path.join(saving_path, f"fateProb{n_states}.png"),
-                                     title=f"Fate Probabilities ({n_states})") 
+                                     title=f"Fate Probabilities ({n_states})", show=False) 
 
 	if save_fate:
 		if barcodes is None:
@@ -174,6 +174,7 @@ def _compute_macrostates(gpcca: GPCCA,
 		df = pd.DataFrame(gpcca.fate_probabilities.X, columns = gpcca.fate_probabilities.names, index=barcodes)
 		df['entropy'] = gpcca.compute_lineage_priming(method="entropy")
 		df['KL'] = gpcca.compute_lineage_priming(method="kl_divergence")
+		df["number_of_states"] = n_states
 		df.to_csv(os.path.join(saving_path, f"terminal_{n_states}.tsv"), sep="\t", header=True, index=True)
     
 	return _check_macrostate_quality(gpcca, n_states)

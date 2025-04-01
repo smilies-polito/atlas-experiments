@@ -20,7 +20,6 @@ def _helper(g, quality_dict, model, barcodes, cell_type_key, saving_path, plot=T
 			quality_dict[(model, idx)] = _compute_macrostates(n_states = idx, gpcca = g, plot=plot, save_fate= save_fate,
 									barcodes = barcodes, cell_type_key = cell_type_key, saving_path = saving_path)
 
-
 		except Exception as e:
 			failed.append((idx,e))
 	return failed	
