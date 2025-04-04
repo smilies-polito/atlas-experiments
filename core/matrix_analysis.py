@@ -96,89 +96,17 @@ class MatrixAnalyser:
 		self._params['strongly_connected'] = nx.is_strongly_connected(self._G)
 
 
-
-	def _condensation_graph(self, saving_folder: str):
-		"""
-        
-        Function that analyses of the condensation graph.
-        
-        Parameters
-        -----------
-        save_composition: bool
-            indicates whether to save cluster composition of the condensation graph
-
-		"""
+	def _condensation_graph(self):
 		H = nx.condensation(self._G)
 		self._H  = H
+		self._params["number_of_sink"] = len(H.nodes)
+		disconnected_nodes = [node for node in H.nodes if H.in_degree(node)==0]
+		self._params["disconnected_nodes"] = len(disconnected_nodes)
 
-        # Set labels and colors according to the type of node in H: source, sink, other
-		labels={}
-		colors = [] 
-		for node in H.nodes:
-			if(H.out_degree[node]==0):
-				colors.append('gold')
-				labels[node] = node
-				self._sink.append(node)
-			elif(H.in_degree[node]==0):
-				colors.append('crimson')
-				labels[node] = node
-			else:
-				colors.append('powderblue')
-				labels[node] = node 
 
-		self._params['#sink'] = len(self._sink)   
-
-        # Plot condensation graph
-		plt.figure()
-		plt.title("Condensation Graph")
-		nx.draw(self._H, pos=nx.spring_layout(self._H, seed=self._seed), node_color=colors, labels=labels)
-		plt.savefig(os.path.join(saving_folder, "condensation.png"))
-		plt.close()
+	def get_params(self):
+		return self._params
     
-        # Plot cluster composition for each node in H
-#        if self._cluster_key is not None and save_composition: 
- #           mapping = nx.get_node_attributes(H, 'members')
-  #          cluster_memberships = nx.get_node_attributes(self._G, self._cluster_key)
-#
- #           for node in self._H.nodes:
-  #              original_nodes = mapping[node]
-   #             composition = [cluster_memberships[n] for n in original_nodes]
-    #            lab, cnt = np.unique(composition, return_counts =True)
-     #           diff = set(self._adata.obs[self._cluster_key].values)-set(lab)
-     #           lab = np.hstack((lab, np.array(list(diff))))
-     #           cnt = np.hstack((cnt, np.zeros(len(diff))))
-    #            fig= plt.figure(figsize=(15,8))
-    #            plt.bar(lab, cnt)
-     #           fig.supxlabel('Cluster Composition')
-    #            fig.supylabel('Frequency')
-    #            title, path = self._set_title_and_path(f"Node {node} composition")
-    #            fig.suptitle(title)
-    #            plt.xticks(range(len(lab)), rotation=30)
-    #            fig.savefig(path)
-
-
-    
-	def _save_params(self, path: str):	
-		""" 
-
-        Saves params to csv. The file is created if is doesn't exists, otherwise data is appended to the existing path.
-        Parameters
-        -----------
-        path: str
-            path of csv where to store results. 
-
-		"""
-		if not os.path.exists(path):
-			with open(path, 'w') as f:
-				writer_object = DictWriter(f, fieldnames=self._params.keys())
-				writer_object.writeheader()
-				writer_object.writerow(self._params)
-				f.close()
-		else:
-			with open(path, 'a', newline='') as f:
-				writer_object = DictWriter(f, fieldnames=self._params.keys())
-				writer_object.writerow(self._params)
-				f.close()
     
 
 

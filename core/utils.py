@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns 
 import pandas as pd
 from typing import Literal
-from skelarn.metrics import f1_score
 from scipy.stats import pearsonr, spearmanr, kendalltau
 
 def simple_scatter(x,y, c=None, categorical: bool= False, save:bool=True, saving_path:str=None, **kwargs):
@@ -112,22 +111,6 @@ def compute_correlation(group, method_key: Literal["pearson", "kendall-tau", "sp
 		return corr 
 
 
-def compute_f1(fates: pd.DataFrame, y_true:pd.Series):
-	y_pred = compute_fates_membership(fates)
-	if y_pred is None:
-		return -1
-
-	return f1_score(y_true, y_pred, average="macro", labels=y_true.unique())
-
-
-def compute_fates_membership(fates:pd.DataFrame):
-	terminal_states = fates.columns
-
-	if len(terminal_states) == 0: #no terminal states
-		return None
-
-	# caso in cui ho probabilità tutte praticamente attaccate allo 0 per tutte le cellule? esistono?
-	return fates.idxmax(axis=1) #ritorna primo by default 	
 	
 
 
