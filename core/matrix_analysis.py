@@ -72,7 +72,7 @@ class MatrixAnalyser:
 			self._G.nodes[node][cluster_key] = adata.obs[cluster_key].iloc[node] if cluster_key is not None else None
 
 		self._adata = adata
-		self._sink = [] #will add sink components in condensation graph
+		
 		self._is_stochastic = np.allclose(matrix.sum(axis=1), np.ones(matrix.shape[0])) and not np.sum(np.any(matrix<0))
 		self._params = {}
 		self._seed =seed
@@ -95,13 +95,12 @@ class MatrixAnalyser:
 		self._params['aperiodic'] = nx.is_aperiodic(self._G)
 		self._params['strongly_connected'] = nx.is_strongly_connected(self._G)
 
-
-	def _condensation_graph(self):
 		H = nx.condensation(self._G)
 		self._H  = H
-		self._params["number_of_sink"] = len(H.nodes)
+		self._params["number_of_components"] = len(H.nodes)
+		self._params["number_of_sink"] = len([node for node in H.nodes if H.out_degree(node)==0])
 		disconnected_nodes = [node for node in H.nodes if H.in_degree(node)==0]
-		self._params["disconnected_nodes"] = len(disconnected_nodes)
+		self._params["disconnected_nodes"] = len([node for node in H.nodes if H.in_degree(node)==0])
 
 
 	def get_params(self):

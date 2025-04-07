@@ -6,7 +6,7 @@ import numpy as np
 if __name__=="__main__":
 	seed = 42
 	data_path = ... 
-	saving_path = ...
+	saving_path = ... 
 	data = mu.read_h5mu(data_path)
 
 	initial_states = data.obs["rna:pseudotime"].sort_values().index.tolist()[:30]
@@ -18,7 +18,7 @@ if __name__=="__main__":
 	terminal_states = terminal9 + terminal61 + terminal82 + terminal83
 	data.obs["is_terminal"] = data.obs_names.isin(terminal_states)
 	mu.pl.embedding(data, basis="X_umap", color=["rna:pop", "is_initial", "is_terminal"])
-	cells = {"initial": {"6_7_1" : initial_states}, "terminal":{"6_7_9": terminal9, "6_7_8_2":terminal82, "6_7_8_3":terminal83, "6_1":terminal61}}
+	cells = {"initial": {"6-7-1" : initial_states}, "terminal":{"6-7-9": terminal9, "6-7-8-2":terminal82, "6-7-8-3":terminal83, "6-1":terminal61}}
 	with open(saving_path, "w") as f:
 		json.dump(cells, f)
 			
