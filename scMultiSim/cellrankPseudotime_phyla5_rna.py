@@ -14,26 +14,26 @@ if __name__ == "__main__":
 	seed= 42
 	np.random.seed(seed)
 	results = {}
-	diff_cif_fraction, sigma_cif = ... 
-	data_path = ... 
+	diff_cif_fraction, sigma_cif = .9, .9
+	data_path = os.path.join(os.getcwd(), "phyla5")
 
 	# read selected cells
-	cell_path = ... 
+	cell_path = os.path.join(data_path, "selected_cells_phyla5.json")
 	with open(cell_path, "r") as f:
 		cells = json.load(f)
 		f.close()
 
 	# read ground truth fates probabilities
-	truth_path = ... 
+	truth_path = os.path.join(data_path, "branch_assignment.tsv")
 	ground_truth = pd.read_csv(truth_path, sep="\t", index_col =0, header=0)
 
 	# create selected folder
-	saving_folder = ... 
+	saving_folder = os.path.join(os.getcwd(), "results", f"{diff_cif_fraction}_{sigma_cif}_rna") 
 	if not os.path.exists(saving_folder):
 		os.mkdir(saving_folder)
 	
 	#read data a1nche compute kernel
-	data = mu.read_h5mu( ... )
+	data = mu.read_h5mu(os.path.join(data_path, f"{diff_cif_fraction}_{sigma_cif}_data.h5mu"))
 	kernel = PseudotimeKernelMuon(data = data, modality_key = "rna", embedding_key = "X_umap", connectivity_key = "connectivities", pseudotime_key = "pseudotime", group_key = "pop")
 	kernel.compute_transition_matrix(threshold_scheme="hard")
 

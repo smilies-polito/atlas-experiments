@@ -2,6 +2,7 @@ import numpy as np
 import scipy as sc
 import pandas as pd
 from muon import MuData
+from anndata import AnnData
 from .model import Deterministic, Similarity, SimilarityWrapper, SimilarityComputer, Correlation, Cosine, DotProduct
 from scipy.sparse import csr_matrix, issparse, hstack
 from typing import Literal, Union, Optional
@@ -28,7 +29,7 @@ class TransitionMatrixABC:
 	_softmax_scale: float, optional
 		softmax_scale value for softmax computation (default is None)  
 	"""
-	def __init__(self, data: MuData, velocities: np.ndarray, X: Union[np.ndarray, csr_matrix], softmax_scale: Optional[float]= None):
+	def __init__(self, data: Union[MuData, AnnData], velocities: np.ndarray, X: Union[np.ndarray, csr_matrix], softmax_scale: Optional[float]= None):
 		"""
 		Parameters
 		-----------
@@ -118,8 +119,10 @@ class TransitionMatrix(TransitionMatrixABC):
 		velocity vector
 	"""
 	
-	def __init__(self, data: MuData, rna_key: str="rna", atac_key: str="activity", velocity_key: str= "velocity", softmax_scale: Optional[float]=None):
-		
+	def __init__(self, data: MuData, modality_key: str=None, rna_key: str="rna", atac_key: str="activity", velocity_key: str= "velocity", softmax_scale: Optional[float]=None):
+	
+		if modality_key is not None and modality_key not in data.mod.keys():
+			raise KeyError(f"{modality_key} not in data.mod.keys()")	
 		if rna_key not in data.mod.keys():
 			raise KeyError(f"{rna_key} not in data.mod.keys()")        
 		if atac_key not in data.mod.keys():
@@ -127,7 +130,12 @@ class TransitionMatrix(TransitionMatrixABC):
 		if velocity_key not in data[rna_key].layers:
 			raise KeyError(f"{velocity_key} not found recompute velocity")
 
-		X = _expand_matrix(data, modality_key1 = rna_key, modality_key2 = atac_key)
-		velocities = np.hstack((data[rna_key].layers[velocity_key], data[rna_key].layers[velocity_key]))
-
+		if modality_key is None:
+			X = _expand_matrix(data, modality_key1 = rna_key, modality_key2 = atac_key)
+			velocities = np.hstack((data[rna_key].layers[velocity_key], data[rna_key].layers[velocity_key]))
+		else:
+			X = data[modality_key].X
+			velocities = data[modality_key].layers[velocity_key]
+			data = data[modality_key]
+		
 		super().__init__(data=data, X=X, velocities=velocities, softmax_scale=softmax_scale)

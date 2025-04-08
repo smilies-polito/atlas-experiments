@@ -72,8 +72,10 @@ class MatrixAnalyser:
 			self._G.nodes[node][cluster_key] = adata.obs[cluster_key].iloc[node] if cluster_key is not None else None
 
 		self._adata = adata
-		
-		self._is_stochastic = np.allclose(matrix.sum(axis=1), np.ones(matrix.shape[0])) and not np.sum(np.any(matrix<0))
+	
+		row_sums = matrix.sum(axis=1)
+		all_almost_one = np.all(np.isclose(np.squeeze(np.asarray(row_sums)), 1))
+		self._is_stochastic = all_almost_one and not np.sum(np.any(matrix<0))
 		self._params = {}
 		self._seed =seed
 

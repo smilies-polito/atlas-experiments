@@ -14,26 +14,26 @@ if __name__ == "__main__":
 	seed= 42
 	np.random.seed(seed)
 	results = {}
-	diff_cif_fraction, sigma_cif =  ...
-	data_path = ... 
+	diff_cif_fraction, sigma_cif =  0.9, 0.9
+	data_path = os.path.join(os.getcwd(), "phyla5")
 
 	# read selected cells
-	cell_path =  ...
+	cell_path =  os.path.join(data_path, "selected_cells_phyla5.json")
 	with open(cell_path, "r") as f:
 		cells = json.load(f)
 		f.close()
 
 	# read ground truth fates probabilities
-	truth_path =  ...
+	truth_path =  os.path.join(data_path, "branch_assignment.tsv")
 	ground_truth = pd.read_csv(truth_path, sep="\t", index_col =0, header=0)
 
 	# create selected folder
-	saving_folder =	... 
+	saving_folder =	os.path.join( os.getcwd() , "results", f"{diff_cif_fraction}_{sigma_cif}_multiomics")
 	if not os.path.exists(saving_folder):
 		os.mkdir(saving_folder)
 	
 	#read data anche compute kernel
-	data = mu.read_h5mu( ... )
+	data = mu.read_h5mu( os.path.join( data_path , f"{diff_cif_fraction}_{sigma_cif}_data.h5mu" ))
 	kernel = PseudotimeKernelMuon(data = data, modality_key = None, embedding_key = "X_umap", connectivity_key = "wnn_connectivities", pseudotime_key = "rna:pseudotime", group_key = ["rna:pop"])
 	kernel.compute_transition_matrix(threshold_scheme="hard")
 
@@ -58,10 +58,10 @@ if __name__ == "__main__":
 
 	# compute correlations pseudotime - entropy - kl
 	results["si_terminal"] = {}
-	results["si_terminal"]["spearman_entropy"] = compute_correlation(df, "pearson","pseudotime", "entropy")
+	results["si_terminal"]["pearson_entropy"] = compute_correlation(df, "pearson","pseudotime", "entropy")
 	results["si_terminal"]["kendall-tau_entropy"] = compute_correlation(df, "kendall_tau", "pseudotime", "entropy")	
 	
-	results["si_terminal"]["spearman_KL"] = compute_correlation(df, "pearson", "pseudotime", "KL")
+	results["si_terminal"]["pearson_KL"] = compute_correlation(df, "pearson", "pseudotime", "KL")
 	results["si_terminal"]["kendall-tau_KL"] = compute_correlation(df, "kendall_tau", "pseudotime", "KL")
 
 	# compute f1 score
@@ -100,10 +100,10 @@ if __name__ == "__main__":
 	
 	# compute correlations pseudotime - entropy - kl
 	results["no_terminal"] = {}
-	results["no_terminal"]["spearman_entropy"] = compute_correlation(df, "pearson","pseudotime", "entropy")
+	results["no_terminal"]["pearson_entropy"] = compute_correlation(df, "pearson","pseudotime", "entropy")
 	results["no_terminal"]["kendall-tau_entropy"] = compute_correlation(df, "kendall_tau", "pseudotime", "entropy")	
 	
-	results["no_terminal"]["spearman_KL"] = compute_correlation(df, "pearson", "pseudotime", "KL")
+	results["no_terminal"]["pearson_KL"] = compute_correlation(df, "pearson", "pseudotime", "KL")
 	results["no_terminal"]["kendall-tau_KL"] = compute_correlation(df, "kendall_tau", "pseudotime", "KL")
 
 	path = os.path.join(saving_folder, "results.json")
