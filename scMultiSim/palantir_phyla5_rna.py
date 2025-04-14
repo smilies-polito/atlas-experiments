@@ -9,7 +9,7 @@ from core.palantirModel.plots import plot_palantir_results
 from core.palantirModel.palantir_wrapper import PalantirWrapper 
 from core.palantirModel.utils import _save_results
 from core.metrics import compute_correlation, compute_f1
-
+from core.utils import save_run_results
 
 if __name__=="__main__":
 	seed = 42
@@ -17,7 +17,7 @@ if __name__=="__main__":
 
 	results = {}	
 	diff_cif_fraction, sigma_cif = ...
-	n_waypoints, knn = ...
+	n_waypoints, knn = ... 
 	
 	data_path =  ... 
 	saving_folder = ... 
@@ -56,16 +56,17 @@ if __name__=="__main__":
 		os.mkdir(saving_folder_noterminal)
 	plot_palantir_results(data = data, modality_key = "rna", embedding_key = "X_umap", pseudo_time_key = "palantir_pseudotime", entropy_key = "palantir_entropy", fate_prob_key = "palantir_fate_probabilities", save= True, saving_path = saving_folder_noterminal)
 
+	dataframe = dataframe[["palantir_entropy", "palantir_pseudotime", "pseudotime", "pop"]]
+	dataframe.columns = ["entropy", "pseudotime", "true_pseudotime", "celltype"]
 
-	# Correlatione entropy - pseudotime - true pseudotime
-	results["no_terminal"]={} 
-	results["no_terminal"]["pearson_pseudotime"] = compute_correlation(dataframe, "pearson", "pseudotime", "palantir_pseudotime")
-	results["no_terminal"]["pearson_entropy"] = compute_correlation(dataframe, "pearson", "pseudotime", "palantir_entropy")
-	results["no_terminal"]["kendall-tau_pseudotime"] = compute_correlation(dataframe, "kendall_tau", "pseudotime", "palantir_pseudotime")
-	results["no_terminal"]["kendall-tau_entropy"] = compute_correlation(dataframe, "kendall_tau", "pseudotime", "palantir_entropy")
+	# Correlation entropy - pseudotime - true pseudotime
+	results["pearson_pseudotime"] = compute_correlation(dataframe, "pearson", "true_pseudotime", "pseudotime")
+	results["pearson_entropy"] = compute_correlation(dataframe, "pearson", "true_pseudotime", "entropy")
+	results["kendall-tau_pseudotime"] = compute_correlation(dataframe, "kendall_tau", "true_pseudotime", "pseudotime")
+	results["kendall-tau_entropy"] = compute_correlation(dataframe, "kendall_tau", "true_pseudotime", "entropy")
 
-	results_df = dataframe[["palantir_entropy", "palantir_pseudotime", "pseudotime", "pop"]]
-	results_df.columns = ["entropy", "pseudotime", "true_pseudotime", "celltype"]
+	save_run_results(dictionary=results, dataframe=dataframe, saving_folder = saving_folder, terminal=False)
+
 
 	#### SET TERMINAL STATES ############################################################################
 	print("SI TERMINAL")
@@ -74,32 +75,25 @@ if __name__=="__main__":
 	
 	dataframe = _save_results(data, entropy_key = "palantir_entropy", pseudo_time_key = "palantir_pseudotime", fate_prob_key = "palantir_fate_probabilities", modality_key = "rna", group_key = "pop", true_pseudotime="pseudotime")
 
+	# f1 score
+	results["f1"] = {}
+	for branch, terminal in cells["terminal"].items():
+		results["f1"][branch] = compute_f1(dataframe[terminal].values.T.reshape(1,-1), ground_truth[branch].values.T.reshape(1,-1))
+	results["f1"]["total"] = compute_f1(dataframe[list(cells["terminal"].values())], ground_truth[list(cells["terminal"].keys())], aggregate=True)
+
+	#plots
 	saving_folder_terminal= os.path.join(saving_folder, "terminal")
 	if not os.path.exists(saving_folder_terminal):
 		os.mkdir(saving_folder_terminal)
 	plot_palantir_results(data = data, modality_key = "rna", embedding_key = "X_umap", pseudo_time_key = "palantir_pseudotime", entropy_key = "palantir_entropy", fate_prob_key = "palantir_fate_probabilities", save= True, saving_path = saving_folder_terminal)
 
-	# Correlazione entropy - pseudotime - true pseudotime
-	results["si_terminal"]={} 
-	results["si_terminal"]["pearson_pseudotime"] = compute_correlation(dataframe, "pearson", "pseudotime", "palantir_pseudotime")
-	results["si_terminal"]["pearson_entropy"] = compute_correlation(dataframe, "pearson", "pseudotime", "palantir_entropy")
-	results["si_terminal"]["kendall-tau_pseudotime"] = compute_correlation(dataframe, "kendall_tau", "pseudotime", "palantir_pseudotime")
-	results["si_terminal"]["kendall-tau_entropy"] = compute_correlation(dataframe, "kendall_tau", "pseudotime", "palantir_entropy")
+	dataframe = dataframe[["palantir_entropy", "palantir_pseudotime", "pseudotime", "pop"]]
+	dataframe.columns = ["entropy", "pseudotime", "true_pseudotime", "celltype"]
 
-	# f1 score
-	results["f1"] = {}
-	for branch, terminal in cells["terminal"].items():
-		results["f1"][branch] = compute_f1(dataframe[terminal], ground_truth[branch])
-	
+	# Correlation entropy - pseudotime - true pseudotime
+	results["pearson_pseudotime"] = compute_correlation(dataframe, "pearson", "true_pseudotime", "pseudotime")
+	results["pearson_entropy"] = compute_correlation(dataframe, "pearson", "true_pseudotime", "entropy")
+	results["kendall-tau_pseudotime"] = compute_correlation(dataframe, "kendall_tau", "true_pseudotime", "pseudotime")
+	results["kendall-tau_entropy"] = compute_correlation(dataframe, "kendall_tau", "true_pseudotime", "entropy")
 
-	results_df["entropy_fixed"]=dataframe["palantir_entropy"]
-	results_df["pseudotime_fixed"] = dataframe["palantir_pseudotime"]
-
-	
-	path = os.path.join(saving_folder, "results.json")
-	with open(path, "w") as f:
-		json.dump(results, f)
-		f.close()
-	
-	path = os.path.join(saving_folder, "results.tsv")
-	results_df.to_csv(path, sep="\t", header=True, index=True)	
+	save_run_results(dictionary=results, dataframe=dataframe, saving_folder=saving_folder, terminal=True)

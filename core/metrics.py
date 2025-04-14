@@ -5,14 +5,13 @@ from typing import Literal
 from cellrank.estimators import GPCCA
 from core.utils import simple_scatter, simple_heatmap
 from scipy.stats import pearsonr, spearmanr, kendalltau
-from scipy.spatial.distance import cosine, euclidean, mahalanobis
+from sklearn.metrics.pairwise import paired_distances
+
 
 def _check_macrostate_quality(g:GPCCA, ns:int):
 	minChi = np.min(g.macrostates_memberships.X)
 	crispness = g._gpcca.crispness_values[0]
 	return {"minChi":minChi, "crispness":crispness}
-
-
 
 
 def plot_branch_correlation(dataframe: pd.DataFrame, key1:str, key2:str, group_key:str, color_key:str, branch:dict, save:bool=True, saving_path:str = None, **kwargs):
@@ -46,7 +45,13 @@ def compute_correlation(group, method_key: Literal["pearson", "kendall-tau", "sp
 	return {"statistics":corr, "pvalue":pvalue}
 
 
-def compute_f1(inferred, truth):
-	cosine_distance = cosine(inferred, truth)
-	euclidean_distance = euclidean(inferred, truth)
-	return {"cosine": cosine_distance, "euclidean": euclidean_distance}	
+def geometric_mean(values:np.array):
+	return np.exp(np.mean(np.log(values)))
+
+def compute_f1(inferred:np.array, truth:np.array, aggregate:bool=False):
+	cosine_distance = paired_distances(inferred, truth, metric="cosine")[0]
+	euclidean_distance = paired_distances(inferred, truth, metric = "euclidean")[0]
+	if aggregate:
+		return {"cosine":geometric_mean(cosine_distance), "euclidean":geometric_mean(euclidean_distance)}
+	else:	
+		return {"cosine": cosine_distance, "euclidean": euclidean_distance}	

@@ -1,6 +1,18 @@
 import os
+import json
+import pandas as pd 
 import matplotlib.pyplot as plt 
 import seaborn as sns 
+
+
+def save_run_results(dictionary:dict, dataframe:pd.DataFrame, saving_folder:str, terminal:bool=True):
+	path = os.path.join(saving_folder, "results_terminal.json") if terminal else os.path.join(saving_folder, "results_noterminal.json")
+	with open(path, "w") as f:
+		json.dump(dictionary, f)
+		f.close()
+	path = os.path.join(saving_folder, "results_terminal.tsv") if terminal else os.path.join(saving_folder, "results_noterminal.tsv")
+	dataframe.to_csv(path, sep="\t", header=True, index=True)
+	
 
 def simple_scatter(x,y, c=None, categorical: bool= False, save:bool=True, saving_path:str=None, **kwargs):
 

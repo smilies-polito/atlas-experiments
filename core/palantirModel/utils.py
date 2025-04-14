@@ -43,7 +43,6 @@ def _save_results(data: MuData, entropy_key:str = "entropy", pseudo_time_key: st
 	_check_keys(data, modality_key = modality_key, obs_key = true_key)
 		
 	data = data if modality_key is None else data[modality_key]
-	model = "multiomics" if modality_key is None else modality_key 
 
 	columns = [entropy_key, pseudo_time_key]
 	if group_key is not None:
@@ -51,7 +50,6 @@ def _save_results(data: MuData, entropy_key:str = "entropy", pseudo_time_key: st
 	if true_key is not None:
 		columns = columns + [true_key]	
 	dataframe = data.obs[columns].copy()
-	dataframe["model"] = model
 	dataframe = pd.concat((dataframe, data.obsm[fate_prob_key]), axis=1)
 
 	return dataframe
