@@ -42,7 +42,7 @@ def compute_correlation(group, method_key: Literal["pearson", "kendall-tau", "sp
 		method = spearmanr
 
 	corr,pvalue = method(group[key1], group[key2])
-	return {"statistics":corr, "pvalue":pvalue}
+	return(corr, pvalue)
 
 
 def geometric_mean(values:np.array):
@@ -52,6 +52,6 @@ def compute_f1(inferred:np.array, truth:np.array, aggregate:bool=False):
 	cosine_distance = paired_distances(inferred, truth, metric="cosine")[0]
 	euclidean_distance = paired_distances(inferred, truth, metric = "euclidean")[0]
 	if aggregate:
-		return {"cosine":geometric_mean(cosine_distance), "euclidean":geometric_mean(euclidean_distance)}
+		return (geometric_mean(cosine_distance), geometric_mean(euclidean_distance))
 	else:	
-		return {"cosine": cosine_distance, "euclidean": euclidean_distance}	
+		return (cosine_distance, euclidean_distance)	
