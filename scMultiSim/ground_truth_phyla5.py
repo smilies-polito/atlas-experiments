@@ -4,7 +4,7 @@ import muon as mu
 
 if __name__=="__main__":
 	data_path = ... 
-
+	saving_path = ...
 	data = mu.read_h5mu(data_path)
 
 	# Verso stati terminali per cellule appartenenti al cluster stesso 
@@ -26,5 +26,5 @@ if __name__=="__main__":
 	data.obs["6-7-8-3"] = data.obs["6-7-8-3"] + (data.obs["rna:pop"] == "6_7").astype(int) * 1/3
 
 	mu.pl.embedding(data, basis="X_umap", color=["6-7-9", "6-7-8-2", "6-7-8-3", "6-1"])
-	data.obs[["6-7-9", "6-7-8-2", "6-7-8-3", "6-1"]].to_csv(os.path.join(os.getcwd(),"phyla5", "branch_assignment.tsv"), sep="\t", header=True, index=True)
+	data.obs[["6-7-9", "6-7-8-2", "6-7-8-3", "6-1"]].to_csv(saving_path, sep="\t", header=True, index=True)
 
