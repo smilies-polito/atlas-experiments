@@ -16,17 +16,17 @@ if __name__=="__main__":
 	seed = 42
 	np.random.seed(seed)
 
-	ipercubo_path = os.path.join(os.getcwd(), "ipercubo.csv")
-	grid_scmultisim = {"diff_cif_fraction":[.1,.3,.5,.7,.9] , "sigma_cif" : [.1,.3,.5,.7,.9]}
-	grid_palantir = {"n_waypoints":[.25, .5, .75], "knn": [30, 50, 100]}
+	tsv_path = ... 
+	grid_scmultisim = ... 
+	grid_palantir = ...
 	
-	data_path =  os.path.join(os.getcwd(), "phyla5")
+	data_path = ... 
 	failures = []
 
-	results = {"albero":"phyla5", "n_cellule":1000, "GRN_type":"GRN_100", "sigma_cif":None, "diff_cif_fraction":None, "modello":"multiomics", "fixed_terminal":False, "knn_atac":30, "knn_rna":30, "wnn":30, "algoritmo":"palantir", "n_waypoints":None, "knn_waypoints":None, "n_macrostates":None, "velocity_algorithm":None, "pruning_type":None, "pearson_pseudotime_statistics":None, "pearson_pseudotime_pvalue":None, "kendall_pseudotime_statistiscs":None, "kendall_pseudotime_pvalue":None, "pearson_entropy_statistics":None, "pearson_entropy_pvalue":None, "f1_cosine":None, "f1_euclidean":None}
+	results = {"albero":"phyla5", "n_cellule":1000, "GRN_type":"GRN_100", "sigma_cif":None, "diff_cif_fraction":None, "modello":"multiomics", "fixed_terminal":False, "knn_atac":None, "knn_rna":None, "wnn":None, "algoritmo":"palantir", "n_waypoints":None, "knn_waypoints":None, "n_macrostates":None, "velocity_algorithm":None, "pruning_type":None, "pearson_pseudotime_statistics":None, "pearson_pseudotime_pvalue":None, "kendall_pseudotime_statistiscs":None, "kendall_pseudotime_pvalue":None, "pearson_entropy_statistics":None, "pearson_entropy_pvalue":None, "f1_cosine":None, "f1_euclidean":None}
 
 	# read selected cells 
-	cell_path = os.path.join(data_path, "selected_cells_palantir_phyla5.json")
+	cell_path = ... 
 	with open(cell_path, "r") as f:
 		cells = json.load(f)
 		f.close()
@@ -34,23 +34,26 @@ if __name__=="__main__":
 	early_cell = list(cells["initial"].values())[0]
 	
 	# read ground truth fates probabilities 
-	truth_path = os.path.join(data_path, "branch_assignment.tsv")
+	truth_path = ... 
 	ground_truth = pd.read_csv(truth_path, sep= "\t", index_col=0, header=0)
 
 	pw = PalantirWrapper()
 	
-	for diff_cif_fraction, sigma_cif in product(*grid_scmultisim.values()):	
+	for diff_cif_fraction, sigma_cif, knn_rna, knn_atac, wnn in product(*grid_scmultisim.values()):	
 		results["diff_cif_fraction"] = diff_cif_fraction
 		results["sigma_cif"] = sigma_cif
+		results["knn_rna"] = knn_rna
+		results["knn_atac"] = knn_atac
+		results["wnn"] = wnn 
 
 		# read data and determine multiscale space
-		data = mu.read_h5mu(os.path.join(data_path, f"{diff_cif_fraction}_{sigma_cif}_data.h5mu"))
+		data = mu.read_h5mu(os.path.join(data_path, f"{knn_rna}_{knn_atac}_{wnn}", f"{diff_cif_fraction}_{sigma_cif}_data.h5mu"))
 		pw.compute_kernel(data)
 		pw.run_diffusion_maps(data, seed=seed)
 		pw.determine_multiscale_space(data)
 	
 		# create results folder
-		saving_folder = os.path.join(os.getcwd(), "results", f"{diff_cif_fraction}_{sigma_cif}_multiomics")
+		saving_folder = os.path.join(os.getcwd(), "results", f"{diff_cif_fraction}_{sigma_cif}_{knn_rna}{knn_atac}{wnn}_multiomics")
 		if not os.path.exists(saving_folder):
 			os.mkdir(saving_folder)
 		
@@ -88,10 +91,10 @@ if __name__=="__main__":
 				results["kendall_pseudotime_statistics"] = statistics 
 				results["kendall_pseudotime_pvalue"] = pvalue
 
-				pd.DataFrame(results, index=[0]).to_csv(ipercubo_path, sep=",", header=False, index=False, mode="a")	
+				pd.DataFrame(results, index=[0]).to_csv(tsv_path, sep=",", header=False, index=False, mode="a")	
 			
 			except:
-				failures.append((diff_cif_fraction, sigma_cif, n_waypoints, knn, "noterminal"))
+				failures.append((diff_cif_fraction, sigma_cif, knn_rna, knn_atac, wnn, n_waypoints, knn, "noterminal"))
 
 		#### SET TERMINAL STATES ############################################################################
 			np.random.seed(seed)
@@ -126,10 +129,10 @@ if __name__=="__main__":
 				results["kendall_pseudotime_statistics"] = statistics 
 				results["kendall_pseudotime_pvalue"] = pvalue
 				
-				pd.DataFrame(results, index=[0]).to_csv(ipercubo_path, sep=",", header=False, index=False, mode="a")	
+				pd.DataFrame(results, index=[0]).to_csv(tsv_path, sep=",", header=False, index=False, mode="a")	
 
 			except: 
-				failures.append((diff_cif_fraction, sigma_cif, n_waypoints, knn, "terminal"))	
+				failures.append((diff_cif_fraction, sigma_cif, knn_rna, knn_atac, wnn, n_waypoints, knn, "terminal"))
 
-
-	print(failures)
+	failure_path = os.path.join(data_path, "failures.tsv")
+	pd.DataFrame(failures, columns = ["rd", "sigma", "knn_rna", "knn_atac", "wnn", "n_waypoints", "knn_waypoints", "run_type"]).to_csv(failure_path, sep="\t", index=False, header=True)
