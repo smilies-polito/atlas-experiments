@@ -13,7 +13,7 @@ if __name__=="__main__":
 	seed = 42
 	np.random.seed(seed)
 	data_path = ... 
-	grid = {"diff_cif_fraction" : [.1, .3, .5, .7, .9], "cif_sigma": [.1, .3, .5, .7, 9]}
+	grid = {"diff_cif_fraction" : [.1, .3, .5, .7, .9], "cif_sigma": [.1, .3, .5, .7, .9]}
 	knn_grid = {"knn_rna": [30, 50, 70, 100], "knn_activity": [30, 50, 70, 100], "wnn": [30, 50, 70, 100]}
 	n_pcs_rna = 20
 	n_pcs_activity = 10
@@ -52,5 +52,5 @@ if __name__=="__main__":
 			mu.tl.umap(data, random_state=seed, neighbors_key="wnn")
 			mu.pl.embedding(data, basis="X_umap", color=["rna:pop", "rna:pseudotime"], show=False, save = f"{diff_cif_fraction}_{cif_sigma}_{knn_rna}{knn_activity}{wnn}.png" )
 			
-			saving_path = os.path.join(saving_folder, f"{diff_cif_fraction}_{cif_sigma}_data.h5mu")
+			saving_path = ... 
 			data.write(saving_path)
