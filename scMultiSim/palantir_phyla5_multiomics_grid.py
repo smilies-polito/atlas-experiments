@@ -17,13 +17,13 @@ if __name__=="__main__":
 	np.random.seed(seed)
 
 	tsv_path = ... 
-	grid_scmultisim = ... 
-	grid_palantir = ...
+	grid_scmultisim = {"diff_cif_fraction":[.1,.3,.5,.7,.9], "cif_sigma":[.1, .3, .5, .7, .9], "knn_rna": [30,50,70,100], "knn_atac":[30,50,70,100], "wnn":[30,50,70,100]}
+	grid_palantir = {"n_waypoints":[.25, .5, .75], "knn_waypoints":[30,50,100]}
 	
 	data_path = ... 
 	failures = []
 
-	results = {"albero":"phyla5", "n_cellule":1000, "GRN_type":"GRN_100", "sigma_cif":None, "diff_cif_fraction":None, "modello":"multiomics", "fixed_terminal":False, "knn_atac":None, "knn_rna":None, "wnn":None, "algoritmo":"palantir", "n_waypoints":None, "knn_waypoints":None, "n_macrostates":None, "velocity_algorithm":None, "pruning_type":None, "pearson_pseudotime_statistics":None, "pearson_pseudotime_pvalue":None, "kendall_pseudotime_statistiscs":None, "kendall_pseudotime_pvalue":None, "pearson_entropy_statistics":None, "pearson_entropy_pvalue":None, "f1_cosine":None, "f1_euclidean":None}
+	results = {"albero":"phyla5", "n_cellule":1000, "GRN_type":"GRN_100", "sigma_cif":None, "diff_cif_fraction":None, "modello":"multiomics", "fixed_terminal":False, "knn_atac":None, "knn_rna":None, "wnn":None, "algoritmo":"palantir", "n_waypoints":None, "knn_waypoints":None, "n_macrostates":None, "velocity_algorithm":None, "pruning_type":None, "pearson_pseudotime_statistics":None, "pearson_pseudotime_pvalue":None, "kendall_pseudotime_statistics":None, "kendall_pseudotime_pvalue":None, "pearson_entropy_statistics":None, "pearson_entropy_pvalue":None, "f1_cosine":None, "f1_euclidean":None}
 
 	# read selected cells 
 	cell_path = ... 
@@ -53,7 +53,7 @@ if __name__=="__main__":
 		pw.determine_multiscale_space(data)
 	
 		# create results folder
-		saving_folder = os.path.join(os.getcwd(), "results", f"{diff_cif_fraction}_{sigma_cif}_{knn_rna}{knn_atac}{wnn}_multiomics")
+		saving_folder = os.path.join(os.getcwd(), "palantir_phyla5_multiomics", f"{diff_cif_fraction}_{sigma_cif}_{knn_rna}{knn_atac}{wnn}_multiomics")
 		if not os.path.exists(saving_folder):
 			os.mkdir(saving_folder)
 		
@@ -69,6 +69,8 @@ if __name__=="__main__":
 			try:
 				pw.run_palantir(data, early_cell = early_cell, num_waypoints = n_waypoints, knn=knn, seed=seed)	
 				dataframe = _save_results(data, entropy_key = "palantir_entropy", pseudo_time_key = "palantir_pseudotime", fate_prob_key = "palantir_fate_probabilities", modality_key = None, group_key = "rna:pop", true_pseudotime="rna:pseudotime")
+				results["f1_cosine"] = None
+				results["f1_euclidean"] = None
 
 				saving_folder_noterminal= os.path.join(saving_folder, f"no_terminal_{n_waypoints}_{knn}")
 				if not os.path.exists(saving_folder_noterminal):
@@ -98,7 +100,7 @@ if __name__=="__main__":
 
 		#### SET TERMINAL STATES ############################################################################
 			np.random.seed(seed)
-			results["terminal_fixed"] = True
+			results["fixed_terminal"] = True
 			try:
 				pw.run_palantir(data, early_cell = early_cell, num_waypoints=n_waypoints, terminal_states = terminal_states, knn=knn, seed=seed)
 				dataframe = _save_results(data, entropy_key = "palantir_entropy", pseudo_time_key = "palantir_pseudotime", fate_prob_key = "palantir_fate_probabilities", modality_key = None, group_key = "rna:pop", true_pseudotime="rna:pseudotime")
@@ -134,5 +136,5 @@ if __name__=="__main__":
 			except: 
 				failures.append((diff_cif_fraction, sigma_cif, knn_rna, knn_atac, wnn, n_waypoints, knn, "terminal"))
 
-	failure_path = os.path.join(data_path, "failures.tsv")
+	failure_path = ... 
 	pd.DataFrame(failures, columns = ["rd", "sigma", "knn_rna", "knn_atac", "wnn", "n_waypoints", "knn_waypoints", "run_type"]).to_csv(failure_path, sep="\t", index=False, header=True)
