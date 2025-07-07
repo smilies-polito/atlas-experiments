@@ -1,3 +1,10 @@
+#############################################################
+# preprocessing simulated datasets using muon and scanpy 
+# input data retrieved from R stored in <package_folder>/data/<differentiation_tree> 
+# preprocessed data stored in <package_folder>/data/<differentiation_tree>/<knn_rna>_<knn_atac>_<wnn>/<diff_cif_fraction>_<cif_sigma>.h5mu
+# plots stored in <package_folder>/results/<simulated_dataset>/
+#############################################################
+
 import os
 import numpy as np
 import pandas as pd
@@ -12,7 +19,10 @@ from scipy.sparse import csr_matrix
 if __name__=="__main__":
 	seed = 42
 	np.random.seed(seed)
-	data_path = ... 
+	
+	differentiation_tree = ... # Either phyla3 or phyla5 to fetch data from and save results anndata
+	working_directory = ... # set path to repository 
+	data_path = os.path.join(working_directory, "data", f"{differentiation_tree}") 
 	grid = {"diff_cif_fraction" : [.1, .3, .5, .7, .9], "cif_sigma": [.1, .3, .5, .7, .9]}
 	knn_grid = {"knn_rna": [30, 50, 70, 100], "knn_activity": [30, 50, 70, 100], "wnn": [30, 50, 70, 100]}
 	n_pcs_rna = 20
@@ -42,7 +52,7 @@ if __name__=="__main__":
 		sc.pp.pca(data["activity"], random_state=seed, use_highly_variable=False)
 			
 		for knn_rna, knn_activity, wnn in product(*knn_grid.values()):
-			saving_folder = os.path.join(data_path, f"{knn_rna}_{knn_activity}_{wnn}")
+			saving_folder = os.path.join(data_path, f"{knn_rna}_{knn_activity}_{wnn}") #intermediate folder
 			if not os.path.exists(saving_folder):
 				os.mkdir(saving_folder)
 			sc.pp.neighbors(data["rna"], n_neighbors=knn_rna, n_pcs=n_pcs_rna, random_state=seed)
@@ -52,5 +62,5 @@ if __name__=="__main__":
 			mu.tl.umap(data, random_state=seed, neighbors_key="wnn")
 			mu.pl.embedding(data, basis="X_umap", color=["rna:pop", "rna:pseudotime"], show=False, save = f"{diff_cif_fraction}_{cif_sigma}_{knn_rna}{knn_activity}{wnn}.png" )
 			
-			saving_path = ... 
+			saving_path = os.path.join(saving_folder, f"{diff_cif_fraction}_{cif_sigma}.h5mu")
 			data.write(saving_path)

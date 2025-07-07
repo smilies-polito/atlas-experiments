@@ -6,9 +6,11 @@ import numpy as np
 if __name__=="__main__":
 	seed = 42
 	np.random.seed(seed)
-	data_path = ... 
-	saving_path = ... 
-	data = mu.read_h5mu(data_path)
+
+	working_directory = ... #set to repository
+	data_path = os.path.join(working_directory, "data", "phyla3")
+	saving_path = os.path.join(data_path, "selected_cells_palantir.json")
+	data = mu.read_h5mu(os.path.join(data_path, "30_30_30", "0.5_0.5.h5mu"))
 
 	initial_states = data.obs_names[data.obs["rna:pseudotime"].argmin()]
 	data.obs["is_initial"] = data.obs_names == initial_states

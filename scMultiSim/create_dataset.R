@@ -71,15 +71,23 @@ simulate <- function(seed, GRN_params, tree, saving.folder, num.cells = 1000, nu
 
 
 # MAIN TEXT
+setwd(...) # setwd to folder where data/{diff.tree} storing all files is created
 data(GRN_params_100)
 GRN_params <- GRN_params_100
 cif.sigma.list <- c(0.1, 0.3, 0.5, 0.7, 0.9)
 diff.cif.fraction <- c(0.1, 0.3, 0.5, 0.7, 0.9)
-param.grid <- expand.grid(cif.sigma = cif.sigma.list, diff.cif = diff.cif.fraction)
-saving.folder <- "/Users/lrcq/Documents/devtraj/scvemo/scMultiSim/simulation"
 num.cells <- 1000
 num.cifs <- 50
 do.velocity <- TRUE
+
+param.grid <- expand.grid(cif.sigma = cif.sigma.list, diff.cif = diff.cif.fraction)
+
+diff.tree <- "phyla3" #"phyla3" or "phyla5" based on the PHYLA() object used
+saving.folder <- file.path(getwd(), "data", diff.tree)
+if(! file.exists(saving.folder)){ 
+  dir.create(saving.folder)
+}
+
 
 lapply(1: nrow(param.grid), function(i){
   simulate(seed = seed, GRN_params <- GRN_params, tree <- Phyla3(), saving.folder <- saving.folder,

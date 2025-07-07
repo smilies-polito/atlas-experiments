@@ -5,9 +5,11 @@ import numpy as np
 
 if __name__=="__main__":
 	seed = 42
-	data_path = ... 
-	saving_path = ... 
-	data = mu.read_h5mu(data_path)
+	np.random.seed(seed)
+	working_directory = ...
+	data_path = os.path.join(working_directory, "data", "phyla5")
+	saving_path = os.path.join(data_path, "selected_cells.json")
+	data = mu.read_h5mu(os.paht.join(data_path, "30_30_30", "0.5_0.5.h5mu"))
 
 	initial_states = data.obs["rna:pseudotime"].sort_values().index.tolist()[:30]
 	data.obs["is_initial"] = data.obs_names.isin(initial_states)

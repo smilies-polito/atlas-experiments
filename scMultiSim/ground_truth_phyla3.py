@@ -3,9 +3,10 @@ import numpy as np
 import muon as mu 
 
 if __name__=="__main__":
-	data_path = ... 
-	saving_path = ...
-	data = mu.read_h5mu(data_path)
+	working_directory = ... # set to repository 
+	data_path = os.path.join(working_directory, "data", "phyla3")
+	saving_path = os.path.join(data_path, "branch_assignment.tsv")
+	data = mu.read_h5mu(os.path.join(data_path, "30_30_30", "0.5_0.5.h5mu"))
 
 	# Verso stati terminali per cellule appartenenti al cluster stesso 
 	data.obs["4-1"] = (data.obs["rna:pop"]=="4_1").astype(int) 

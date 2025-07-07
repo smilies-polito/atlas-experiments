@@ -34,22 +34,23 @@ if __name__=="__main__":
 	results = {"albero":albero, "n_cellule":1000, "GRN_type":"GRN_100", "sigma_cif":None, "diff_cif_fraction":None, "modello":"rna", "fixed_terminal":fix_terminal, "knn_atac":None, "knn_rna":None, "wnn":None, "algoritmo":"Cellrank Pseudotime Kernel", "n_waypoints":None, "knn_waypoints":None, "n_macrostates":n_macrostates, "velocity_algorithm":None, "pruning_type":threshold_scheme, "pearson_kl_statistics":None, "pearson_kl_pvalue":None, "pearson_entropy_statistics":None, "pearson_entropy_pvalue":None, "f1_cosine":None, "f1_euclidean":None, "cpu_time": None, "wall_time":None, "cpu_time_kernel":None, "wall_time_kernel":None}
 	
 	#path declaration + additional files
-	tsv_path = os.path.join( ... )
-	data_path = os.path.join( ... )
-	failures_path = os.path.join( ... )
+	working_dir = ...
+	failures_path = os.path.join(working_dir, "results", "failing_pseudoKernel_simulations.csv")
+	tsv_path = os.path.join(working_dir, "results", "pseudoKernel_simulations.csv") 
+ 	data_path = os.path.join(working_dir, "data", f"{albero}")
 
 #	saving_folder = os.path.join( ... )
 #	if not os.path.exists(saving_folder):
 #		os.mkdir(saving_folder)
 
 	# read selected cells 
-	cell_path = os.path.join( ... )
+	cell_path = os.path.join(data_path, "selected_cells.json")
 	with open(cell_path, "r") as f:
 		cells = json.load(f)
 		f.close()
 	
 	# read ground truth fates probabilities 
-	truth_path = os.path.join( ... )
+	truth_path = os.path.join(data_path, "branch_assignment.tsv")
 	ground_truth = pd.read_csv(truth_path, sep= "\t", index_col=0, header=0)
 
 	# read dataset
@@ -59,7 +60,7 @@ if __name__=="__main__":
 		results["knn_atac"] = knn_atac
 		results["knn_rna"] = knn_rna
 		results["wnn"] = wnn
-		data = mu.read_h5mu( ... )
+		data = mu.read_h5mu(os.path.join(data_path, f"{knn_rna}_{knn_atac}_{wnn}", "{diff_cif_fraction}_{sigma_cif}.h5mu"))
  		data["rna"].obsm["X_umap"] = data.obsm["X_umap"] 
 		for percentage, knn_waypoints in product(*grid_palantir.values()):
 			n_waypoints = int(data.shape[0] * percentage)
