@@ -23,7 +23,7 @@ if __name__=="__main__":
 	#arguments for results construction
 	fix_terminal = ...
 	albero = ...
-	results = {"albero":albero, "n_cellule":1000, "GRN_type":"GRN_100", "sigma_cif":None, "diff_cif_fraction":None, "modello":"multiomics", "fixed_terminal":fix_terminal, "knn_atac":None, "knn_rna":None, "wnn":None, "algoritmo":"palantir", "n_waypoints":None, "knn_waypoints":None, "n_macrostates":None, "velocity_algorithm":None, "pruning_type":None, "pearson_pseudotime_statistics":None, "pearson_pseudotime_pvalue":None, "kendall_pseudotime_statistics":None, "kendall_pseudotime_pvalue":None, "pearson_entropy_statistics":None, "pearson_entropy_pvalue":None, "f1_cosine":None, "f1_euclidean":None, "cpu_time": None, "wall_time":None}
+	results = {"code":None, "albero":albero, "n_cellule":1000, "GRN_type":"GRN_100", "sigma_cif":None, "diff_cif_fraction":None, "modello":"multiomics", "fixed_terminal":fix_terminal, "knn_atac":None, "knn_rna":None, "wnn":None, "algoritmo":"palantir", "n_waypoints":None, "knn_waypoints":None, "n_macrostates":None, "velocity_algorithm":None, "pruning_type":None, "pearson_pseudotime_statistics":None, "pearson_pseudotime_pvalue":None, "kendall_pseudotime_statistics":None, "kendall_pseudotime_pvalue":None, "pearson_entropy_statistics":None, "pearson_entropy_pvalue":None, "f1_cosine":None, "f1_euclidean":None, "cpu_time": None, "wall_time":None}
 	
 	#path declaration + additional files
 	working_dir = ...
@@ -124,6 +124,8 @@ if __name__=="__main__":
 				results["kendall_pseudotime_statistics"] = statistics 
 				results["kendall_pseudotime_pvalue"] = pvalue
 	
+				results["code"] = results.get("albero") + "_" + str(results.get("diff_cif_fraction")) + ":" + str(results.get("sigma_cif")) + "_" + str(results.get("knn_rna")) + ":" + str(results.get("knn_atac")) + ":" + str(results.get("wnn")) + "_" + str(results.get("n_waypoints")) + ":"+ str(results.get("knn_waypoints")) + "_" + str(results.get("fixed_terminal"))
+
 				pd.DataFrame(results, index=[0]).to_csv(tsv_path, sep=",", header=False, index=False, mode="a")	
 			
 			except:
