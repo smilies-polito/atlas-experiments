@@ -33,7 +33,7 @@ if __name__=="__main__":
 	# read dataset
 	working_dir = ... # set to repository directory 
 	donor = ... #either donor1 or donor2
-	data_path = os.patth.join(working_dir, "data", "lineage_tracing", f"{donor}", "data.h5mu")
+	data_path = os.path.join(working_dir, "data", "lineage_tracing", f"{donor}", "data.h5mu")
 	saving_path = os.path.join(working_dir, "data", "lineage_tracing", f"{donor}", "branch_assignment.csv")
 	data = mu.read_h5mu(data_path)
 	threshold = 0.7
