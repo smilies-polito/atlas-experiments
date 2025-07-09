@@ -15,7 +15,7 @@ if __name__=="__main__":
 	np.random.seed(seed)
 
 	# Cell cycle genes
-	working_dir = ... #repository path 
+	working_dir = ...  #repository path 
 	data_path = os.path.join(working_dir, "data", "lineage_tracing", "donor1")
 	cc_genes_path = os.path.join(working_dir, "data", "lineage_tracing", "genes_cellcycle.tsv")
 	cc_genes = pd.read_csv(cc_genes_path, header=0, index_col=False, sep ="\t")
@@ -35,7 +35,7 @@ if __name__=="__main__":
 	rna_t2 = scipy.io.mmread(os.path.join(data_path, "all.rna_T2.mtx")) #rna counts from figshare
 	rna_t2 = AnnData(X=csr_matrix(rna_t2), obs = pd.DataFrame(data=None, columns=None, index=barcodes_t2), var= pd.DataFrame(data=None, columns=None, index= rna_features_t2))
 	rna_t2.obs_names = rna_t2.obs_names.map(lambda x: x+":t2")
-	
+
 	rna = anndata.concat((rna_t1, rna_t2), axis=0)
 
 	# RNA quality control and filtering
@@ -171,7 +171,7 @@ if __name__=="__main__":
 
 	# MUON DATASET 
 	data = MuData({"rna": rna, "activity":activity})
-
+	
 	metadata_t1.index = metadata_t1.index.map(lambda x: x+":t1")
 	metadata_t2.index = metadata_t2.index.map(lambda x: x+":t2")
 	all_metadata = pd.concat((metadata_t1, metadata_t2))
@@ -181,21 +181,17 @@ if __name__=="__main__":
 	# PCA, NEIGHBORS E WNN + MULTIMODAL UMAP 
 	sc.pp.pca(data["rna"], random_state=seed)
 	sc.pp.pca(data["activity"], random_state=seed)
-	sc.pl.pca_variance_ratio(data["rna"], save="variance_ratio_rna.png", show=False)
-	sc.pl.pca_variance_ratio(data["activity"], save="variance_ratio_activity.png", show=False)
 
 	n_pcs_rna = 15
 	n_pcs_activity = 10
 	knn_rna = 30
 	knn_activity = 30
 	wnn = 30
-
+	
 	sc.pp.neighbors(data["rna"], n_neighbors=knn_rna, n_pcs = n_pcs_rna, random_state = seed)
 	sc.pp.neighbors(data["activity"], n_neighbors=knn_activity, n_pcs = n_pcs_activity, random_state = seed)
 	mu.pp.neighbors(data, key_added="wnn", n_neighbors=wnn, random_state=seed)
 	mu.tl.umap(data, random_state = seed, neighbors_key="wnn")
-	mu.tl.louvain(data, random_state=seed)
-	mu.tl.leiden(data, random_state=seed)
-	mu.pl.umap(data, color=["STD.CellType", "Time", "louvain", "leiden", "lineage"], legend_loc="on data")
+	mu.pl.umap(data, color=["STD.CellType", "Time", "lineage"], legend_loc="on data", save="muon.png")
 	
 	data.write(os.path.join(data_path, f"data.h5mu"))
