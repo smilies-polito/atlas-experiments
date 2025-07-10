@@ -53,8 +53,8 @@ def simple_scatter(x,y, c=None, categorical: bool= False, save:bool=True, saving
 	if save and saving_path is not None:
 		try:
 			plt.savefig(saving_path)
-		except:
-			print("Figure not saved. check path")
+		except Exception as e:
+			print("Figure not saved. check path", e)
 	plt.close()
 
 
