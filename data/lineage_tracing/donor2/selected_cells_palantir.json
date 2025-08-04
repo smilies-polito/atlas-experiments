@@ -1,1 +1,1 @@
-{"initial": {"hsc": "TTGTCCGGTTACCTGT-2"}, "terminal": {"monocyte": "TCTACCTCACTGGCCA-1", "NK": "ACTGAAACATAACGGG-1", "B": "GCAAGTCGTCCTTTAA-1", "T": "CCGCAAATCATGAAGG-1", "erythroid": "ACGTACCCAATAGTCT-1", "megakaryocyte": "TCTGTGACATTGCGGT-3", "dendritic": "AGAGAAGCACAATTAC-1"}}
+{"initial": {"hsc": "TTATCCGTCATGAGCT-3"}, "terminal": {"erythroid": "GGTATTTCAAATATCC-1", "megakaryocyte": "TAAGTGCTCTAATCAG-3", "monocyte": "TTAGACTCACCTCGCT-1", "T": "GTTTCCTCATCCTAGA-1", "B": "GTATCGCCAGAGAGCC-1", "NK": "AATTGCTCAGTTTCTC-1", "dendritic": "CCTATATTCATGCGTG-1"}}

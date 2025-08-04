@@ -3,42 +3,39 @@ import json
 import muon as mu
 import numpy as np
 import pandas as pd
+from core import search_cells
+
+
+def get_state(x:str) -> str:
+	mapping = {"initial": ["HSC", "Refined.HSC"], 
+		"erythroid": ["EryP"],
+		"megakaryocyte": ["MKP"], 
+		"monocyte": ["Mono"],
+		"NK": ["NK"],
+		"B": ["B", "Plasma"],
+		"dendritic" : ["cDC", "pDC"],
+		"T": ["CD4", "CD8"], 
+		"intermedate": ["MDP", "GMP", "CMP", "MEP", "MPP", "LMPP", "CLP", "ProB"]}
+	for k,v in mapping.items():
+		if x in v:
+			return k
+	return None
 
 if __name__=="__main__":
 	seed = 42
 	np.random.seed(seed)
 	working_dir = ... # set repository 
-	donor= ... #wither donor1 or donor2
+	donor= ...  #either donor1 or donor2
 	data_path = os.path.join(working_dir, "data", "lineage_tracing", f"{donor}", "data.h5mu")
 	saving_path = os.path.join(working_dir, "data", "lineage_tracing", f"{donor}", "selected_cells_palantir.json")
 	data = mu.read_h5mu(data_path)
+	data.obs["states"] = data.obs["STD.CellType"].map(lambda x: get_state(x))
 
-	cells = {}
-	
-	# select initial cell 
-	cells["initial"]= {"hsc" : np.random.choice(data.obs[data.obs["STD.CellType"]=="HSC"].index)}
-	terminal_erythroid = np.random.choice(data.obs[data.obs["STD.CellType"] == "EryP"].index)
-	terminal_megakaryocyte = np.random.choice(data.obs[data.obs["STD.CellType"] == "MKP"].index)
-	terminal_monocyte = np.random.choice(data.obs[data.obs["STD.CellType"] == "Mono"].index)
-	terminal_NK = np.random.choice(data.obs[data.obs["STD.CellType"] == "NK"].index)
-	dendritic = ["cDC", "pDC"]
-	terminal_dendritic = np.random.choice(data.obs[data.obs["STD.CellType"].isin(dendritic)].index)
-	T_cells = ["CD4", "CD8"]
-	terminal_T = np.random.choice(data.obs[data.obs["STD.CellType"].isin(T_cells)].index)
-	B_cells = ["B"]
-	terminal_B = np.random.choice(data.obs[data.obs["STD.CellType"].isin(B_cells)].index)
+	nearest_cells = search_cells(data, embedding_key = "X_umap", grouping_key = "states", n_select=1)
 
-	cells["terminal"] = {"monocyte": terminal_monocyte,
-			     "NK": terminal_NK,
-			     "B": terminal_B,
-			     "T": terminal_T, 
-			     "erythroid": terminal_erythroid, 
-			     "megakaryocyte": terminal_megakaryocyte, 
-			     "dendritic": terminal_dendritic}
+	cells = {"initial": {"hsc": nearest_cells["initial"][0]}, "terminal": {"erythroid": nearest_cells["erythroid"][0], "megakaryocyte": nearest_cells["megakaryocyte"][0], "monocyte": nearest_cells["monocyte"][0], "T": nearest_cells["T"][0], "B": nearest_cells["B"][0], "NK": nearest_cells["NK"][0], "dendritic": nearest_cells["dendritic"][0]}}
 
-	data.obs["is_selected"] = data.obs_names.isin(list(cells["terminal"].values()) + list(cells["initial"].values()))
-
-	mu.pl.embedding(data, basis="X_umap", color="is_selected")
-	with open(saving_path, "w") as f:
+	with open(os.path.join(saving_path), "w") as f:
 		json.dump(cells,f)
+
 

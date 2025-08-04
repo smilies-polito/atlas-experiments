@@ -4,48 +4,44 @@ import muon as mu
 import numpy as np
 import pandas as pd
 from scipy.sparse import csr_matrix
+from core import search_cells
 
-def get_cell_neighborhood(barcode_idx: str, connectivity_matrix: csr_matrix) -> list:
-	neighbors= connectivity_matrix[barcode_idx].tocoo()
-	neighbors_connections = neighbors.data
-	neighbors_idx = neighbors.col 
-	top_k = min(len(neighbors_connections), 30)
-	sorted_idx =  np.argsort(neighbors_connections)[::-1]
-	neighbors_idx = neighbors_idx[sorted_idx][:top_k]
-	return neighbors_idx
+def get_state(x:str) -> str:
+	mapping = {"initial": ["HSC", "Refined.HSC"], 
+		"erythroid": ["EryP"],
+		"megakaryocyte": ["MKP"], 
+		"monocyte": ["Mono"],
+		"NK": ["NK"],
+		"B": ["B", "Plasma"],
+		"dendritic" : ["cDC", "pDC"],
+		"T": ["CD4", "CD8"], 
+		"intermedate": ["MDP", "GMP", "CMP", "MEP", "MPP", "LMPP", "CLP", "ProB"]}
+	for k,v in mapping.items():
+		if x in v:
+			return k
+	return None
+ 
 
-def get_cells(data:mu.MuData, celltypes:list):
-	barcode = np.random.choice(data.obs[data.obs["STD.CellType"].isin(celltypes)].index) # select initial cell
-	barcode_idx =  data.obs_names.get_loc(barcode)
-	neighbors_idx = get_cell_neighborhood(barcode_idx, data.obsp["wnn_connectivities"])
-	return [barcode] + list(data.obs_names[neighbors_idx])
 
 if __name__=="__main__":
 	seed = 42
 	np.random.seed(seed)
 
-	working_dir = ... #repository path 
-	donor =  ...  # either donor2 or donor1
+	working_dir = ...
+	donor = ...
 	data_path = os.path.join(working_dir, "data", "lineage_tracing", f"{donor}")
 	
 	data = mu.read_h5mu(os.path.join(data_path, "data.h5mu"))
-	connectivity_matrix = data.obsp["wnn_connectivities"]
+	data.obs["states"] = data.obs["STD.CellType"].map(lambda x: get_state(x))
 
 	# SELECT INITIAL NEIGHBORHOOD	
-	initial_states = get_cells(data, ["HSC", "Refined.HSC"])
+	nearest_cells = search_cells(data, embedding_key = "X_umap", grouping_key = "states", n_select=30)
 	
-	# SELECT ERYTHROID
-	terminal_erythroid = get_cells(data, ["EryP"])
-	terminal_megakaryocyte = get_cells(data, ["MKP"])
-	terminal_monocyte = get_cells(data, ["Mono"])
-	terminal_NK = get_cells(data, ["NK"])
-	terminal_B = get_cells(data, ["B"])
-	dendritic = ["cDC", "pDC"]
-	terminal_dendritic= get_cells(data, dendritic)
-	T_cells = ["CD4", "CD8"]
-	terminal_T = get_cells(data, T_cells)
+	# PLOT
+	#data.obs["selected"] = (data.obs_names.isin(nearest_cells["erythroid"])) | (data.obs_names.isin(nearest_cells["megakaryocyte"])) | (data.obs_names.isin(nearest_cells["monocyte"])) | (data.obs_names.isin(nearest_cells["T"])) | (data.obs_names.isin(nearest_cells["B"])) | (data.obs_names.isin(nearest_cells["dendritic"])) | (data.obs_names.isin(nearest_cells["NK"])) | (data.obs_names.isin(nearest_cells["initial"]))
+	#mu.pl.embedding(data, basis="X_umap", color=["selected"], save=f"{donor}_selected_palantir.png", show=False)
 
-	cells = {"initial": {"hsc": initial_states}, "terminal": {"erythroid": terminal_erythroid, "megakaryocyte":terminal_megakaryocyte, "monocyte": terminal_monocyte, "T": terminal_T, "B": terminal_B, "NK": terminal_NK, "dendritic": terminal_dendritic}}
+	cells = {"initial": {"hsc": nearest_cells["initial"]}, "terminal": {"erythroid": nearest_cells["erythroid"], "megakaryocyte": nearest_cells["megakaryocyte"], "monocyte": nearest_cells["monocyte"], "T": nearest_cells["T"], "B": nearest_cells["B"], "NK": nearest_cells["NK"], "dendritic": nearest_cells["dendritic"]}}
 	with open(os.path.join(data_path, "selected_cells.json"), "w") as f:
 		json.dump(cells,f)
 
