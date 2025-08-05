@@ -1,9 +1,11 @@
 import numpy as np
+import umap
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from anndata import AnnData
 from muon import MuData
+from matplotlib.patches import Patch
 from scipy.sparse import issparse
 from typing import Optional, Union, List
 
@@ -105,4 +107,86 @@ def plot_group_heatmap(data: Union[MuData, AnnData], similarity_key:str="connect
 	if save is not None:
 		plt.savefig(save)
 		plt.close()
+
+
+
+def scatter_3D(data:Union[MuData, AnnData], key:str, color_key:Optional[str]=None):
+	if key not in data.obsm:
+		if key not in data.obsp:
+			raise KeyError(f"{key} not in data.obsp nor data.obsm")
+		X = data.obsp[key]
+	else:
+		X = data.obsm[key]
+
+	if color_key is not None:
+		if color_key not in data.obs.columns:
+			raise KeyError(f"{color_key} not in data.obs")
+		cat = data.obs[color_key].astype("category")	
+		palette = sns.color_palette("tab20", len(cat.cat.categories))
+		lut = dict(zip(cat.cat.categories, palette))
+		color = [lut[val] for val in data.obs[color_key]]
+		legend_elements = [Patch(facecolor=lut[cat], label=str(cat)) for cat in lut]
+	else: 
+		color = None
+		legend_elements = None
+
+	if issparse(X):
+		X = X.toarray()
+	if isinstance(X, pd.DataFrame):
+		X = X.to_numpy()
+
+	if X.shape[1] < 3:
+		raise ValueError(f"X.shape[1] expected to be higher than 3")
+
+	fig= plt.figure()
+	ax = fig.add_subplot(111, projection="3d")
+	ax.scatter(X[:,0], X[:,1], X[:,2], c=color)	
+
+	if legend_elements:
+		ax.legend(handles=legend_elements, title=color_key, loc="upper right")
+
+	ax.set_xlabel(f"{key} [1]")
+	ax.set_ylabel(f"{key} [2]") 
+	ax.set_zlabel(f"{key} [3]") 
+	plt.show()
+
+
+def plot_umap(data: Union[AnnData, MuData], key:str, color_key:Optional[str]=None, save:Optional[str]=None, seed:int = 42):
+	if key not in data.obsm:
+		if key not in data.obsp:
+			raise KeyError(f"{key} not in data.obsp nor data.obsm")
+		X = data.obsp[key]
+	else:
+		X = data.obsm[key]
 	
+	if issparse(X):
+		X = X.toarray()
+	if isinstance(X, pd.DataFrame):
+		X = X.to_numpy()
+
+	reducer = umap.UMAP(n_components=2, random_state = seed)
+	X_umap = reducer.fit_transform(X)
+
+	if color_key is not None:
+		if color_key not in data.obs.columns:
+			raise KeyError(f"{color_key} not in data.obs")
+		cat = data.obs[color_key].astype("category")	
+		palette = sns.color_palette("tab20", len(cat.cat.categories))
+		lut = dict(zip(cat.cat.categories, palette))
+		color = [lut[val] for val in data.obs[color_key]]
+		legend_elements = [Patch(facecolor=lut[cat], label=str(cat)) for cat in lut]
+	else: 
+		color = None
+		
+	fig= plt.figure(figsize=(12,12))
+	plt.scatter(X_umap[:,0], X_umap[:,1], c=color, s=10)	
+
+	if legend_elements:
+		plt.legend(handles=legend_elements, title=color_key, loc="upper right")
+
+	plt.xlabel(f"UMAP 1")
+	plt.ylabel(f"UMAP 2") 
+
+	if save:
+		plt.savefig(save)
+
