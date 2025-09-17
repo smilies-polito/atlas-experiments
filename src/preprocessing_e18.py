@@ -18,15 +18,12 @@ if __name__=="__main__":
 	saving_palantir_cells_path = os.path.join(data_path, "selected_cells_palantir.json")
 	cc_genes_path = os.path.join(working_dir, "data", "genes_cellcycle.tsv")
 	cc_genes = pd.read_csv(cc_genes_path, header=0, index_col=False, sep ="\t")
-	print(cc_genes.head(3))
 	
 	annotations = pd.read_csv(os.path.join(data_path, "cell_annotations.tsv"), sep ="\t", header=0, index_col=0)
 	annotations = annotations[~annotations.celltype.isin(['Interneurons2','Interneurons3',"Interneurons1", 'Cajal-Retzius','Microglia'])]
-	print(annotations.head(2))
 	data = sc.read_10x_mtx(os.path.join(data_path,  "filtered_feature_bc_matrix"), var_names="gene_symbols", gex_only=False)
 	atac = data[:, data.var["feature_types"]=="Peaks"]
 	rna = data[:, data.var["feature_types"]=="Gene Expression"]
-	print(f"rna: {rna.shape}, atac:{atac.shape}")
 	rna.var_names_make_unique()
 
 	# RNA QC FILTERING 
@@ -39,7 +36,6 @@ if __name__=="__main__":
 	skip_chromosomes = ['JH584299.1','GL456221.1','GL456219.1', "chrMT"]
 	coordinates = retrieve_ensembl_coordinates(list(rna.var_names), skip_chromosomes = skip_chromosomes)
 	rna = rna[:, rna.var_names.isin(coordinates["Symbol"])]
-	print(f"New rna shape is {rna.shape}")
 
 	# ATAC PREPROCESSING
 	ac.tl.locate_file(atac, file=os.path.join(data_path, "e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz"), key="fragments")
@@ -50,12 +46,10 @@ if __name__=="__main__":
 	low_nucleo, high_nucleo = np.percentile(atac.obs["nucleosome_signal"], 5), np.percentile(atac.obs["nucleosome_signal"], 95)
 	conditions = (atac.obs.nucleosome_signal > low_nucleo) & (atac.obs.nucleosome_signal < high_nucleo) & (atac.obs.tss_score > low_tss)
 	atac = atac[conditions, :]
-	print(f"New atac.shape is {atac.shape}")
 
 	intersection = set(rna.obs_names).intersection(set(atac.obs_names)).intersection(set(list(annotations.index.values)))
 	atac = atac[atac.obs_names.isin(intersection), :]
 	rna = rna[rna.obs_names.isin(intersection), :]
-	print(f"After intersection rna: {rna.shape}, atac: {atac.shape}")
 
 	sc.pp.normalize_total(rna, target_sum=1e4)
 	sc.pp.log1p(rna)
@@ -75,7 +69,7 @@ if __name__=="__main__":
 
 	data = MuData({"rna":rna, "activity":activity})
 	data.obs = data.obs.merge(annotations, left_index=True, right_index=True, how="left") 
-	print(f"Data: {data.shape}")
+	print(f"MULTIMODAL OBJECT SHAPE IS {data.shape}")
 
 	sc.pp.pca(data["rna"], random_state=seed)
 	sc.pp.pca(data["activity"], random_state=seed)
@@ -97,6 +91,7 @@ if __name__=="__main__":
 	data.write(os.path.join(data_path, "data.h5mu"))
 
 	# Select palantir states
+	print("SELECTING PALANTIR INITIAL CELL FROM RADIAL GLIA")
 	cells = {}
 	cells["initial"] = {"rg": np.random.choice(data.obs[data.obs["celltype"]=="RG, Astro, OPC"].index)}
 	with open(saving_palantir_cells_path, "w") as f:
