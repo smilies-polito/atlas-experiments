@@ -6,6 +6,81 @@ from muon import MuData
 from typing import Optional, Union
 from anndata import AnnData
 from muon import atac as ac 
+from scipy.spatial.distance import cdist
+
+
+def search_cells(data: MuData, embedding_key:str="X_umap", grouping_key:str="celltype", n_select:int=1) -> dict:
+	centroids = compute_centroids(data, embedding_key=embedding_key, grouping_key=grouping_key)
+	nearest_cells = find_nearest_cells(data, centroids, embedding_key = embedding_key, grouping_key = grouping_key, n_select=n_select)
+	return nearest_cells
+
+
+def compute_centroids(data: MuData, embedding_key: str="X_umap", grouping_key:str="celltype") -> pd.DataFrame:
+	if not embedding_key in data.obsm:
+		raise KeyError(f"{embedding_key} not in data.obsm")
+	if not grouping_key in data.obs:
+		raise KeyError(f"{grouping_key} not in data.obs")
+
+	embedding = data.obsm[embedding_key]
+	columns = [f"col{n}" for n in range(embedding.shape[1])]
+
+	df = pd.DataFrame(embedding, index=data.obs_names, columns=columns)
+	df[grouping_key] = data.obs[grouping_key]
+	
+	centroids = df.groupby(by=grouping_key).mean()
+	return centroids
+
+
+def find_nearest_cells(data: MuData, centroids:pd.DataFrame, embedding_key: str="X_umap", grouping_key:str="celltype", n_select:int=30) -> dict:
+	if not embedding_key in data.obsm:
+		raise KeyError(f"{embedding_key} not in data.obsm")
+	if not grouping_key in data.obs:
+		raise KeyError(f"{grouping_key} not in data.obs")
+
+	embedding = data.obsm[embedding_key]	
+
+	nearest_cells = {}
+	
+	for group in centroids.index:
+		mask = data.obs[grouping_key] == group
+		group_coordinates = embedding[mask.values, :]
+		group_observations = data.obs_names[mask.values]
+		group_centroid = centroids.loc[group].values.reshape(1, -1)
+		dists = cdist(group_coordinates, group_centroid).flatten()
+		top_indices = np.argsort(dists)[:n_select]
+		nearest_cells[group] = group_observations[top_indices].tolist()
+
+	return nearest_cells 
+
+
+def get_state_lineage_tracing(x:str) -> str:
+	mapping = {"initial": ["HSC", "Refined.HSC"], 
+		"erythroid": ["EryP"],
+		"megakaryocyte": ["MKP"], 
+		"monocyte": ["Mono"],
+		"NK": ["NK"],
+		"B": ["B", "Plasma"],
+		"dendritic" : ["cDC", "pDC"],
+		"T": ["CD4", "CD8"], 
+		"intermedate": ["MDP", "GMP", "CMP", "MEP", "MPP", "LMPP", "CLP", "ProB"]}
+	for k,v in mapping.items():
+		if x in v:
+			return k
+	return None
+
+def intermediate_probability(frequencies, reachable_lineages, cell):
+	'''
+		Function that identifies the lineages involved in the differentiation process for intermediate progenitor cells.
+	'''
+	clade = cell["ClonalGroup"]
+	celltype = cell["STD.CellType"]
+	reachable = reachable_lineages.get(celltype , []) # get the lineages the cell cen develop into
+	clade_row = frequencies[(frequencies.clade == clade)].drop(columns="clade") # identifies the cells belonging to the clade
+	mask = [col for col in clade_row if col not in reachable] # identifies the lineages 
+	clade_row.loc[:, mask] = 0 # sets to 0 the lineages the cell cannot reach 
+	totals = clade_row.sum(axis=1).values[0] # normalizes the other values
+	clade_row /= totals 
+	return clade_row.iloc[0].copy() 
 
 def process_coordinates(response):
 	results = []
