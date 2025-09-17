@@ -2,7 +2,8 @@ import json
 import requests
 import pandas as pd 
 from tqdm import tqdm
-from typing import Optional 
+from muon import MuData
+from typing import Optional, Union
 from anndata import AnnData
 from muon import atac as ac 
 
@@ -91,3 +92,32 @@ def compute_single_activity_experiment(experiment:AnnData, fragment_path: str, f
 	ac.tl.locate_file(data=experiment, file=fragment_path, key ="fragments")
 	activity = ac.tl.count_fragments_features(data=experiment, features=features, stranded=stranded)
 	return activity 
+
+
+def _check_keys(data: Union[AnnData, MuData], modality_key:Optional[str]=None, 
+				embedding_key: Optional[str]=None, pseudo_time_key: Optional[str]=None,
+				entropy_key: Optional[str]=None, fate_prob_key: Optional[str]=None, obs_key:Optional[str]=None):
+
+	is_mudata = isinstance(data, MuData) and modality_key is None
+	is_anndata = isinstance(data, AnnData)
+	is_modality = isinstance(data, MuData) and modality_key is not None
+	if is_modality and modality_key not in data.mod.keys():
+		raise KeyError(f"{modality_key} not in data.mod.keys()")
+	if (is_mudata or is_modality) and embedding_key is not None and embedding_key not in data.obsm.keys():
+ 		raise KeyError(f"{embedding_key} not in data.obsm") 
+	if (is_mudata or is_anndata) and (pseudo_time_key is not None and pseudo_time_key not in data.obs.columns):
+		raise KeyError(f"{pseudo_time_key} not in data.obs")
+	if is_modality and (pseudo_time_key is not None and pseudo_time_key not in data[modality_key].obs.columns):
+		raise KeyError(f"{pseudo_time_key} not in data.obs")
+	if (is_mudata or is_anndata) and (fate_prob_key is not None and fate_prob_key not in data.obsm.keys()):
+		raise KeyError(f"{fate_prob_key} not in data.obsm")
+	if is_modality and (fate_prob_key is not None and fate_prob_key not in data[modality_key].obsm.keys()): 
+		raise KeyError(f"{fate_prob_key} not in data.obsm") 
+	if (is_mudata or is_anndata) and (entropy_key is not None and entropy_key not in data.obs.columns):
+		raise KeyError(f"{entropy_key} not in data.obs")
+	if is_modality and entropy_key is not None and entropy_key not in data[modality_key].obs.columns:
+		raise KeyError(f"{entropy_key} not in data[{modality_key}].obs")
+	if (is_anndata or is_mudata) and obs_key is not None and obs_key not in data.obs.columns:
+		raise KeyError(f"{obs_key} not in data.obs")
+	if is_modality and obs_key is not None and obs_key not in data[modality_key].obs.columns:
+		raise KeyError(f"{obs_key} not in data[{modality_key}].obs")

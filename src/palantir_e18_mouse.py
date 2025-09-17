@@ -5,7 +5,7 @@ import scanpy as sc
 import pandas as pd
 import numpy as np
 from src.palantir_wrapper import PalantirWrapper
-from src.palantir_plots import plot_similarity_matrix, plot_diffusion_space
+from src.plots import plot_similarity_matrix, plot_diffusion_space, plot_palantir_results
 
 
 if __name__=="__main__":
@@ -20,8 +20,7 @@ if __name__=="__main__":
 	with open(early_cell_path, "r") as f:
 		early_cell = json.load(f)
 		f.close()
-
-	exit()
+	early_cell = early_cell["initial"]["rg"]
 
 	#path declaration + additional files
 	data = mu.read_h5mu(os.path.join(data_path, "data.h5mu"))
@@ -44,6 +43,10 @@ if __name__=="__main__":
 	pw.run_diffusion_maps(data["rna"], seed=seed)
 	pw.determine_multiscale_space(data["rna"])
 
+	similarity_path = os.path.join(rna_folder, "similarity_matrix.png")
+	multiscale_path = os.path.join(rna_folder, "diffusion_space.png")
+	plot_similarity_matrix(similarity_matrix = data["rna"].obsp["DM_Similarity"].A, cell_types = data["rna"].obs["celltype"].values, path = similarity_path) 
+	plot_diffusion_space(diffusion_space = data["rna"].obsm["DM_EigenVectors_multiscaled"], cell_types = data["rna"].obs["celltype"].values, path = multiscale_path) 
 	try:
 		pw.run_palantir(data["rna"], early_cell=early_cell, seed = seed) 
 		plot_palantir_results(data = data, modality_key = "rna", embedding_key = "X_umap", pseudo_time_key = "palantir_pseudotime", entropy_key = "palantir_entropy", fate_prob_key = "palantir_fate_probabilities", save= True, saving_path = rna_folder)
@@ -51,12 +54,18 @@ if __name__=="__main__":
 	except Exception as e:
 		print(e)
 
+	
 	#EXECUTE PALANTIR MULTIOMICS
 	print("EXECUTING PALANTIR - MULTIOMICS MODEL")
 	pw = PalantirWrapper()
 	pw.compute_kernel(data)
 	pw.run_diffusion_maps(data, seed=seed)
 	pw.determine_multiscale_space(data)
+	
+	similarity_path = os.path.join(multiomics_folder, "similarity_matrix.png")
+	multiscale_path = os.path.join(multiomics_folder, "diffusion_space.png")
+	plot_similarity_matrix(similarity_matrix = data.obsp["DM_Similarity"].A, cell_types = data.obs["celltype"].values, path = similarity_path) 
+	plot_diffusion_space(diffusion_space = data.obsm["DM_EigenVectors_multiscaled"], cell_types = data.obs["celltype"].values, path = multiscale_path) 
 
 	try:
 		pw.run_palantir(data, early_cell=early_cell, seed = seed) 
@@ -64,3 +73,5 @@ if __name__=="__main__":
 
 	except Exception as e:
 		print(e)
+
+	data.write(os.path.join(data_path, "palantir_data.h5mu"))
