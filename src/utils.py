@@ -148,6 +148,7 @@ def assign_lineage(celltype: str) -> str:
 								"CBD": "lymphoid",
 								"HSC": "hsc",
 								"Refined.HSC": "hsc"}
+	return map_celltype_to_lineage.get(celltype, "")
 
 
 def aggregate_lineage_fate(df:pd.DataFrame, terminal:dict):

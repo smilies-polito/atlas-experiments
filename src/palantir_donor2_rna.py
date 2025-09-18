@@ -1,29 +1,26 @@
 import os
 import json
-import time
 import muon as mu
 import scanpy as sc
 import pandas as pd
 import numpy as np
-from itertools import product
-from utils import aggregate_lineage_fate
-from core.palantirModel.plots import plot_palantir_results, plot_similarity_matrix, plot_diffusion_space
-from core.palantirModel.palantir_wrapper import PalantirWrapper 
-from core.palantirModel.utils import _save_results
-from core.metrics import compute_correlation, compute_f1
-from core.utils import save_run_results
+from src.utils import aggregate_lineage_fate
+from src.plots import plot_palantir_results, plot_similarity_matrix, plot_diffusion_space
+from src.palantir_wrapper import PalantirWrapper, results_to_dataframe
+from src.metrics import compute_correlation, compute_f1
 
 
 if __name__=="__main__":
 	seed = 42
 	np.random.seed(seed)
 
-	working_dir = ... 
-	donor= ... #either donor1 or donor2
-	data_path = os.path.join(working_dir, "data", "lineage_tracing", f"{donor}")
-	results_folder = os.path.join(working_dir, "results", "lineage_tracing")
+	working_dir = "/scvemo"
+	donor= "donor2" 
+	data_path = os.path.join(working_dir, "data", "lineage_tracing", donor)
+	results_folder = os.path.join(working_dir, "output", "lineage_tracing")
+	results_path = os.path.join(results_folder, f"palantir_results.csv")
 
-	fixed_terminal = ...
+	fixed_terminal = True
 	model = "rna"
 	
 	#path declaration + additional files
@@ -31,12 +28,11 @@ if __name__=="__main__":
 	data["rna"].obsm["X_umap"] = data.obsm["X_umap"]
 	data["rna"].obs = data.obs[["lineage", "STD.CellType"]]
 
-	results = {"donor": f"{donor}", "algorithm": "palantir", "model":f"{model}",
+	results = {"donor": donor, "algorithm": "palantir", "model": model,
 		      "fixed_terminal": fixed_terminal, "f1_cosine": None, "f1_euclidean": None,
 		"pearson_entropy_statistics": None, "pearson_entropy_pvalue": None, "n_terminal_states": None}
 
 	saving_folder = os.path.join(results_folder, f"palantir_{donor}_{model}_{fixed_terminal}")
-	results_path = os.path.join(results_folder, f"palantir_results.csv")
 	if not os.path.exists(saving_folder):
 		os.mkdir(saving_folder)
 
@@ -58,13 +54,18 @@ if __name__=="__main__":
 	pw.run_diffusion_maps(data["rna"], seed=seed)
 	pw.determine_multiscale_space(data["rna"])
 
+	plot_similarity_matrix(data["rna"].obsp["DM_Similarity"].A, data.obs["STD.celltype"], os.path.join(saving_folder, "similarity_celltypes.png"))
+	plot_similarity_matrix(data["rna"].obsp["DM_Similarity"].A, data.obs["lineage"], os.path.join(saving_folder, "similarity_lineage.png"))
+	plot_diffusion_space(data["rna"].obsm["DM_EigenVectors_multiscaled"], data.obs["lineage"], os.path.join(saving_folder, "diffusion_space_lineage.png"))
+	plot_diffusion_space(data["rna"].obsm["DM_EigenVectors_multiscaled"], data.obs["STD.CellType"], os.path.join(saving_folder, "diffusion_space_celltype.png"))
+
 	try:
 		if fixed_terminal:
 			pw.run_palantir(data["rna"], early_cell = early_cell, terminal_states = terminal_states, seed=seed)
 		else:
 			pw.run_palantir(data["rna"], early_cell=early_cell, seed = seed) 
 
-		dataframe = _save_results(data, entropy_key = "palantir_entropy", pseudo_time_key = "palantir_pseudotime", fate_prob_key = "palantir_fate_probabilities", modality_key = "rna", group_key = "lineage", true_pseudotime=None)
+		dataframe = results_to_dataframe(data, entropy_key = "palantir_entropy", pseudo_time_key = "palantir_pseudotime", fate_prob_key = "palantir_fate_probabilities", modality_key = "rna", group_key = "lineage", true_pseudotime=None)
 		dataframe = dataframe.merge(data.obs[["STD.CellType"]], how="left", left_index=True, right_index=True)
 
 		if fixed_terminal:
@@ -87,6 +88,7 @@ if __name__=="__main__":
 		results["pearson_entropy_pvalue"] = pvalue
 	
 		pd.DataFrame(results, index=[0]).to_csv(results_path, sep=",", header=False, index=False, mode="a")	
+
 	except Exception as e:
 		print(e)
 

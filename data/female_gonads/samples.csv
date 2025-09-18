@@ -1,0 +1,8 @@
+library_id,atac_fragments,per_barcode_metrics,gex_molecule_info,age
+HRV39A,/home/lmartini/cellranger_run/hrv39_a/outs/atac_fragments.tsv.gz,/home/lmartini/cellranger_run/hrv39_a/outs/per_barcode_metrics.csv,/home/lmartini/cellranger_run/hrv39_a/outs/gex_molecule_info.h5,14
+HRV58B,/home/lmartini/cellranger_run/hrv58_b/outs/atac_fragments.tsv.gz,/home/lmartini/cellranger_run/hrv58_b/outs/per_barcode_metrics.csv,/home/lmartini/cellranger_run/hrv58_b/outs/gex_molecule_info.h5,21
+HRV58A,/home/lmartini/cellranger_run/hrv58_a/atac_fragments.tsv.gz,/home/lmartini/cellranger_run/hrv58_a/per_barcode_metrics.csv,/home/lmartini/cellranger_run/hrv58_a/gex_molecule_info.h5,21
+HRV65A,/home/lmartini/cellranger_run/hrv65_a/outs/atac_fragments.tsv.gz,/home/lmartini/cellranger_run/hrv65_a/outs/per_barcode_metrics.csv,/home/lmartini/cellranger_run/hrv65_a/outs/gex_molecule_info.h5,20
+HRV65B,/home/lmartini/cellranger_run/hrv65_b/outs/atac_fragments.tsv.gz,/home/lmartini/cellranger_run/hrv65_b/outs/per_barcode_metrics.csv,/home/lmartini/cellranger_run/hrv65_b/outs/gex_molecule_info.h5,20
+HRV91A,/home/lmartini/cellranger_run/hrv91_a/outs/atac_fragments.tsv.gz,/home/lmartini/cellranger_run/hrv91_a/outs/per_barcode_metrics.csv,/home/lmartini/cellranger_run/hrv91_a/outs/gex_molecule_info.h5,8.6
+HRV92A,/home/lmartini/cellranger_run/hrv92_a/outs/atac_fragments.tsv.gz,/home/lmartini/cellranger_run/hrv92_a/outs/per_barcode_metrics.csv,/home/lmartini/cellranger_run/hrv92_a/outs/gex_molecule_info.h5,8.6

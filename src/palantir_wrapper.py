@@ -11,10 +11,10 @@ import scipy.stats as st
 
 from muon import MuData
 from anndata import AnnData
-from typing import Optional, Union, List, Dict
+from src.utils import _check_keys
 from palantir.presults import PResults
 from scipy.sparse import csr_matrix, find
-
+from typing import Optional, Union, List, Dict
 
 
 
@@ -266,4 +266,22 @@ class PalantirWrapper():
 		 
 
 
+def results_to_dataframe(data:MuData, entropy_key:str ="entropy", pseudo_time_key:str="palantir_pseudotime", fate_prob_key:str="fates", modality_key:str=None, **kwargs):
+	group_key = kwargs["group_key"] if "group_key" in kwargs else None
 
+	_check_keys(data, modality_key = modality_key, entropy_key = entropy_key, pseudo_time_key=pseudo_time_key, obs_key=group_key, fate_prob_key = fate_prob_key)
+
+	true_key = kwargs["true_pseudotime"] if "true_pseudotime" in kwargs else None
+	_check_keys(data, modality_key = modality_key, obs_key = true_key)
+
+	data = data if modality_key is None else data[modality_key]
+
+	columns = [entropy_key, pseudo_time_key]
+	if group_key is not None:
+		columns = columns + [group_key]
+	if true_key is not None:
+		columns = columns + [true_key]	
+	dataframe = data.obs[columns].copy()
+	dataframe = pd.concat((dataframe, data.obsm[fate_prob_key]), axis=1)
+
+	return dataframe
