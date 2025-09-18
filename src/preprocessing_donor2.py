@@ -1,7 +1,8 @@
 import os, gc
+import json
+import scipy
 import muon as mu
 import scanpy as sc
-import scipy
 import numpy as np
 import anndata
 import pandas as pd
@@ -18,8 +19,6 @@ if __name__=="__main__":
 	data_path = os.path.join(working_dir, "data", "lineage_tracing", "donor2")
 	cc_genes_path = os.path.join(working_dir, "data", "genes_cellcycle.tsv")
 	cc_genes = pd.read_csv(cc_genes_path, header=0, index_col=False, sep ="\t")
-	print("CCV GENES")
-	print(cc_genes.head(2))
 
 	metadata = pd.read_csv(os.path.join(data_path, "all.metadata.csv"), header=0, index_col=0) # metadata from figshare 
 	barcodes = pd.read_csv(os.path.join(data_path, "all.barcodes.csv")).iloc[:,0].to_list() # barcodes from figshare link 
@@ -27,14 +26,12 @@ if __name__=="__main__":
 	
 	rna = scipy.io.mmread(os.path.join(data_path, "all.rna.mtx")) #rna counts from figshare
 	rna = AnnData(X=csr_matrix(rna), obs = pd.DataFrame(data=None, columns=None, index=barcodes), var= pd.DataFrame(data=None, columns=None, index= rna_features))
-	print(f"shape rna = {rna.shape}")
 	
 	# RNA quality control and filtering
 	sc.pp.calculate_qc_metrics(rna, inplace=True)
 	sc.pl.violin(rna, ["n_genes_by_counts", "total_counts"], show=False, save="_rna_donor2.png")
 	sc.pp.filter_cells(rna, min_counts=1000)
 	sc.pp.filter_cells(rna, max_counts=15000)
-	print(f"rna shape after qc filtering: {rna.shape}")
 	
 	# RNA extract features from h5 files
 	bmmc_data = sc.read_10x_h5(os.path.join(data_path, "GSE219248_Young2_BMMC.filtered_feature_bc_matrix.h5")) #h5 from GSE219015
@@ -46,13 +43,11 @@ if __name__=="__main__":
 	vars_complete = bmmc_data.var.combine_first(hspc_data.var).combine_first(hsc_data.var)
 	vars_complete[['Chromosome', 'Start', 'End']] = vars_complete['interval'].str.extract(r'([^:]+):(\d+)-(\d+)')
 	features = create_feature_map(vars_complete, strand=False)
-	print(f"features shape is {features.shape}")
 
 	# ATAC anndata creation 
 	atac_features = pd.read_csv(os.path.join(data_path, "all.peaks.csv"), header=None).iloc[:,0].to_list() # peaks from figshare
 	atac = scipy.io.mmread(os.path.join(data_path, "all.atac.mtx")) # atac counts from figshare
 	atac = AnnData(X=csr_matrix(atac), obs = pd.DataFrame(data=None, columns=None, index=barcodes), var= pd.DataFrame(data=None, columns=None, index= atac_features))
-	print(f"atac shape is {atac.shape}")
 
 	# ATAC preprocessing + COMPUTE ACTIVITY: devo dividere per tipologia perchè i fragment files sono distinti in base all'esperimento (experimento = bmmc, hspc, hsc)
 	bmmc = atac[metadata.Sample=="DN9_BMMC"]
@@ -74,7 +69,6 @@ if __name__=="__main__":
 	low_nucleosome, high_nucleosome = np.percentile(atac.obs["nucleosome_signal"], 5), np.percentile(atac.obs["nucleosome_signal"], 95)
 	conditions = (atac.obs.nucleosome_signal>low_nucleosome) & (atac.obs.nucleosome_signal< high_nucleosome) & (atac.obs.tss_score > low_tss)
 	atac = atac[conditions, :]
-	print(f"atac shape after qc {atac.shape}")
 	
 	# ACTIVITY computation + creazione di una matrice di attività
 	sub_metadata = metadata.loc[list(atac.obs_names), :]
@@ -91,7 +85,6 @@ if __name__=="__main__":
 	hsc_activity.obs_names = hsc_activity.obs_names.map(lambda x: x.split("-")[0] + "-3")
 
 	activity = anndata.concat([bmmc_activity, hspc_activity, hsc_activity], axis=0)
-	print(f"activity created:{activity.shape}")
 
 	# INTERSECTING GENES AND BARCODES
 	intersecting_cells = list(set(rna.obs_names).intersection(set(activity.obs_names)))	
@@ -101,7 +94,6 @@ if __name__=="__main__":
 	activity = activity[intersecting_cells, intersecting_genes]
 	rna = rna[rna.obs_names.isin(intersecting_cells), rna.var_names.isin(intersecting_genes)].copy()
 	rna = rna[intersecting_cells, intersecting_genes]
-	print(f"after intersection: rna={rna.shape}, activity={activity.shape}")
 	
 	# PREPROCESSING: target sum in rna required for celltypist
 	rna.var_names = rna.var_names.str.upper()
@@ -121,7 +113,7 @@ if __name__=="__main__":
 	# MUON DATASET 
 	data = MuData({"rna": rna, "activity":activity})
 	data.obs = data.obs.merge(metadata, left_index=True, right_index=True, how="left")
-	print(f"{data.shape}")
+	data.obs["lineage"] = data.obs["STD.CellType"].apply(lambda x: assign_lineage(x))
 
 	# PCA, NEIGHBORS E WNN + MULTIMODAL UMAP 
 	sc.pp.pca(data["rna"], random_state=seed)
@@ -139,9 +131,6 @@ if __name__=="__main__":
 	sc.pp.neighbors(data["activity"], n_neighbors=knn_activity, n_pcs = n_pcs_activity, random_state = seed)
 	mu.pp.neighbors(data, key_added="wnn", n_neighbors=wnn, random_state=seed)
 	mu.tl.umap(data, random_state = seed, neighbors_key="wnn")
-	mu.tl.louvain(data, random_state=seed)
-	mu.tl.leiden(data, random_state=seed)
-	data.obs["lineage"] = data.obs["STD.CellType"].map(lambda x: assign_lineage(x))
 	mu.pl.umap(data, color=["STD.CellType", "lineage"], legend_loc="on data", save="_LT_donor2_multimodal.png")
 	
 	data.write(os.path.join(data_path, "data.h5mu"))

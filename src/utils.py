@@ -1,5 +1,6 @@
 import json
 import requests
+import numpy as np 
 import pandas as pd 
 from tqdm import tqdm
 from muon import MuData
@@ -87,7 +88,6 @@ def process_coordinates(response):
 	if not response.ok:
 		return results
 	data = response.json()
-	print(len(data.items()))
 	for symbol,info in data.items():
 		results.append(( symbol, info.get("seq_region_name", None),
 					info.get("start", None),
