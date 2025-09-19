@@ -181,7 +181,7 @@ def simple_scatter(x,y, c=None, categorical: bool= False, save:bool=True, saving
 
 
 def plot_heatmap(data: Union[AnnData, MuData], similarity_key:str="connectivities", group_key:Union[str, List[str]]="celltype", save:Optional[str]=None, subset_key:Optional[str]=None, keep_subset:Optional[List[str]]=None):
-
+	print(f"CALLED {similarity_key}")
 	if subset_key is not None and subset_key not in data.obs.columns:
 		raise KeyError(f"{subset_key} not in data.obs")
 	if subset_key is not None and keep_subset is not None:
@@ -216,16 +216,18 @@ def plot_heatmap(data: Union[AnnData, MuData], similarity_key:str="connectivitie
 	if isinstance(W, pd.DataFrame):
 		W = W.to_numpy()
 
+	print(f"W: {W.shape}")
 	if subset_key is not None:
 		mask = data.obs[subset_key].isin(keep_subset).values 
-		W = W[:, mask]
+		W = W[mask, :]
 	else:
 		mask = np.ones(W.shape[0], dtype=bool)
 
-	sorted_obs_rows = data.obs.sort_values(group_key)
-	sorted_obs_cols = data.obs[mask].sort_values(group_key)
-	sorted_idx_rows = data.obs.index.get_indexer(sorted_obs_rows.index)
-	sorted_idx_cols = data.obs[mask].index.get_indexer(sorted_obs_cols.index)
+	sorted_obs_rows = data.obs[mask].sort_values(group_key)
+	sorted_obs_cols = data.obs.sort_values(group_key)
+	sorted_idx_rows = data.obs[mask].index.get_indexer(sorted_obs_rows.index)
+	sorted_idx_cols = data.obs.index.get_indexer(sorted_obs_cols.index)
+	print(f"Checks, rows {sorted_idx_rows.shape} col {sorted_idx_cols.shape}")
 	
 	if manipulate_columns:
 		W_sorted = W[sorted_idx_rows, :][:, sorted_idx_cols]
