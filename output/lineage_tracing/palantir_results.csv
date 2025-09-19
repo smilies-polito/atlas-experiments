@@ -1,1 +1,5 @@
 donor,algorithm,model,fixed_terminal,f1_cosine,f1_euclidean,pearson_entropy_statistics,pearson_entropy_pvalue,n_terminal_states
+donor2,palantir,rna,True,0.012764143066667023,0.20420354724163045,-0.2659500303071302,0.0,
+donor2,palantir,rna,False,,,-0.7898699722138255,0.0,5
+donor2,palantir,multiomics,False,,,-0.3030009067065732,0.0,4
+donor2,palantir,multiomics,True,0.0,0.013666946445398122,0.21326813897171912,4.403427151052125e-251,

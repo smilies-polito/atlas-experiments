@@ -5,7 +5,7 @@ import scanpy as sc
 import pandas as pd
 import numpy as np
 from src.utils import aggregate_lineage_fate
-from src.plots import plot_palantir_results, plot_similarity_matrix, plot_diffusion_space
+from src.plots import plot_palantir_results, plot_heatmap 
 from src.palantir_wrapper import PalantirWrapper, results_to_dataframe
 from src.metrics import compute_correlation, compute_f1
 
@@ -17,7 +17,7 @@ if __name__=="__main__":
 	working_dir = "/scvemo"
 	donor = "donor2"  
 	data_path = os.path.join(working_dir, "data", "lineage_tracing", donor)
-	results_folder = os.path.join(working_dir, "results", "lineage_tracing")
+	results_folder = os.path.join(working_dir, "output", "lineage_tracing")
 	results_path = os.path.join(results_folder, f"palantir_results.csv")
 
 	fixed_terminal = True
@@ -50,10 +50,8 @@ if __name__=="__main__":
 	pw.run_diffusion_maps(data, seed=seed)
 	pw.determine_multiscale_space(data)
 	
-	plot_similarity_matrix(data.obsp["DM_Similarity"].A, data.obs["STD.celltype"], os.path.join(saving_folder, "similarity_celltypes.png"))
-	plot_similarity_matrix(data.obsp["DM_Similarity"].A, data.obs["lineage"], os.path.join(saving_folder, "similarity_lineage.png"))
-	plot_diffusion_space(data.obsm["DM_EigenVectors_multiscaled"], data.obs["lineage"], os.path.join(saving_folder, "diffusion_space_lineage.png"))
-	plot_diffusion_space(data.obsm["DM_EigenVectors_multiscaled"], data.obs["STD.CellType"], os.path.join(saving_folder, "diffusion_space_celltype.png"))
+	plot_heatmap(data=data, similarity_key="DM_Similarity", group_key="STD.CellType", subset_key=None, keep_subset=None, save=os.path.join(saving_folder, "similarity_celltypes.png"))
+	plot_heatmap(data=data, similarity_key="DM_EigenVectors_multiscaled", group_key="STD.CellType", subset_key=None, keep_subset=None, save=os.path.join(saving_folder, "diffusion_space_celltypes.png"))
 
 	try:
 		if fixed_terminal:
