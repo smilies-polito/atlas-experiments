@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 from src.plots import plot_entropy 
 from src.palantir_wrapper import PalantirWrapper 
-from src.pseudokernel import PseudotimeKernelMuon
+from src.pseudokernel import PseudotimeKernelMuon, analysis_matrix
 
 
 if __name__=="__main__":
@@ -52,6 +52,13 @@ if __name__=="__main__":
 		pw.run_palantir(data["rna"], early_cell=early_cell, seed = seed) 
 		kernel = PseudotimeKernelMuon(data=data, modality_key = "rna", embedding_key = "X_umap", connectivity_key="connectivities", pseudotime_key="palantir_pseudotime", group_key="celltype")
 		kernel.compute_transition_matrix(threshold_scheme="hard")
+		
+		matrix_path = os.path.join(rna_folder, "matrix_analysis.json")
+		matrix_analysis = analysis_matrix(kernel.kernel.transition_matrix)
+		with open(matrix_path, "w") as f:
+			json.dump(matrix_analysis, f)
+			f.close()
+
 		g = cellrank.estimators.GPCCA(kernel.kernel)
 		g.compute_schur()
 		for n_macrostates in macrostates_to_eval:
@@ -92,6 +99,13 @@ if __name__=="__main__":
 		pw.run_palantir(data, early_cell=early_cell, seed = seed) 
 		kernel = PseudotimeKernelMuon(data=data, modality_key = None, embedding_key = "X_umap", connectivity_key="wnn_connectivities", pseudotime_key="palantir_pseudotime", group_key="celltype")
 		kernel.compute_transition_matrix(threshold_scheme="hard")
+
+		matrix_path = os.path.join(multiomics_folder, "matrix_analysis.json")
+		matrix_analysis = analysis_matrix(kernel.kernel.transition_matrix)
+		with open(matrix_path, "w") as f:
+			json.dump(matrix_analysis, f)
+			f.close()
+
 		g = cellrank.estimators.GPCCA(kernel.kernel)
 		g.compute_schur()
 		for n_macrostates in macrostates_to_eval:
