@@ -181,7 +181,6 @@ def simple_scatter(x,y, c=None, categorical: bool= False, save:bool=True, saving
 
 
 def plot_heatmap(data: Union[AnnData, MuData], similarity_key:str="connectivities", group_key:Union[str, List[str]]="celltype", save:Optional[str]=None, subset_key:Optional[str]=None, keep_subset:Optional[List[str]]=None):
-	print(f"CALLED {similarity_key}")
 	if subset_key is not None and subset_key not in data.obs.columns:
 		raise KeyError(f"{subset_key} not in data.obs")
 	if subset_key is not None and keep_subset is not None:
@@ -189,17 +188,17 @@ def plot_heatmap(data: Union[AnnData, MuData], similarity_key:str="connectivitie
 		if len(keep_subset) == 0:
 			raise ValueError(f"key_subset not valid")
 
-	if not similarity_key in data.obsp:
-		if not similarity_key in data.obsm:
-			raise KeyError(f"{similarity_key} not in data.obsm or data.obsp")
+	if similarity_key in data.obsp:
+		W = data.obsp[similarity_key]
+		manipulate_columns = True
+	elif similarity_key in data.obsm:
 		W = data.obsm[similarity_key]
 		manipulate_columns = False
 	else:
-		W = data.obsp[similarity_key]
-		manipulate_columns = True
+		raise KeyError(f"{similarity_key} not in data.obsm, data.obsp")
 
 	if isinstance(group_key, str):
-		if not group_key in data.obs.columns:
+		if group_key not in data.obs.columns:
 			raise KeyError(f"{group_key} not in data.obs")
 		group_key = [group_key]
 	else:
@@ -216,23 +215,24 @@ def plot_heatmap(data: Union[AnnData, MuData], similarity_key:str="connectivitie
 	if isinstance(W, pd.DataFrame):
 		W = W.to_numpy()
 
-	print(f"W: {W.shape}")
 	if subset_key is not None:
 		mask = data.obs[subset_key].isin(keep_subset).values 
-		W = W[mask, :]
 	else:
 		mask = np.ones(W.shape[0], dtype=bool)
 
-	sorted_obs_rows = data.obs[mask].sort_values(group_key)
-	sorted_obs_cols = data.obs.sort_values(group_key)
-	sorted_idx_rows = data.obs[mask].index.get_indexer(sorted_obs_rows.index)
-	sorted_idx_cols = data.obs.index.get_indexer(sorted_obs_cols.index)
-	print(f"Checks, rows {sorted_idx_rows.shape} col {sorted_idx_cols.shape}")
+	W = W[mask, :]
+	obs_rows = data.obs[mask]
+	obs_cols = data.obs
+
+	sorted_obs_rows = obs_rows.sort_values(group_key)
+	sorted_obs_cols = obs_cols.sort_values(group_key)
+	row_pos = obs_rows.index.get_indexer(sorted_obs_rows.index)
+	col_pos = obs_cols.index.get_indexer(sorted_obs_cols.index)
 	
 	if manipulate_columns:
-		W_sorted = W[sorted_idx_rows, :][:, sorted_idx_cols]
+		W_sorted = W[row_pos, :][:, col_pos]
 	else:
-		W_sorted = W[sorted_idx_rows, :]
+		W_sorted = W[row_pos, :]
 
 	luts = {}
 	row_colors = []
@@ -243,17 +243,13 @@ def plot_heatmap(data: Union[AnnData, MuData], similarity_key:str="connectivitie
 		palette = sns.color_palette("tab20", len(cat.cat.categories))
 		lut = dict(zip(cat.cat.categories, palette))
 		luts[key] = lut
-		color_row = [lut[val] for val in data.obs.iloc[sorted_idx_rows][key]]
+		color_row = [lut[val] for val in sorted_obs_rows[key]]
 		row_colors.append(color_row)
 
 
-	if manipulate_columns and W.shape[0]==W.shape[1]:
-		col_colors = row_colors 
-	elif manipulate_columns and W.shape[1] < W.shape[0]:
-		col_luts = luts.copy() 
-		col_luts[subset_key] = {key: values for key,values in col_luts[subset_key].items() if key in keep_subset}
-		for key in group_key:	
-			color_col = [col_luts[key][val] for val in data.obs[mask].iloc[sorted_idx_cols][key]]
+	if manipulate_columns: 
+		for key in group_key:
+			color_col = [luts[key][val] for val in sorted_obs_cols[key]]
 			col_colors.append(color_col)
 	else:
 		col_colors = None
