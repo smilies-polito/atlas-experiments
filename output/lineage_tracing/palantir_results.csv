@@ -3,3 +3,11 @@ donor2,palantir,rna,True,0.012764143066667023,0.20420354724163045,-0.26595003030
 donor2,palantir,rna,False,,,-0.7898699722138255,0.0,5
 donor2,palantir,multiomics,False,,,-0.3030009067065732,0.0,4
 donor2,palantir,multiomics,True,0.0,0.013666946445398122,0.21326813897171912,4.403427151052125e-251,
+donor1_bbknn,palantir,rna,True,0.0,0.0016802899200266674,-0.8968099926327606,0.0,
+donor1_harmony,palantir,multiomics,False,,,-0.6031684706689764,0.0,3
+donor1_harmony,palantir,multiomics,True,0.0,0.006477365200389993,-0.28144231776991385,0.0,
+donor1_bbknn,palantir,rna,False,,,0.8835336347939197,0.0,2
+donor1_bbknn,palantir,multiomics,True,0.0,0.00835992170991573,0.06682673063774543,3.9977479380322776e-38,
+donor1_bbknn,palantir,multiomics,False,,,0.23392512019545048,0.0,2
+donor1_harmony,palantir,rna,False,,,0.920673807640302,0.0,2
+donor1_harmony,palantir,rna,False,,,0.920673807640302,0.0,2
