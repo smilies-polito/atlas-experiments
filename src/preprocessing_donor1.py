@@ -178,22 +178,42 @@ if __name__=="__main__":
 	data.obs = data.obs.merge(all_metadata, how="left", right_index=True, left_index = True)
 	data.obs["lineage"] = data.obs["STD.CellType"].apply(lambda x: assign_lineage(x))
 
-	# PCA, NEIGHBORS E WNN + MULTIMODAL UMAP 
-	sc.pp.pca(data["rna"], random_state=seed)
+
+ 	sc.pp.pca(data["rna"], random_state=seed)
 	sc.pp.pca(data["activity"], random_state=seed)
+	sc.pl.pca_variance_ratio(data["rna"], show=False, save = "_LT_donor1_rna.png")
+	sc.pl.pca_variance_ratio(data["activity"], show=False, save = "_LT_donor1_activity.png")
 
 	n_pcs_rna = 15
 	n_pcs_activity = 10
 	knn_rna = 30
 	knn_activity = 30
 	wnn = 30
+
+	#BBKNN
+#	sc.external.pp.bbknn(data["rna"], batch_key="Time", use_rep="X_pca", n_pcs=n_pcs_rna)
+#	sc.external.pp.bbknn(data["activity"], batch_key="Time", use_rep="X_pca", n_pcs=n_pcs_activity)
+#	sc.tl.umap(data["rna"], random_state=seed)
+#	sc.tl.umap(data["activity"], random_state=seed)
+#	sc.pl.embedding(data["rna"], basis="X_umap", color="Time", save="_rna_LT_donor1_time_bbknn.png")
+#	sc.pl.embedding(data["activity"], basis="X_umap", color="Time", save="_activity_LT_donor1_time_bbknn.png")
+
+	# HARMONY
+#	data["rna"].obs["Time"] = data["rna"].obs["Time"].astype("category")
+#	data["activity"].obs["Time"] = data["activity"].obs["Time"].astype("category")
+#	sc.external.pp.harmony_integrate(data["rna"], key="Time", basis="X_pca", adjusted_basis="X_pca_harmony")
+#	sc.external.pp.harmony_integrate(data["activity"], key="Time", basis="X_pca", adjusted_basis="X_pca_harmony")
+#	sc.pp.neighbors(data["rna"], n_neighbors=knn_rna, use_rep="X_pca_harmony", random_state = seed)
+#	sc.pp.neighbors(data["activity"], n_neighbors=knn_activity, use_rep="X_pca_harmony", random_state = seed)
+#	sc.tl.umap(data["rna"], random_state = seed)
+#	sc.tl.umap(data["activity"], random_state = seed)
+#	sc.pl.embedding(data["rna"], basis="X_umap", color="Time", save="_rna_donor1_harmony.png")
+#	sc.pl.embedding(data["activity"], basis="X_umap", color="Time", save="_activity_donor1_harmony.png")
 	
-	sc.pp.neighbors(data["rna"], n_neighbors=knn_rna, n_pcs = n_pcs_rna, random_state = seed)
-	sc.pp.neighbors(data["activity"], n_neighbors=knn_activity, n_pcs = n_pcs_activity, random_state = seed)
+
 	mu.pp.neighbors(data, key_added="wnn", n_neighbors=wnn, random_state=seed)
 	mu.tl.umap(data, random_state = seed, neighbors_key="wnn")
 	mu.pl.umap(data, color=["STD.CellType", "Time", "lineage"], legend_loc="on data", save="_LT_donor1_multimodal.png")
-	
 	data.write(os.path.join(data_path, f"data.h5mu"))
 
 	# CONSTRUCTING GROUND TRUTH
