@@ -285,13 +285,14 @@ def plot_expression(pseudotime:pd.Series, tf_activity: pd.Series, gene_expressio
 		title: Optional[str]=None, frac:float=0.2, linewidth:int=2, saving_path:Optional[str]=None):
 
 	colors = itertools.cycle(plt.cm.tab10.colors)
-	fig, (ax_top, ax_bottom) = plt.subplots(2,1, figsize=(10,8), sharex=True, gridspec_kw={'height_ratios':[2,1]})
+	fig, (ax_top, ax_bottom) = plt.subplots(2,1, figsize=(10,10), sharex=True, gridspec_kw={'height_ratios':[2,1]})
 	if title is not None:
 		fig.suptitle(title)
  
 	for gene, color in zip(gene_expression.columns, colors):
 		smoothed = lowess(gene_expression[gene], pseudotime, frac=frac)
 		ax_top.plot(smoothed[:,0], smoothed[:,1], color=color, linewidth = linewidth, label = f"{gene}")
+
 	ax_top.set_ylabel("LogNormalized GEX")
 	ax_top.set_xlabel("Pseudotime")
 	ax_top.set_xlim(0,1)
