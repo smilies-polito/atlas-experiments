@@ -294,12 +294,18 @@ def plot_expression(pseudotime:pd.Series, tf_activity: pd.Series, gene_expressio
 		ax_top.plot(smoothed[:,0], smoothed[:,1], color=color, linewidth = linewidth, label = f"{gene}")
 	ax_top.set_ylabel("LogNormalized GEX")
 	ax_top.set_xlabel("Pseudotime")
+	ax_top.set_xlim(0,1)
+	ax_top.set_xticks(np.linspace(0, 1, 10))
+	ax_top.set_xticklabels([f"{t:.1f}" for t in np.linspace(0, 1, 10)])
 	ax_top.legend(bbox_to_anchor = (1.05, 1), loc= "upper left", borderaxespad=0.)
 
 	smoothed_df = lowess(tf_activity, pseudotime, frac=frac)
 	ax_bottom.plot(smoothed[:,0], smoothed[:,1], color="red", linewidth = linewidth)
-	ax_top.set_ylabel("Normalized activity")
-	ax_top.set_xlabel("Pseudotime")
+	ax_bottom.set_ylabel("Normalized activity")
+	ax_bottom.set_xlabel("Pseudotime")
+	ax_bottom.set_xlim(0,1)
+	ax_bottom.set_xticks(np.linspace(0, 1, 10))
+	ax_bottom.set_xticklabels([f"{t:.1f}" for t in np.linspace(0, 1, 10)])
 
 	plt.tight_layout(rect=[0,0,0.85,0.93])
 
@@ -351,7 +357,7 @@ def plot_trend(data:MuData, genes_of_interest:Union[str, List[str]], tf_name:str
 	gene_idx = [filtered_data.var_names.get_loc(g) for g in genes_of_interest]
 	gene_expression = pd.DataFrame(filtered_data["rna"].X[:, gene_idx].toarray(), columns = genes_of_interest)
 
-	title = "Trend {tf_name} along branch {branch}"
+	title = f"Trend {tf_name} along branch {branch}"
 	plot_expression(pseudotime=pseudotime, tf_activity = tf_activity, gene_expression= gene_expression, title = title, saving_path = saving_path)
 			
 
