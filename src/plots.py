@@ -294,7 +294,6 @@ def plot_expression(pseudotime:pd.Series, tf_activity: pd.Series, gene_expressio
 		ax_top.plot(smoothed[:,0], smoothed[:,1], color=color, linewidth = linewidth, label = f"{gene}")
 
 	ax_top.set_ylabel("LogNormalized GEX")
-	ax_top.set_xlabel("Pseudotime")
 	ax_top.set_xlim(0,1)
 	ax_top.set_xticks(np.linspace(0, 1, 10))
 	ax_top.set_xticklabels([f"{t:.1f}" for t in np.linspace(0, 1, 10)])
