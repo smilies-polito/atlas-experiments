@@ -38,9 +38,6 @@ From: ubuntu:22.04
 	export PETSC_DIR=/petsc 
 	export PETSC_ARCH=arch-linux-c-debug
 
-	pip install -r /requirements.txt 
-	pip install petsc4py==3.23.2
-
 	# Install slepc requirements for slepc4py
 	git clone https://gitlab.com/slepc/slepc.git /slepc	
 	cd /slepc 
@@ -50,6 +47,8 @@ From: ubuntu:22.04
 	cd /
 	export SLEPC_DIR=/slepc
 
+	pip install -r /requirements.txt 
+	pip install petsc4py==3.23.2
 	pip install slepc4py==3.23.1
 
 
