@@ -4,9 +4,9 @@ import numpy as np
 import pandas as pd 
 from tqdm import tqdm
 from muon import MuData
-from typing import Optional, Union
-from anndata import AnnData
 from muon import atac as ac 
+from anndata import AnnData
+from typing import Optional, Union, List 
 from scipy.spatial.distance import cdist
 
 
@@ -197,3 +197,5 @@ def _check_keys(data: Union[AnnData, MuData], modality_key:Optional[str]=None,
 		raise KeyError(f"{obs_key} not in data.obs")
 	if is_modality and obs_key is not None and obs_key not in data[modality_key].obs.columns:
 		raise KeyError(f"{obs_key} not in data[{modality_key}].obs")
+
+

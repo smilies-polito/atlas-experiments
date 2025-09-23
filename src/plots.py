@@ -1,14 +1,16 @@
 import os
+import itertools
 import numpy as np 
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from muon import MuData
 from anndata import AnnData
-from scipy.sparse import issparse
 from src.utils import _check_keys
+from scipy.sparse import issparse
 from matplotlib.patches import Patch 
 from typing import Optional, Union, List
+from statsmodels.nonparametric.smoothers_lowess import lowess
 
 def plot_similarity_matrix(similarity_matrix, cell_types, path):
 	sort_idx = np.argsort(cell_types)
@@ -277,4 +279,80 @@ def plot_heatmap(data: Union[AnnData, MuData], similarity_key:str="connectivitie
 	if save is not None:
 		plt.savefig(save)
 		plt.close()
+
+
+def plot_expression(pseudotime:pd.Series, tf_activity: pd.Series, gene_expression: pd.DataFrame, 
+		title: Optional[str]=None, frac:float=0.2, linewidth:int=2, saving_path:Optional[str]=None):
+
+	colors = itertools.cycle(plt.cm.tab10.colors)
+	fig, (ax_top, ax_bottom) = plt.subplots(2,1, figsize=(10,8), sharex=True, gridspec_kw={'height_ratios':[2,1]})
+	if title is not None:
+		fig.suptitle(title)
+ 
+	for gene, color in zip(gene_expression.columns, colors):
+		smoothed = lowess(gene_expression[gene], pseudotime, frac=frac)
+		ax_top.plot(smoothed[:,0], smoothed[:,1], color=color, linewidth = linewidth, label = f"{gene}")
+	ax_top.set_ylabel("LogNormalized GEX")
+	ax_top.set_xlabel("Pseudotime")
+	ax_top.legend(bbox_to_anchor = (1.05, 1), loc= "upper left", borderaxespad=0.)
+
+	smoothed_df = lowess(tf_activity, pseudotime, frac=frac)
+	ax_bottom.plot(smoothed[:,0], smoothed[:,1], color="red", linewidth = linewidth)
+	ax_top.set_ylabel("Normalized activity")
+	ax_top.set_xlabel("Pseudotime")
+
+	plt.tight_layout(rect=[0,0,0.85,0.93])
+
+	if saving_path is not None:
+		fig.savefig(saving_path)
+		plt.close()
+
+
+def plot_trend(data:MuData, genes_of_interest:Union[str, List[str]], tf_name:str, pseudotime_key:str, fate_probs_key:str, branch:str, threshold:float=0.4, saving_path:Optional[str]=None, modality:Optional[str] = None):
+
+	if modality is not None:
+		if modality not in data.mod.keys():
+			raise KeyError(f"{modality} not in data.mod.keys")
+
+	if tf_name not in data.var_names:
+		raise KeyError(f"{tf_name} not in data.var_names")
+
+	if isinstance(genes_of_interest, str):
+		genes_of_interest = [genes_of_interest]
+
+	genes_of_interest = [g for g in genes_of_interest if g in data.var_names]
+	if len(genes_of_interest) == 0:
+		raise ValueError(f"No genes of interest are found")
+
+	if modality is not None and pseudotime_key not in data[modality].obs.columns:
+		raise KeyError(f"{pseudotime_key} not available")
+	if modality is None and pseudotime_key not in data.obs.columns:
+		raise KeyError(f"{pseudotime_key} not available")
+
+	if modality is not None and fate_probs_key not in data[modality].obsm.keys():
+		raise KeyError(f"{fate_probs_key} not available")
+	if modality is None and fate_probs_key not in data.obsm.keys():
+		raise KeyError(f"{fate_probs_key} not available")
+	fate_probabilities = data.obsm[fate_probs_key] if modality is None else data[modality].obsm[fate_probs_key]
+
+	if branch not in fate_probabilities.columns:
+		raise KeyError(f"{branch} not available")
+
+	if saving_path is not None:
+		saving_path = os.path.join(saving_path, f"trend_{branch}_{tf_name}.png")
+
+	# Fitering 
+	mask = fate_probabilities[branch] > 0.5
+	filtered_data = data[mask, :]
+
+	pseudotime = filtered_data.obs[pseudotime_key] if modality is None else filtered_data[modality].obs[pseudotime_key]
+	tf_idx = np.where(filtered_data.var_names == tf_name)[0][0]
+	tf_activity = pd.Series(filtered_data["activity"].X[:, tf_idx].toarray().flatten())
+	gene_idx = [filtered_data.var_names.get_loc(g) for g in genes_of_interest]
+	gene_expression = pd.DataFrame(filtered_data["rna"].X[:, gene_idx].toarray(), columns = genes_of_interest)
+
+	title = "Trend {tf_name} along branch {branch}"
+	plot_expression(pseudotime=pseudotime, tf_activity = tf_activity, gene_expression= gene_expression, title = title, saving_path = saving_path)
+			
+
 
