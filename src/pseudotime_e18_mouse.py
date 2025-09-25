@@ -133,6 +133,7 @@ if __name__=="__main__":
 			plot_entropy(dataframe["entropy"], data.obsm["X_umap"], save=True, saving_path = results_folder)
 			plot_entropy(dataframe["KL"], data.obsm["X_umap"], save=True, saving_path = results_folder)
 
+
 	except Exception as e:
 		print(e)
 

@@ -31,7 +31,7 @@ From: ubuntu:22.04
 	cd /
 	git clone -b release https://gitlab.com/petsc/petsc.git /petsc
 	cd /petsc
-	git checkout v3.23.2	
+	git checkout v3.23.6
 	./configure --with-cc=gcc --with-cxx=g++ --download-mpich --download-f2cblaslapack
 	make all check
 	cd /
@@ -39,17 +39,17 @@ From: ubuntu:22.04
 	export PETSC_ARCH=arch-linux-c-debug
 
 	# Install slepc requirements for slepc4py
-	git clone https://gitlab.com/slepc/slepc.git /slepc	
+	git clone -b release https://gitlab.com/slepc/slepc.git /slepc	
 	cd /slepc 
-	git checkout v3.23.1
+	git checkout v3.23.3
 	./configure
 	make SLEPC_DIR=/slepc PETSC_DIR=/petsc PETSC_ARCH=arch-linux-c-debug
 	cd /
 	export SLEPC_DIR=/slepc
 
 	pip install -r /requirements.txt 
-	pip install petsc4py==3.23.2
-	pip install slepc4py==3.23.1
+	pip install petsc4py==3.23.6
+	pip install slepc4py==3.23.3
 
 
 #%runscript
