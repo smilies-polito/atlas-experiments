@@ -7,11 +7,6 @@ from itertools import product
 from src.plots import plot_trend, plot_heatmap
 
 
-def plot_multiple_heatmaps(data, saving_path:str, lineages, lineage_key, cell_type_key):
-	for lineage in lineages:
-		keep_subset = list(data.obs[data.obs[lineage_key]==lineage][cell_type_key].unique())
-		plot_heatmap(data=data, similarity_key="DM_Similarity", group_key=[cell_type_key], subset_key =cell_type_key, keep_subset=keep_subset, save = os.path.join(saving_path, f"similarity_{lineage}_celltypes.png"))
-
 if __name__=="__main__":
 	working_dir = "/scvemo"
 
@@ -30,21 +25,24 @@ if __name__=="__main__":
 		f.close()
 	
 	model_list = ["multiomics", "rna"]
+	macrostates_to_eval = list(range(2,10,2))
+	grid = product(model_list, macrostates_to_eval)
 
 	pseudotime_key = "palantir_pseudotime"
-	fate_probs_key = "palantir_fate_probabilities"
+	fate_probs_key = "fates_probabilities"
 	threshold = 0.4
 
-	for model in model_list:
+	for model, n_macrostates in grid:
 		data_suffix = f"palantir_harmony_{site}.h5mu" if lineage == "whole" else f"palantir_harmony_{site}_{lineage}.h5mu"
 		data = mu.read_h5mu(os.path.join(data_dir, data_suffix))
 		modality = "rna" if model=="rna" else None
 
-		saving_path = os.path.join(results_dir, f"harmony_{site}_{lineage}", f"palantir_{model}")
+		saving_path = os.path.join(results_dir, f"harmony_{site}_{lineage}", f"pseudotime_{model}", f"{n_macrostates}")
 
 		for tf_name, genes in tfs_dict.items():
 			tf_name = tf_name.upper()
 			genes = [g.upper() for g in genes]
+
 			if tf_name not in data.var_names:
 				print(f"TF not available")
 				continue
@@ -53,13 +51,16 @@ if __name__=="__main__":
 				print(f"No genes associated")
 				continue
 
-			lineages = list(data["rna"].obs["lineage"].unique())
-			if model=="multiomics" and lineage=="whole":
-					plot_multiple_heatmaps(data=data, cell_type_key ="rna:Celltype_fig1", lineage_key="rna:lineage", lineages=lineages, saving_path = saving_path)
-			if model=="rna" and lineage == "whole":
-					plot_multiple_heatmaps(data=data["rna"], cell_type_key="Celltype_fig1", lineage_key = "lineage", lineages=lineages, saving_path = saving_path)
+			file_name = f"harmony_{site}_{model}_{n_macrostates}.csv" if lineage == "whole" else f"harmony_{site}_{lineage}_{model}_{n_macrostates}.csv" 
+			if not os.path.exists(os.path.join(data_dir, file_name)):
+				print(f"Execution for {lineage} {site} {model} {n_macrostates} did not end")
+				continue
+			fates = pd.read_csv(os.path.join(data_dir, file_name), sep=",", header=0, index_col=0)
+			if model=="multiomics":	
+				data.obsm[fate_probs_key] = fates
+			else:
+				data[model].obsm[fate_probs_key] = fates
 
-			fates = data.obsm[fate_probs_key] if model=="multiomics" else data[model].obsm[fate_probs_key]
 			# cellrank fates
 			for branch in fates.columns:
 				plot_trend(data, genes_of_interest = genes_of_interest, tf_name = tf_name, pseudotime_key = pseudotime_key, fate_probs_key=fate_probs_key, branch=branch, threshold=threshold, saving_path = saving_path, modality = modality)
