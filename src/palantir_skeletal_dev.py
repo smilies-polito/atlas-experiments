@@ -25,11 +25,11 @@ if __name__=="__main__":
 	lineage = args.lineage
 	site = args.site
 
-	results_folder = os.path.join(working_dir, "output", "skeletalDev", f"bbknn_{site}_{lineage}")
+	results_folder = os.path.join(working_dir, "output", "skeletalDev", f"harmony_{site}_{lineage}")
 	if not os.path.exists(results_folder):
 		os.mkdir(results_folder)
  
-	early_cell_path_suffix = f"selected_cells_palantir_bbknn_{site}.json" if lineage == "whole" else f"selected_cells_palantir_bbknn_{site}_{lineage}.json"
+	early_cell_path_suffix = f"selected_cells_palantir_harmony_{site}.json" if lineage == "whole" else f"selected_cells_palantir_harmony_{site}_{lineage}.json"
 	early_cell_path = os.path.join(data_path, early_cell_path_suffix)
 
 	with open(early_cell_path, "r") as f:
@@ -38,7 +38,7 @@ if __name__=="__main__":
 	early_cell = early_cell["initial"]["mesenchymal"]
 
 	#path declaration + additional files
-	data_suffix = f"bbknn_{site}.h5mu" if lineage == "whole" else f"bbknn_{site}_{lineage}.h5mu"
+	data_suffix = f"harmony_{site}.h5mu" if lineage == "whole" else f"harmony_{site}_{lineage}.h5mu"
 	data = mu.read_h5mu(os.path.join(data_path, data_suffix))
 
 	data["rna"].obsm["X_umap"] = data.obsm["X_umap"]
@@ -98,5 +98,5 @@ if __name__=="__main__":
 	except Exception as e:
 		print(e)
 
-	data_suffix = f"palantir_bbknn_{site}.h5mu" if lineage=="whole" else f"palantir_bbknn_{site}_{lineage}.h5mu"
+	data_suffix = f"palantir_harmony_{site}.h5mu" if lineage=="whole" else f"palantir_harmony_{site}_{lineage}.h5mu"
 	data.write_h5mu(os.path.join(data_path, data_suffix))

@@ -8,6 +8,7 @@ from muon import atac as ac
 from anndata import AnnData
 from typing import Optional, Union, List 
 from scipy.spatial.distance import cdist
+from scipy.sparse import coo_matrix, csr_matrix
 
 
 def search_cells(data: MuData, embedding_key:str="X_umap", grouping_key:str="celltype", n_select:int=1) -> dict:
@@ -197,5 +198,93 @@ def _check_keys(data: Union[AnnData, MuData], modality_key:Optional[str]=None,
 		raise KeyError(f"{obs_key} not in data.obs")
 	if is_modality and obs_key is not None and obs_key not in data[modality_key].obs.columns:
 		raise KeyError(f"{obs_key} not in data[{modality_key}].obs")
+
+
+
+def compute_skeletal_activity(features:pd.DataFrame, atac:AnnData, stranded:bool=False, extend_upstream:int=2000, extend_downstream:int=0):
+	
+	f_cols = np.array([col.lower() for col in features.columns.values])
+	start_col = features.columns.values[np.where(f_cols=="start")[0][0]]
+	end_col = features.columns.values[np.where(f_cols=="end")[0][0]]
+	chr_col = features.columns.values[np.where(f_cols=="chromosome")[0][0]]
+	strand_col = None
+	if stranded:
+		if "strand" not in f_cols:
+			print("WARNING - 'strand' not in columns, setting stranded = False")
+			stranded = False
+		else:
+			strand_col = features.columns.values[np.where(f_cols == "strand")[0][0]]
+	
+	# Adjust rna features according to strand
+	if stranded:
+		is_minus = (features[strand_col] == "-")
+		f_from = np.where(is_minus, features[start_col] - extend_downstream, features[start_col] - extend_upstream) 
+		f_to = np.where(is_minus, features[end_col] + extend_upstream, features[end_col] + extend_downstream) 
+	else:
+		f_from = features[start_col] - extend_upstream
+		f_to = features[end_col] + extend_downstream	
+
+	# forcing no-negative coordinates
+	f_from = np.maximum(0, f_from)
+	
+	# elaborate peaks coordinates
+	p_chr = atac.var.Chromosome.astype(str).values
+	p_start = atac.var.Start.astype(int).values
+	p_end = atac.var.End.astype(int).values
+
+	chrom_to_idx = {}
+	for chrom in pd.unique(p_chr):
+		idx = np.where(p_chr == chrom)[0]
+		order = np.argsort(p_start[idx])
+		idx_sorted = idx[order]
+		chrom_to_idx[chrom] = {
+			"idx" : idx_sorted,
+			"starts" : p_start[idx_sorted],
+			"ends": p_end[idx_sorted]
+		}
+
+	
+	peak_indices = []
+	gene_indices = []
+	for g_i, chrom in enumerate(features[chr_col].values):
+		cdict = chrom_to_idx.get(chrom)
+		if cdict is None:
+			continue
+		starts = cdict["starts"]
+		ends = cdict["ends"]
+		pidx = cdict["idx"]
+
+		lo = f_from[g_i]
+		hi = f_to[g_i]
+		left = np.searchsorted(starts, lo, side="left")
+		right = np.searchsorted(starts, hi, side="right")
+		cand = np.arange(left,right,dtype=np.int64)
+		
+		if cand.size==0:
+			continue
+	
+		ok = (starts[cand] <= hi) & (ends[cand] >= lo)
+		if not np.any(ok):
+			continue
+
+		sel = pidx[cand[ok]]
+		peak_indices.append(sel)
+		gene_indices.append(np.full(sel.size, g_i, dtype=np.int64))
+
+	if len(peak_indices) == 0:
+		print("A is empty matrix")
+		A = csr_matrix((atac.shape[1], features.shape[0]), dtype=np.float32)
+	else:
+		rows = np.concatenate(peak_indices)
+		cols = np.concatenate(gene_indices)
+		data = np.ones(rows.size, dtype=np.float32)
+		A = coo_matrix((data, (rows,cols)), shape=(atac.shape[1], features.shape[0])).tocsr()
+
+	activity = atac.X @ A
+	adata_activity = AnnData(X=activity, obs = pd.DataFrame([], index = atac.obs_names, columns= []), var = pd.DataFrame([], index=features.index, columns=[]))
+	adata_activity.obs_names = atac.obs_names.copy()
+	adata_activity.var_names = features.index.values.copy()	
+	return adata_activity 	
+			
 
 

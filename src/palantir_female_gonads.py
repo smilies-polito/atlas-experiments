@@ -33,8 +33,8 @@ if __name__=="__main__":
 
 	working_dir = "/scvemo"
 	data_path = os.path.join(working_dir, "data", "female_gonads")
-	results_folder = os.path.join(working_dir, "output", "female_gonads_scvi")
-	early_cell_path = os.path.join(data_path, "selected_cells_palantir_scvi.json")
+	results_folder = os.path.join(working_dir, "output", "female_gonads", "oocytes_harmony")
+	early_cell_path = os.path.join(data_path, "selected_cells_palantir_oocytes_harmony.json")
 
 	with open(early_cell_path, "r") as f:
 		early_cell = json.load(f)
@@ -42,7 +42,7 @@ if __name__=="__main__":
 	early_cell = early_cell["initial"]["PGC"]
 
 	#path declaration + additional files
-	data = mu.read_h5mu(os.path.join(data_path, "data_scvi.h5mu"))
+	data = mu.read_h5mu(os.path.join(data_path, "oocytes_harmony.h5mu"))
 	data["rna"].obsm["X_umap"] = data.obsm["X_umap"]
 	data["rna"].obs["majority_voting"] = data.obs["majority_voting"]
 
@@ -62,7 +62,8 @@ if __name__=="__main__":
 	pw.run_diffusion_maps(data["rna"], seed=seed)
 	pw.determine_multiscale_space(data["rna"])
 	
-	plot_multiple_heatmaps(data, modality="rna", saving_path=rna_folder)
+	plot_heatmap(data=data["rna"], similarity_key="DM_Similarity", group_key=["majority_voting"], subset_key =None, keep_subset=None, save = os.path.join(rna_folder, f"similarity_celltypes.png"))
+	plot_heatmap(data=data["rna"], similarity_key="DM_EigenVectors_multiscaled", group_key=["majority_voting"], subset_key =None, keep_subset=None, save = os.path.join(rna_folder, f"diffusion_space_celltypes.png"))
 	
 	try:
 		pw.run_palantir(data["rna"], early_cell=early_cell, seed = seed) 
@@ -78,7 +79,8 @@ if __name__=="__main__":
 	pw.compute_kernel(data)
 	pw.run_diffusion_maps(data, seed=seed)
 	pw.determine_multiscale_space(data)
-	plot_multiple_heatmaps(data, modality=None, saving_path=multiomics_folder)
+	plot_heatmap(data=data, similarity_key="DM_Similarity", group_key=["majority_voting"], subset_key =None, keep_subset=None, save = os.path.join(multiomics_folder, f"similarity_celltypes.png"))
+	plot_heatmap(data=data, similarity_key="DM_EigenVectors_multiscaled", group_key=["majority_voting"], subset_key =None, keep_subset=None, save = os.path.join(multiomics_folder, f"diffusion_space_celltypes.png"))
 
 	try:
 		pw.run_palantir(data, early_cell=early_cell, seed = seed) 
@@ -86,4 +88,5 @@ if __name__=="__main__":
 
 	except Exception as e:
 		print(e)
-
+	
+	data.write_h5mu(os.path.join(data_path, "palantir_oocytes_harmony.h5mu"))

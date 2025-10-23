@@ -209,8 +209,8 @@ def plot_heatmap(data: Union[AnnData, MuData], similarity_key:str="connectivitie
 			print(f"{missing} not in data.obs")
 			group_key = list(set(group_key).difference(set(missing)))
 
-	if subset_key is not None and subset_key not in group_key:
-		raise KeyError(f"{subset_key} not in group_keys")
+#	if subset_key is not None and subset_key not in group_key:
+#		raise KeyError(f"{subset_key} not in group_keys")
 
 	if issparse(W):
 		W= W.toarray()
@@ -293,19 +293,13 @@ def plot_expression(pseudotime:pd.Series, tf_activity: pd.Series, gene_expressio
 		smoothed = lowess(gene_expression[gene], pseudotime, frac=frac)
 		ax_top.plot(smoothed[:,0], smoothed[:,1], color=color, linewidth = linewidth, label = f"{gene}")
 
-	ax_top.set_ylabel("LogNormalized GEX")
-	ax_top.set_xlim(0,1)
-	ax_top.set_xticks(np.linspace(0, 1, 10))
-	ax_top.set_xticklabels([f"{t:.1f}" for t in np.linspace(0, 1, 10)])
+	ax_top.set_ylabel("Normalized activity")
 	ax_top.legend(bbox_to_anchor = (1.05, 1), loc= "upper left", borderaxespad=0.)
 
 	smoothed_df = lowess(tf_activity, pseudotime, frac=frac)
-	ax_bottom.plot(smoothed[:,0], smoothed[:,1], color="red", linewidth = linewidth)
-	ax_bottom.set_ylabel("Normalized activity")
+	ax_bottom.plot(smoothed_df[:,0], smoothed_df[:,1], color="red", linewidth = linewidth)
+	ax_bottom.set_ylabel("LogNormal GEX")
 	ax_bottom.set_xlabel("Pseudotime")
-	ax_bottom.set_xlim(0,1)
-	ax_bottom.set_xticks(np.linspace(0, 1, 10))
-	ax_bottom.set_xticklabels([f"{t:.1f}" for t in np.linspace(0, 1, 10)])
 
 	plt.tight_layout(rect=[0,0,0.85,0.93])
 
@@ -314,7 +308,7 @@ def plot_expression(pseudotime:pd.Series, tf_activity: pd.Series, gene_expressio
 		plt.close()
 
 
-def plot_trend(data:MuData, genes_of_interest:Union[str, List[str]], tf_name:str, pseudotime_key:str, fate_probs_key:str, branch:str, threshold:float=0.4, saving_path:Optional[str]=None, modality:Optional[str] = None):
+def plot_trend(data:MuData, genes_of_interest:Union[str, List[str]], tf_name:str, pseudotime_key:str, fate_probs_key:str, threshold:float=0.4, saving_path:Optional[str]=None, modality:Optional[str] = None, branch:Optional[str]=None):
 
 	if modality is not None:
 		if modality not in data.mod.keys():
@@ -335,29 +329,34 @@ def plot_trend(data:MuData, genes_of_interest:Union[str, List[str]], tf_name:str
 	if modality is None and pseudotime_key not in data.obs.columns:
 		raise KeyError(f"{pseudotime_key} not available")
 
-	if modality is not None and fate_probs_key not in data[modality].obsm.keys():
+	if modality is not None and branch is not None and fate_probs_key not in data[modality].obsm.keys():
 		raise KeyError(f"{fate_probs_key} not available")
-	if modality is None and fate_probs_key not in data.obsm.keys():
+	if modality is None and branch is not None and fate_probs_key not in data.obsm.keys():
 		raise KeyError(f"{fate_probs_key} not available")
-	fate_probabilities = data.obsm[fate_probs_key] if modality is None else data[modality].obsm[fate_probs_key]
 
-	if branch not in fate_probabilities.columns:
+	if branch is not None:
+		fate_probabilities = data.obsm[fate_probs_key] if modality is None else data[modality].obsm[fate_probs_key]
+
+	if branch is not None and branch not in fate_probabilities.columns:
 		raise KeyError(f"{branch} not available")
 
 	if saving_path is not None:
-		saving_path = os.path.join(saving_path, f"trend_{branch}_{tf_name}.png")
+		saving_path = os.path.join(saving_path, f"trend_{branch}_{tf_name}.png") if branch is not None else os.path.join(saving_path, f"trend_{tf_name}.png")
 
-	# Fitering 
-	mask = fate_probabilities[branch] > 0.5
-	filtered_data = data[mask, :]
+	# Fitering
+	if branch is None:
+		filtered_data= data
+	else:
+		mask = fate_probabilities[branch] > threshold
+		filtered_data = data[mask, :]
 
 	pseudotime = filtered_data.obs[pseudotime_key] if modality is None else filtered_data[modality].obs[pseudotime_key]
-	tf_idx = np.where(filtered_data.var_names == tf_name)[0][0]
-	tf_activity = pd.Series(filtered_data["activity"].X[:, tf_idx].toarray().flatten())
-	gene_idx = [filtered_data.var_names.get_loc(g) for g in genes_of_interest]
-	gene_expression = pd.DataFrame(filtered_data["rna"].X[:, gene_idx].toarray(), columns = genes_of_interest)
+	tf_idx = np.where(filtered_data["rna"].var_names == tf_name)[0][0]
+	tf_activity = pd.Series(filtered_data["rna"].X[:, tf_idx].toarray().flatten())
+	gene_idx = [filtered_data["activity"].var_names.get_loc(g) for g in genes_of_interest]
+	gene_expression = pd.DataFrame(filtered_data["activity"].X[:, gene_idx].toarray(), columns = genes_of_interest)
 
-	title = f"Trend {tf_name} along branch {branch}"
+	title = f"Trend {tf_name} along branch {branch}" if branch is not None else f"Trend {tf_name}"
 	plot_expression(pseudotime=pseudotime, tf_activity = tf_activity, gene_expression= gene_expression, title = title, saving_path = saving_path)
 			
 
