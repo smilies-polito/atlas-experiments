@@ -12,6 +12,23 @@ from matplotlib.patches import Patch
 from typing import Optional, Union, List
 from statsmodels.nonparametric.smoothers_lowess import lowess
 
+def plot_eigenvalues(data:MuData, saving_path: Optional[str]=None):
+	fig, ax = plt.subplots()
+	y1 = data.uns["DM_EigenValues"]
+	y2 = data["rna"].uns["DM_EigenValues"]
+	x = max(len(y1), len(y2))
+	ax.plot(list(range(x)), y1, label="multiomics", color="blue")
+	ax.plot(list(range(x)), y2, label="rna", color="red")
+	ax.set_ylabel("EigenValues")
+	ax.legend()
+	if saving_path:
+		plt.savefig(saving_path)
+	plt.close()
+
+	
+	
+
+
 def plot_similarity_matrix(similarity_matrix, cell_types, path):
 	sort_idx = np.argsort(cell_types)
 	sorted_types = cell_types[sort_idx]

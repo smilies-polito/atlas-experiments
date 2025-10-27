@@ -25,12 +25,12 @@ if __name__=="__main__":
 	
 	working_dir = "/scvemo"
 	data_path = os.path.join(working_dir, "data", "skeletalDev")
-	results_folder = os.path.join(working_dir, "output", "skeletalDev",f"harmony_{site}_{lineage}")
+	results_folder = os.path.join(working_dir, "output", "skeletalDev",f"bbknn_{site}_{lineage}")
 
 	macrostates_to_eval = list(range(2,10,2))
 
 	#path declaration + additional files
-	data_suffix = f"harmony_{site}.h5mu" if lineage == "whole" else f"harmony_{site}_{lineage}.h5mu"
+	data_suffix = f"bbknn_{site}.h5mu" if lineage == "whole" else f"bbknn_{site}_{lineage}.h5mu"
 	data = mu.read_h5mu(os.path.join(data_path, data_suffix))
 	data["rna"].obsm["X_umap"] = data.obsm["X_umap"]
 
@@ -43,12 +43,12 @@ if __name__=="__main__":
 		os.mkdir(multiomics_folder)
 
 	# select initial cell 
-	early_cell_path_suffix = f"selected_cells_palantir_harmony_{site}.json" if lineage == "whole" else f"selected_cells_palantir_harmony_{site}_{lineage}.json"
+	early_cell_path_suffix = f"selected_cells_palantir_bbknn_{site}.json" if lineage == "whole" else f"selected_cells_palantir_bbknn_{site}_{lineage}.json"
 	early_cell_path = os.path.join(data_path, early_cell_path_suffix)
 	with open(early_cell_path, "r") as f:
 		early_cell = json.load(f)
 		f.close()
-	early_cell = early_cell["initial"]["mesenchymal"]
+	early_cell = early_cell["initial"]["initial"]
 
 
 	print("EXECUTING PSEUDOTIME RNA")
@@ -93,7 +93,7 @@ if __name__=="__main__":
 			dataframe["KL"] = g.compute_lineage_priming(method="kl_divergence")
 			plot_entropy(dataframe["entropy"], data.obsm["X_umap"], save=True, saving_path = results_folder)
 			plot_entropy(dataframe["KL"], data.obsm["X_umap"], save=True, saving_path = results_folder)
-			file_name = f"harmony_{site}_rna_{n_macrostates}.csv" if lineage=="whole" else f"harmony_{site}_{lineage}_rna_{n_macrostates}.csv"
+			file_name = f"bbknn_{site}_rna_{n_macrostates}.csv" if lineage=="whole" else f"bbknn_{site}_{lineage}_rna_{n_macrostates}.csv"
 			pd.DataFrame(g.fate_probabilities.X , columns=g.fate_probabilities.names, index=data.obs_names).to_csv(os.path.join(data_path, file_name), sep=",", header=True, index=True)
 
 	except Exception as e:
@@ -143,7 +143,7 @@ if __name__=="__main__":
 			dataframe["KL"] = g.compute_lineage_priming(method="kl_divergence")
 			plot_entropy(dataframe["entropy"], data.obsm["X_umap"], save=True, saving_path = results_folder)
 			plot_entropy(dataframe["KL"], data.obsm["X_umap"], save=True, saving_path = results_folder)
-			file_name = f"harmony_{site}_multiomics_{n_macrostates}.csv" if lineage=="whole" else f"harmony_{site}_{lineage}_multiomics_{n_macrostates}.csv"
+			file_name = f"bbknn_{site}_multiomics_{n_macrostates}.csv" if lineage=="whole" else f"bbknn_{site}_{lineage}_multiomics_{n_macrostates}.csv"
 			pd.DataFrame(g.fate_probabilities.X , columns=g.fate_probabilities.names, index=data.obs_names).to_csv(os.path.join(data_path, file_name), sep=",", header=True, index=True)
 
 
