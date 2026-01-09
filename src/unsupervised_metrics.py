@@ -4,8 +4,9 @@ import numpy as np
 import pandas as pd
 from typing import Optional
 from collections.abc import Callable
-from scipy.spatial.distance import cdist
-from scipy.stats import pearsonr, spearmanr, permutation_test, bootstrap
+from scipy.spatial.distance import cdist, jensenshannon
+from scipy.sparse import csr_matrix
+from scipy.stats import pearsonr, spearmanr, permutation_test, bootstrap, kendalltau
 
 
 def pearson_entropy_pseudotime(entropy: pd.Series, pseudotime: pd.Series, seed:int=42, n_resamples:int=10000,
@@ -336,6 +337,4 @@ def terminal_state_silhouette(fates: pd.DataFrame,
 		S = np.sum((pseudotime**alpha)*si)/np.sum(pseudotime**alpha)
 		return (S, None)
 	
-
-
 
