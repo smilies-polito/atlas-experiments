@@ -45,7 +45,33 @@ class PalantirWrapper(WrapperBase):
 			- kernel_key: str; Key in obsp where to store the kernel; Default is "DM_Kernel".
 		Adds a scipy.sparse.csr_matrix in mudata.obsp slot.
 		'''
-		pass
+		if distance_key not in data.obsp.keys(): 
+			raise KeyError(f"{distance_key} not in data.obsp")
+		if knn is None:
+			print(f"WARNING - knn parameter not specified. Looking for data.uns[{knn_key}][""params""][""n_neighbors""]")
+			if knn_key not in data.uns.keys():
+				raise KeyError(f"{knn_key} not in data.uns")	
+			else:
+				knn = int(data.uns[knn_key]["params"]["n_neighbors"])
+
+		N = data.shape[0]
+		kNN = data.obsp[distance_key]
+		adaptive_k = int(np.floor(knn/3))
+		adaptive_std = np.zeros(N)
+		for i in np.arange(N):
+			adaptive_std[i] = np.sort(kNN.data[kNN.indptr[i] : kNN.indptr[i+1]])[adaptive_k - 1]
+		x,y,dists = find(kNN) # x are row indices, y are column indices and dists the values of non zero entries in csr_matrix
+		dists /= adaptive_std[x]
+		W = csr_matrix((np.exp(-dists), (x,y)), shape=[N,N])
+		kernel = W + W.T
+		if alpha > 0:
+			D = np.ravel(kernel.sum(axis=1))
+			D[D!=0] = D[D!=0]**(-alpha)
+			mat = csr_matrix((D, (range(N), range(N))), shape=[N,N])
+			kernel = mat.dot(kernel).dot(mat)
+
+		data.obsp[kernel_key] = kernel
+
 
 	def compute_diffusion_map(self, 
 								kernel_key: str="DM_Kernel",
@@ -65,7 +91,14 @@ class PalantirWrapper(WrapperBase):
 			- seed: int; random seed. Default is 0.
 		Updates MuData object with the results from diffusion maps.
 		'''
-		pass 
+		if kernel_key not in data.obsp.keys():
+			raise KeyError(f"{kernel_key} not in data.obsp")
+
+		kernel= data.obsp[kernel_key]
+		res = palantir.utils.diffusion_maps_from_kernel(data.obsp[kernel_key], n_components, seed)
+		data.obsp[sim_key] = res["T"] 
+		data.obsm[eigvec_key] = res["EigenVectors"].values
+		data.uns[eigval_key] = res["EigenValues"].values
 
 	def compute_multiscale_space(self,
 									n_eigs: Optional[int]=None, 
@@ -80,7 +113,15 @@ class PalantirWrapper(WrapperBase):
 			- eigvec_key: str; Key in mudata.obsm storing eigenvectors. Default is "DM_EigenVectors". 
 			- out_key: str; Key in mudata.obsm where results are stored. Default is "DM_EigenVectors_multiscaled"
 		'''
-		pass
+		if eigval_key not in data.uns.keys():
+			raise KeyError(f"{eigval_key} not in data.uns")
+		if eigvec_key not in data.obsm.keys():
+			raise KeyError(f"{eigvec_key} not in data.obsm")
+		
+		eigenvectors = pd.DataFrame(data.obsm[eigvec_key], index=data.obs_names) if not isinstance(data.obsm[eigvec_key], pd.DataFrame) else data.obsm[eigvec_key] # for compatibility with Palantir framework
+		dm_dict = {"EigenValues": data.uns[eigval_key], "EigenVectors": eigenvectors}
+		result = palantir.utils.determine_multiscale_space(dm_res = dm_dict, n_eigs=n_eigs, eigval_key = eigval_key, eigvec_key = eigvec_key, out_key=out_key) # eigval_key, eigvec_key and out_key are not used 
+		data.obsm[out_key] = result.values
 
 
 	def compute_priming_degree(self,
