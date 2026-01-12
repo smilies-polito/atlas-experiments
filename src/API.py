@@ -1,4 +1,6 @@
 import inspect
+import warnings
+import muon as mu
 import numpy as np
 import pandas as pd
 from muon import MuData
@@ -320,18 +322,39 @@ class Classe:
 			- fragment_path: optional, str; path to the fragments.gz.tsv and fragments.gz.tsv.tbi files storing fragment information for scATAC-seq data.
 			- random_state: int; seed for computation reproducibility. Default is 42.
 		'''
-		# check on modality existence
-		# add fragment path to mudata["atac"] if specified. 
-		pass
+		existing_modalities = [mod for mod in mudata.mod.keys()]
+		self.rna_key = next((mod for mod in mudata.mod.keys() if mod.lower()=="rna"), None) 
+		self.atac_key = next((mod for mod in mudata.mod.keys() if mod.lower()=="atac"), None) 
+		self.activity_key = next((mod for mod in mudata.mod.keys() if mod.lower()=="activity"), None) 
+		
+		if self.rna_key is None:
+			raise KeyError(f"rna modality is missing")
+		if self.activity_key is not None and mudata[self.activity_key].shape != mudata[self.rna_key].shape:
+			raise ValueError("Rna and activity shape mismatch, please provide activity values for all genes.")
+		if self.atac_key is None and self.activity_key is None:
+				raise KeyError("Both atac and activity modalities are missing. Please provide at least one modality.")
+		if self.atac_key is not None and self.activity_key is not None:
+				warnings.warn("Both ATAC and ACTIVITY modalities are specified. Only ACTIVITY is used.")			
+				self.atac_key = None
+		if fragment_path is not None:
+				if self.atac_key is not None:
+					# compatibility operation for muon.tl.locate_file
+					mudata.mod["atac"] = mudata.mod[self.atac_key]
+					del mudata.mod[self.atac_key]
+					self.atac_key = "atac"
+					# locate fragment file
+					if "files" not in mudata.mod[self.atac_key].uns or "fragments" not in mudata.mod[self.atac_key].uns["files"]:
+						mu.atac.tl.locate_file(mudata.mod[self.atac_key], file= fragment_path, key="fragments")
+				elif self.activity_key is not None:
+					warnings.warn("Fragment path provided not used since activity modality is already present.")
+				else:
+					raise KeyError("Both atac and activity modalities are missing. Please provide at least one modality.")
+		self.use_activity = self.activity_key is not None
+		self.random_state = random_state
+		self.mudata = mudata	
+
 
 	def preprocessing(self, 
-					min_counts: Optional[int]=None, 
-					max_counts: Optional[int]= None, 
-					mito_percent: Optional[float]=None,
-					tss_score:Optional[float]=None, 
-					nucleosome_score:Optional[float]=None, 
-					highly_variable_genes: Optional[int] = None,
-					target_sum: Optional[float] = None, 
 					n_pcs_rna: int= 30,
 					n_pcs_act: int = 10,
 					knn_rna: int=30,
@@ -339,19 +362,11 @@ class Classe:
 					wnn: int=30,
 					stranded: bool = False,
 					features: Optional[pd.DataFrame] = None,
-					batch_strategy: Optional[Literal["harmony", "bbknn"]]= None,
-					**kwargs
 		):
 		'''
 		scRNA-seq and scATAC-seq standard preprocessing pipeline, including:
 		qc metrics, filtering, batch correction, PCA, neighboring graph, gene activity computation and wnn computation.
 		Parameters:
-			- min_counts, max_counts: optional, int; for scRNA-seq data threshold defining the minimum and maximum number of counts to filter for in quality control. 
-			- mito_percent: float, optional; for scRNA-seq data threshold defining the maximum mitochondrial RNA percentage for quality control.  
-			- tss_score: float, optional; tss erichment lower bound for scATAC-seq QC metrics filtering. If not specified, then retained above 10-th percentile. 
-			- nuclesome_score: float, optional; nucleosome signal upper bound for scATAC-seq QC metrics filterins. If not specified, then retained less than 80-th percentile.
-			- highly_variable_genes: int, optional; number of highly variable genes to retain in scRNA-seq data.  
-			- target_sum: int, optional; target sum for normalization in scRNA-seq data and activity data.
 			- n_pcs_rna: int; number of PCs to retain in scRNA-seq data. Default is 30.
 			- n_pcs_act: int; number of PCs to retain in activity data. Deafult is 10. 
 			- knn_rna: int; number of nearest neighbors for scRNA-seq KNN graph computation. Default is 30.
@@ -359,31 +374,40 @@ class Classe:
 			- wnn: int; number of nearest neighbors per modality to consider in wnn computation. Default is 30. 
 			- stranded: bool; whether to consider strand in computing gene activity. Default is False. 
 			- features: pd.Dataframe, optional; dataframe containing "chromosome", "start", "end", "strand" for genes considered in activity computation. 
-			- batch_strategy: string, optional. Key ("harmony" or "bbknn") indicating the strategy for batch effect removal. When specified it requires scanpy parameters to be specified in the kwargs under the same key. i.e., it lood for kwargs["harmony"] or kwargs["bbknn"].
 		Returns:
 			Updated the muon object with modality "activity". 
-			No return 
 	
 		'''
-		# calcolare qc metrics inplace
-		# filtrare cellule per max min counts
-		# filtrare cellule per mitopercent -> solo se mitopercent soglia specificata
-		# check dei controlli sui None ovviamente inutile passare a funzione parametri None. vedi documentazione scanpy/muon
-		# RNA qc and filtering
-		# ATAC qc and filtering
-		# activity computation + normalization + PCA
-		# knn normale o bbknn o harmony e knn, dipende dalla strategia di batch correction se specificata
-		# wnn multimodale rna e attività
-		# umap 
-		# al momento fare una pipeline di preprocessing generica, poi in futuro usare una struttura da passare come kwargs per preprocessare il tutto 
-		pass
+		if not self.use_activity:	
+			# compute activity and normalize
+			if self.atac_key is not None and "fragments" not in self.mudata.mod[self.atac_key].uns["files"]:
+					raise KeyError("Fragment file not available for activity from atac computation")
+			if features is None:
+					raise ValueError("Feature Dataset is required for gene activity computation")
+			features["start"] = features["start"].astype(int) - 1
+			features["end"] = features["end"].astype(int)
+			if (features["start"]<0).any():
+				raise ValuuError("Feature start must be >=0 after 0-basedconversion")
 
+			self.activity_key = "activity"
+			self.mudata["activity"] = mu.atac.tl.count_fragments_features(data=self.mudata.mod[self.atac_key], 
+																	features = features, 
+																	stranded=stranded)	
+			sc.pp.normalize_total(self.mudata.mod[self.activity_key])
+	
+		sc.pp.pca(self.mudata.mod[self.rna_key], random_state=self.random_state)	
+		sc.pp.pca(self.mudata.mod[self.activity_key], random_state=self.random_state)	
+		sc.pp.neighbors(self.mudata.mod[self.rna_key], n_neighbors=knn_rna, n_pcs=n_pcs_rna, random_state=self.random_state)
+		sc.pp.neighbors(self.mudata.mod[self.activity_key], n_neighbors=knn_act, n_pcs=n_pcs_act, random_state=self.random_state)
+		mu.pp.neighbors(self.mudata, key_added="wnn", n_neighbors=wnn, random_state=self.seed)
+		mu.tl.umap(self.mudata, random_state=self.seed, neighbors_key="wnn")
 
+			
 	def get_data(self) -> MuData:
 		'''
 		Returns the MuData object
 		'''		
-		pass
+		return self.mudata
 
 
 	def run(self, modality:Literal["pseudotime-kernel", "palantir"]="palantir"):
