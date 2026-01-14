@@ -359,7 +359,10 @@ class Classe:
 					n_pcs_act: int = 10,
 					knn_rna: int=30,
 					knn_act: int=30, 
-					wnn: int=30,
+					n_neighbors: int=30,
+					n_bandwidth_neighbors: int=20, 
+					n_multineighbors: int = 20,
+					metrics: Literal = "euclidean",
 					stranded: bool = False,
 					features: Optional[pd.DataFrame] = None,
 		):
@@ -387,19 +390,23 @@ class Classe:
 			features["start"] = features["start"].astype(int) - 1
 			features["end"] = features["end"].astype(int)
 			if (features["start"]<0).any():
-				raise ValuuError("Feature start must be >=0 after 0-basedconversion")
+				raise ValueError("Feature start must be >=0 after 0-basedconversion")
 
 			self.activity_key = "activity"
 			self.mudata["activity"] = mu.atac.tl.count_fragments_features(data=self.mudata.mod[self.atac_key], 
 																	features = features, 
 																	stranded=stranded)	
 			sc.pp.normalize_total(self.mudata.mod[self.activity_key])
-	
-		sc.pp.pca(self.mudata.mod[self.rna_key], random_state=self.random_state)	
-		sc.pp.pca(self.mudata.mod[self.activity_key], random_state=self.random_state)	
-		sc.pp.neighbors(self.mudata.mod[self.rna_key], n_neighbors=knn_rna, n_pcs=n_pcs_rna, random_state=self.random_state)
-		sc.pp.neighbors(self.mudata.mod[self.activity_key], n_neighbors=knn_act, n_pcs=n_pcs_act, random_state=self.random_state)
-		mu.pp.neighbors(self.mudata, key_added="wnn", n_neighbors=wnn, random_state=self.seed)
+
+		if not "X_pca" in self.mudata[self.rna_key].obsm:
+			sc.pp.pca(self.mudata.mod[self.rna_key], random_state=self.random_state)	
+		if not "X_pca" in self.mudata[self.activity_key].obsm:
+			sc.pp.pca(self.mudata.mod[self.activity_key], random_state=self.random_state)	
+		if not "distances" if self.mudata[self.rna_key].obsp: 
+			sc.pp.neighbors(self.mudata.mod[self.rna_key], n_neighbors=knn_rna, n_pcs=n_pcs_rna, random_state=self.random_state)
+		if not "distances" if self.mudata[self.activity_key].obsp: 
+			sc.pp.neighbors(self.mudata.mod[self.activity_key], n_neighbors=knn_act, n_pcs=n_pcs_act, random_state=self.random_state)
+		mu.pp.neighbors(self.mudata, key_added="wnn", n_neighbors=n_neighbors, n_bandwidth_neighbors=n_bandwidth_neighbors, n_multineighbors=n_multineighbors, random_state=self.seed, metric=metric)
 		mu.tl.umap(self.mudata, random_state=self.seed, neighbors_key="wnn")
 
 			
