@@ -1,6 +1,7 @@
 import inspect
 import warnings
 import muon as mu
+import scanpy as sc
 import numpy as np
 import pandas as pd
 from muon import MuData
@@ -9,33 +10,161 @@ from abc import ABC, abstractmethod
 from typing import Optional, Literal, List, Dict, Any, Union, Type
 
 
+class Base(ABC):
+	def __init__(self, 
+			mudata: MuData, 
+			fragment_path: Optional[str] = None,
+			random_state: int=42
+		):	
+		'''
+		Class initialization
+		Parameters
+			- mudata: MuData; object containing two modalities "rna" and "atac".
+			- fragment_path: optional, str; path to the fragments.gz.tsv and fragments.gz.tsv.tbi files storing fragment information for scATAC-seq data.
+			- random_state: int; seed for computation reproducibility. Default is 42.
+		'''
+		existing_modalities = [mod for mod in mudata.mod.keys()]
+		self.rna_key = next((mod for mod in mudata.mod.keys() if mod.lower()=="rna"), None) 
+		self.atac_key = next((mod for mod in mudata.mod.keys() if mod.lower()=="atac"), None) 
+		self.activity_key = next((mod for mod in mudata.mod.keys() if mod.lower()=="activity"), None) 
+		
+		if self.rna_key is None:
+			raise KeyError(f"rna modality is missing")
+		if self.activity_key is not None and mudata[self.activity_key].shape != mudata[self.rna_key].shape:
+			raise ValueError("Rna and activity shape mismatch, please provide activity values for all genes.")
+		if self.atac_key is None and self.activity_key is None:
+			raise KeyError("Both atac and activity modalities are missing. Please provide at least one modality.")
+		if self.atac_key is not None and self.activity_key is not None:
+			warnings.warn("Both ATAC and ACTIVITY modalities are specified. Only ACTIVITY is used.")			
+			self.atac_key = None
+		
+		self.use_activity = self.activity_key is not None
+			
+		if fragment_path is not None and self.atac_key is not None:
+			if self.atac_key != "atac":
+				# compatibility operation for muon.tl.locate_file
+				mudata.mod["atac"] = mudata.mod[self.atac_key]
+				del mudata.mod[self.atac_key]
+				self.atac_key = "atac"
 
-class WrapperBase(ABC):
-	def __init__(self, mudata:MuData, **kwargs:Any):
-		self._mudata = mudata
-		super().__init__(**kwargs)
+			files = mudata.mod[self.atac_key].uns.get("files", {})
+			if "fragments" not in files:
+				mu.atac.tl.locate_file(mudata.mod[self.atac_key], file= fragment_path, key="fragments")
+
+		elif fragment_path is not None and self.use_activity: 
+				warnings.warn("Fragment path provided not used since activity modality is already present.")
+
+		self.random_state = random_state
+		self.mudata = mudata	
+
+	def preprocessing(self, 
+			n_pcs_rna: int= 30,
+			n_pcs_act: int = 10,
+			knn_rna: int=30,
+			knn_act: int=30, 
+			use_rep: Optional[str] = None,
+			n_neighbors: int=30,
+			n_bandwidth_neighbors: int=20, 
+			n_multineighbors: int = 200,
+			metric: Literal = "euclidean",
+			stranded: bool = False,
+			features: Optional[pd.DataFrame] = None,
+		):
+		'''
+		scRNA-seq and scATAC-seq standard preprocessing pipeline, including:
+		qc metrics, filtering, batch correction, PCA, neighboring graph, gene activity computation and wnn computation.
+		Parameters:
+			- n_pcs_rna: int; number of PCs to retain in scRNA-seq data. Default is 30.
+			- n_pcs_act: int; number of PCs to retain in activity data. Deafult is 10. 
+			- knn_rna: int; number of nearest neighbors for scRNA-seq KNN graph computation. Default is 30.
+			- knn_act: int; number of nearest neighbors for activity KNN graph computation. Default is 30.
+			- use_rep: optional, str; data representation to be used in each modality for neighbor computation. check sc.pp.neighbors for further information. 
+			- wnn: int; number of nearest neighbors per modality to consider in wnn computation. Default is 30. 
+			- stranded: bool; whether to consider strand in computing gene activity. Default is False. 
+			- features: pd.Dataframe, optional; dataframe containing "chromosome", "start", "end", "strand" for genes considered in activity computation. 
+		Returns:
+			Updated the muon object with modality "activity". 
+	
+		'''
+		if not self.use_activity:	
+			# compute activity and normalize
+			if self.atac_key is not None and "fragments" not in self.mudata.mod[self.atac_key].uns["files"]:
+					raise KeyError("Fragment file not available for activity from atac computation")
+			if features is None:
+					raise ValueError("Feature Dataset is required for gene activity computation")
+			features["start"] = features["start"].astype(int) - 1
+			features["end"] = features["end"].astype(int)
+			if (features["start"]<0).any():
+				raise ValueError("Feature start must be >=0 after 0-basedconversion")
+
+			self.activity_key = "activity"
+			self.mudata["activity"] = mu.atac.tl.count_fragments_features(data=self.mudata.mod[self.atac_key], 
+											features = features, 
+											stranded=stranded)	
+			sc.pp.normalize_total(self.mudata.mod[self.activity_key])
+		
+		if not "distances" in self.mudata[self.rna_key].obsp: 
+			sc.pp.neighbors(self.mudata.mod[self.rna_key], n_neighbors=knn_rna, n_pcs=n_pcs_rna, random_state=self.random_state, use_rep=use_rep)
+		if not "distances" in self.mudata[self.activity_key].obsp: 
+			sc.pp.neighbors(self.mudata.mod[self.activity_key], n_neighbors=knn_act, n_pcs=n_pcs_act, random_state=self.random_state, use_rep=use_rep)
+
+		mu.pp.neighbors(self.mudata, 
+				key_added="wnn", 
+				n_neighbors=n_neighbors, 
+				n_bandwidth_neighbors=n_bandwidth_neighbors, 
+				n_multineighbors=n_multineighbors, 
+				random_state=self.random_state, 
+				metric=metric)
+		mu.tl.umap(self.mudata, random_state=self.random_state, neighbors_key="wnn")
+			
+	def get_data(self) -> MuData:
+		'''
+		Returns the MuData object
+		'''		
+		return self.mudata
 
 	@abstractmethod
-	def run(self, **kwargs: Any) -> Any: 
-		...
-		
-	@property
-	def mudata(self):
-		return self._mudata
+	def run(self, **kwargs: Any) -> None:
+		pass	 
 
 
 
-class PalantirWrapper(WrapperBase):
+class ATLAS:
+	def __init__(self,
+			mudata: MuData,
+			method: Literal["palantir", "pseudo-kernel"],
+			fragment_path: Optional[str]=None, 
+			random_state:int=42):
+
+		if method not in RUN_REGISTRY:
+			raise ValueError(f"Unknown method '{method}'. Available: {list(RUN_REGISTRY)}")
+		self._method = method
+		self._impl = RUN_REGISTRY[method](mudata=mudata,
+						fragment_path = fragment_path,
+						random_state = random_state)
+
+	def preprocessing(self, **kwargs):
+		return self._impl.preprocessing(kwargs)
+
+	def get_data(self):
+		return self._impl.get_data()
+	
+	def run(self, **kwargs):
+		return self._impl.run(**kwargs)
+	
+
+
+class PalantirWrapper(Base):
 	def __init__(self, mudata:MuData, **kwargs:Any):
 		super().__init__(mudata=mudata, **kwargs)
 
 
 	def compute_kernel(self, 
-						knn_key:str = "wnn",
-						distance_key:str = "wnn_distances",
-						knn: Optional[int] = None,
-						alpha: float = 0,
-						kernel_key: str="DM_Kernel"):
+			knn_key:str = "wnn",
+			distance_key:str = "wnn_distances",
+			knn: Optional[int] = None,
+			alpha: float = 0,
+			kernel_key: str="DM_Kernel"):
 		'''
 		Adapted computation of the gaussian kernel allowing for muon.MuData objects. 
 		Follows palantir implementation.
@@ -76,12 +205,12 @@ class PalantirWrapper(WrapperBase):
 
 
 	def compute_diffusion_map(self, 
-								kernel_key: str="DM_Kernel",
-								sim_key: str= "DM_Similarity",
-								eigval_key: str = "DM_EigenValues",
-								eigvec_key: str = "DM_EigenVectors",
-								n_components: int=10,
-								seed: Union[int,None] = 42):
+				kernel_key: str="DM_Kernel",
+				sim_key: str= "DM_Similarity",
+				eigval_key: str = "DM_EigenValues",
+				eigvec_key: str = "DM_EigenVectors",
+				n_components: int=10,
+				seed: Union[int,None] = 42):
 		'''
 		Wrapper for palantir.utils.diffusion_maps_from_kernel.
 		Parameters:
@@ -102,11 +231,12 @@ class PalantirWrapper(WrapperBase):
 		data.obsm[eigvec_key] = res["EigenVectors"].values
 		data.uns[eigval_key] = res["EigenValues"].values
 
+
 	def compute_multiscale_space(self,
-									n_eigs: Optional[int]=None, 
-									eigval_key: str = "DM_EigenValues",
-									eigvec_key: str = "DM_EigenVectors",
-									out_key: str = "DM_EigenVectors_multiscaled"):
+				n_eigs: Optional[int]=None, 
+				eigval_key: str = "DM_EigenValues",
+				eigvec_key: str = "DM_EigenVectors",
+				out_key: str = "DM_EigenVectors_multiscaled"):
 		'''
 		Wrapper for palantir.utils.determine_multiscale_space.
 		Parameters:
@@ -127,8 +257,8 @@ class PalantirWrapper(WrapperBase):
 
 
 	def compute_priming_degree(self,
-								fate_prob_key: str = "palantir_fate_probabilities",
-								entropy_type: Literal["entropy", "kl-divergence"] = "entropy"):
+				fate_prob_key: str = "palantir_fate_probabilities",
+				entropy_type: Literal["entropy", "kl-divergence"] = "entropy"):
 		'''
 		Function that computes KL-divergence and entropy as in CellRank. 
 		Parameters:
@@ -214,7 +344,7 @@ class GPCCAWrapper:
 		self.forward = forward
 
 
-class PseudotimeKernelWrapper(WrapperBase, GPCCAWrapper):
+class PseudotimeKernelWrapper(Base, GPCCAWrapper):
 	def __init__(self, 
 					mudata:MuData, 
 					pseudotime_key:str="pseudotime",
@@ -252,179 +382,6 @@ class PseudotimeKernelWrapper(WrapperBase, GPCCAWrapper):
 		pass
 
 
+RUN_REGISTRY = {"palantir": PalantirWrapper,
+		"pseudo-kernel": PseudotimeKernelWrapper}
 
-class WrapperCreator:
-	'''
-	Inferface that creates the corresponding method instance for pseudotime computation.
-	'''
-	_MAP: Dict[str, Type[WrapperBase]] = {}
-	
-	@classmethod
-	def create(cls, 
-				wrapper_type: str, 
-				mudata: MuData,	
-				*args:Any, 
-				**kwargs:Any) -> WrapperBase:
-		'''
-		Function creating the correct method instance.
-		Parameters:
-			- wrapper_type: str; string identifying which interface to use. Either "pseudotime-kernel" or "palantir". 
-			- mudata: muon.MuData; Contains multimodal data for trajectory computations.
-		'''
-		try: 
-			wrp = cls._MAP[wrapper_type]
-		except KeyError:
-			available = ", ".join(sorted(cls._MAP.keys()))
-			raise ValueError(f"{wrapper_type} not recognized. Try: {available}")
-
-		provided = dict(kwargs)
-		provided["mudata"] = mudata
-		try:
-			sig = inspect.signature(wrp.__init__)
-		except(ValueError, KeyError):
-			return wrp(mudata, *args, **kwargs)
-
-		allowed_names = { name for name, param in sig.parameters.items() if name != "sefl" and param.kind in (
-								inspect.Parameter.POSITIONAL_OR_KEYWORD,
-								inspect.Parameter.KEYWORD_ONLY 
-							)}
-		filtered_kw = {k: v for k,v in provided.items() if k in allowed_names}
-		try: 
-			return wrp(**filtered_kw)
-		except:
-			filtered_no_mudata = {k: v for k, v in filtered_kw.items() if k!='mudata'}
-			try: 
-				return wrp(mudata, *args, **filtered_no_mudata)
-			except TypeError as e:
-				raise TypeError(f"Failed to instantiate '{wrapper_type}'")
-	
-	
-
-WrapperCreator._MAP: Dict[str, Type[WrapperBase]] = {
-			"palantir": PalantirWrapper,
-			"pseudotime-kernel": PseudotimeKernelWrapper
-	}
-
-
-
-
-
-class Classe:
-	def __init__(self, 
-				mudata: MuData, 
-				fragment_path: Optional[str] = None,
-				random_state: int=42
-		):	
-		'''
-		Class initialization
-		Parameters
-			- mudata: MuData; object containing two modalities "rna" and "atac".
-			- fragment_path: optional, str; path to the fragments.gz.tsv and fragments.gz.tsv.tbi files storing fragment information for scATAC-seq data.
-			- random_state: int; seed for computation reproducibility. Default is 42.
-		'''
-		existing_modalities = [mod for mod in mudata.mod.keys()]
-		self.rna_key = next((mod for mod in mudata.mod.keys() if mod.lower()=="rna"), None) 
-		self.atac_key = next((mod for mod in mudata.mod.keys() if mod.lower()=="atac"), None) 
-		self.activity_key = next((mod for mod in mudata.mod.keys() if mod.lower()=="activity"), None) 
-		
-		if self.rna_key is None:
-			raise KeyError(f"rna modality is missing")
-		if self.activity_key is not None and mudata[self.activity_key].shape != mudata[self.rna_key].shape:
-			raise ValueError("Rna and activity shape mismatch, please provide activity values for all genes.")
-		if self.atac_key is None and self.activity_key is None:
-				raise KeyError("Both atac and activity modalities are missing. Please provide at least one modality.")
-		if self.atac_key is not None and self.activity_key is not None:
-				warnings.warn("Both ATAC and ACTIVITY modalities are specified. Only ACTIVITY is used.")			
-				self.atac_key = None
-		if fragment_path is not None:
-				if self.atac_key is not None:
-					# compatibility operation for muon.tl.locate_file
-					mudata.mod["atac"] = mudata.mod[self.atac_key]
-					del mudata.mod[self.atac_key]
-					self.atac_key = "atac"
-					# locate fragment file
-					if "files" not in mudata.mod[self.atac_key].uns or "fragments" not in mudata.mod[self.atac_key].uns["files"]:
-						mu.atac.tl.locate_file(mudata.mod[self.atac_key], file= fragment_path, key="fragments")
-				elif self.activity_key is not None:
-					warnings.warn("Fragment path provided not used since activity modality is already present.")
-				else:
-					raise KeyError("Both atac and activity modalities are missing. Please provide at least one modality.")
-		self.use_activity = self.activity_key is not None
-		self.random_state = random_state
-		self.mudata = mudata	
-
-
-	def preprocessing(self, 
-					n_pcs_rna: int= 30,
-					n_pcs_act: int = 10,
-					knn_rna: int=30,
-					knn_act: int=30, 
-					n_neighbors: int=30,
-					n_bandwidth_neighbors: int=20, 
-					n_multineighbors: int = 20,
-					metrics: Literal = "euclidean",
-					stranded: bool = False,
-					features: Optional[pd.DataFrame] = None,
-		):
-		'''
-		scRNA-seq and scATAC-seq standard preprocessing pipeline, including:
-		qc metrics, filtering, batch correction, PCA, neighboring graph, gene activity computation and wnn computation.
-		Parameters:
-			- n_pcs_rna: int; number of PCs to retain in scRNA-seq data. Default is 30.
-			- n_pcs_act: int; number of PCs to retain in activity data. Deafult is 10. 
-			- knn_rna: int; number of nearest neighbors for scRNA-seq KNN graph computation. Default is 30.
-			- knn_act: int; number of nearest neighbors for activity KNN graph computation. Default is 30.
-			- wnn: int; number of nearest neighbors per modality to consider in wnn computation. Default is 30. 
-			- stranded: bool; whether to consider strand in computing gene activity. Default is False. 
-			- features: pd.Dataframe, optional; dataframe containing "chromosome", "start", "end", "strand" for genes considered in activity computation. 
-		Returns:
-			Updated the muon object with modality "activity". 
-	
-		'''
-		if not self.use_activity:	
-			# compute activity and normalize
-			if self.atac_key is not None and "fragments" not in self.mudata.mod[self.atac_key].uns["files"]:
-					raise KeyError("Fragment file not available for activity from atac computation")
-			if features is None:
-					raise ValueError("Feature Dataset is required for gene activity computation")
-			features["start"] = features["start"].astype(int) - 1
-			features["end"] = features["end"].astype(int)
-			if (features["start"]<0).any():
-				raise ValueError("Feature start must be >=0 after 0-basedconversion")
-
-			self.activity_key = "activity"
-			self.mudata["activity"] = mu.atac.tl.count_fragments_features(data=self.mudata.mod[self.atac_key], 
-																	features = features, 
-																	stranded=stranded)	
-			sc.pp.normalize_total(self.mudata.mod[self.activity_key])
-
-		if not "X_pca" in self.mudata[self.rna_key].obsm:
-			sc.pp.pca(self.mudata.mod[self.rna_key], random_state=self.random_state)	
-		if not "X_pca" in self.mudata[self.activity_key].obsm:
-			sc.pp.pca(self.mudata.mod[self.activity_key], random_state=self.random_state)	
-		if not "distances" if self.mudata[self.rna_key].obsp: 
-			sc.pp.neighbors(self.mudata.mod[self.rna_key], n_neighbors=knn_rna, n_pcs=n_pcs_rna, random_state=self.random_state)
-		if not "distances" if self.mudata[self.activity_key].obsp: 
-			sc.pp.neighbors(self.mudata.mod[self.activity_key], n_neighbors=knn_act, n_pcs=n_pcs_act, random_state=self.random_state)
-		mu.pp.neighbors(self.mudata, key_added="wnn", n_neighbors=n_neighbors, n_bandwidth_neighbors=n_bandwidth_neighbors, n_multineighbors=n_multineighbors, random_state=self.seed, metric=metric)
-		mu.tl.umap(self.mudata, random_state=self.seed, neighbors_key="wnn")
-
-			
-	def get_data(self) -> MuData:
-		'''
-		Returns the MuData object
-		'''		
-		return self.mudata
-
-
-	def run(self, modality:Literal["pseudotime-kernel", "palantir"]="palantir"):
-		'''
-		run pseudotime and fate probabilities
-		modality: str, which algorithm to call. either palantir or cellrank pseudotime kernel.
-		'''
-		# Usare Wrapper Creator per creare l'oggetto corrispondente alla modalità 
-		# Check wrapper non sia None
-		# Se wrapper è PalantirWrapper: run di palantir
-		# Se wrapper è PseudotimeKernelWrapper: run di cellrank pseudotime
-		pass	
-		

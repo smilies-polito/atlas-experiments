@@ -6,7 +6,7 @@ import muon as mu
 import scvelo as scv
 import matplotlib.pyplot as plt
 from itertools import product
-from API import CLASSE
+from atlas import ATLAS
 from anndata import AnnData
 from scipy.sparse import csr_matrix
 
@@ -14,7 +14,7 @@ if __name__=="__main__":
 	seed = 42
 	np.random.seed(seed)
 	
-	differentiation_tree = "..." # Either phyla3 or phyla5 to fetch data from and save results anndata
+	differentiation_tree = "phyla3" # Either phyla3 or phyla5 to fetch data from and save results anndata
 	working_directory = os.getcwd() # set path to repository 
 	data_path = os.path.join(working_directory, "data", f"{differentiation_tree}") 
 	grid = {"diff_cif_fraction" : [.1, .3, .5, .7, .9], "cif_sigma": [.1, .3, .5, .7, .9]}
@@ -42,7 +42,7 @@ if __name__=="__main__":
 		
 		# creazione oggetto MuData 
 		data = mu.MuData({"rna":rna, "activity":activity})
-		cls = CLASSE(mudata = data)
+		cls = ATLAS(mudata = data, method="palantir")
 	
 		# rna preprocessing
 		sc.pp.normalize_total(data["rna"])
