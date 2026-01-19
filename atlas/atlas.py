@@ -14,7 +14,8 @@ class Base(ABC):
 	def __init__(self, 
 			mudata: MuData, 
 			fragment_path: Optional[str] = None,
-			random_state: int=42
+			random_state: int=42,
+			**kwargs
 		):	
 		'''
 		Class initialization
@@ -132,16 +133,18 @@ class Base(ABC):
 class ATLAS:
 	def __init__(self,
 			mudata: MuData,
-			method: Literal["palantir", "pseudo-kernel"],
+			method: Literal["palantir", "pseudotime-kernel"],
 			fragment_path: Optional[str]=None, 
-			random_state:int=42):
+			random_state:int=42,
+			**kwargs:Any):
 
 		if method not in RUN_REGISTRY:
 			raise ValueError(f"Unknown method '{method}'. Available: {list(RUN_REGISTRY)}")
 		self._method = method
 		self._impl = RUN_REGISTRY[method](mudata=mudata,
 						fragment_path = fragment_path,
-						random_state = random_state)
+						random_state = random_state, 
+						**kwargs)
 
 	def preprocessing(self, **kwargs):
 		return self._impl.preprocessing(kwargs)
@@ -340,16 +343,17 @@ class PalantirWrapper(Base):
 	 
 
 class GPCCAWrapper:
-	def __init__(self, forward:bool):
-		self.forward = forward
+	def __init__(self, backward:bool, **kwargs):
+		self.backward = backward
 
 
 class PseudotimeKernelWrapper(Base, GPCCAWrapper):
 	def __init__(self, 
-					mudata:MuData, 
-					pseudotime_key:str="pseudotime",
-					connectivity_key: str = "wnn_connectivities",
-					backward:bool=False):
+			mudata:MuData, 
+			pseudotime_key:str="pseudotime",
+			connectivity_key: str = "wnn_connectivities",
+			backward:bool=False, 
+			**kwargs):
 		'''
 		Parameters:
 		- mudata: MuData; muon object containing modalities for trajetory inference.
@@ -357,14 +361,15 @@ class PseudotimeKernelWrapper(Base, GPCCAWrapper):
 		- connectivity_key: str; Key in mudata.obsm where knn connectivites are stored. Default is "wnn_connectivities".
 		- backward: bool; Indicating whether forwards or backward direction needs to be identified. Defaults is False.
 		'''
-		
-		super().__init__(mudata=mudata, forward=forward)
+		Base.__init__(self, mudata=mudata, **kwargs)
+		GPCCAWrapper.__init__(self, backward=backward)
+	
 		self.pseudotime_key = pseudotime_key
+		self.connectivity_key = connectivity_key
 		# creare oggetto AnnData per cellrank kernel
 		# che contiene: adata.obsm["connectivities"] le connectivities del wnn cioè mudata.obsm["wnn_connectvitiies"]
 		# adata.obs deve contenere adata.obs[pseudotime_key] lo pseudotime per ogni cellula. 
 		# creo oggetto cellrank.kernel.PseudotimeKernel 
-		# 
 
 	def run(self,
 			threshold_scheme: Literal["soft", "hard"] = "hard", 
@@ -383,5 +388,5 @@ class PseudotimeKernelWrapper(Base, GPCCAWrapper):
 
 
 RUN_REGISTRY = {"palantir": PalantirWrapper,
-		"pseudo-kernel": PseudotimeKernelWrapper}
+		"pseudotime-kernel": PseudotimeKernelWrapper}
 

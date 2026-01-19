@@ -1,3 +1,3 @@
-from .atlas import ATLAS, Base
+from .atlas import ATLAS, Base, PalantirWrapper, PseudotimeKernelWrapper
 
-__all__  = ["ATLAS", "Base"]
+__all__  = ["ATLAS", "Base", "PalantirWrapper", "PseudotimeKernelWrapper"]
