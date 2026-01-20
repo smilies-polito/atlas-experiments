@@ -22,12 +22,20 @@ def pearson_entropy_pseudotime(entropy: pd.Series, pseudotime: pd.Series, seed:i
 	- confidence_level: float; confidence level for bootstrap. Default is 0.95. 
 	Output:
 	- tuple containing correlation and associated pvalue.	
+
+	Notes:
+	------
+	When the correlation is exactly ±1, the bootstrap distribution is degenerate and confidence intervals may be NaN.
 	'''
 	def stat(x:np.ndarray, y:np.ndarray) -> float: 
 		return pearsonr(x,y).statistic
 
 	if len(entropy)!=len(pseudotime):
 		raise ValueError(f"#instances do not match {len(pseudotime)} != {len(entropy)}")
+
+	if entropy.isna().any() or pseudotime.isna().any():
+		raise ValueError(f"NaNs are not a valid input")
+
 	entropy = entropy.reindex(pseudotime.index)
 	# Exact p-value with permutation and confidence interval via bootstrapping
 	if len(entropy) < 500:
@@ -65,12 +73,20 @@ def spearman_entropy_pseudotime(entropy: pd.Series, pseudotime: pd.Series, seed:
 	- confidence_level: float; confidence level for bootstrap. Default is 0.95. 
 	Output:
 	- tuple containing correlation and associated pvalue.
+
+	Notes:
+	------
+	When the correlation is exactly ±1, the bootstrap distribution is degenerate and confidence intervals may be NaN.
 	'''
 	def stat(x:np.ndarray, y:np.ndarray) -> float: 
 		return spearmanr(x,y).statistic
 
 	if len(entropy)!=len(pseudotime):
 		raise ValueError(f"#instances do not match {len(pseudotime)} != {len(entropy)}")
+
+	if entropy.isna().any() or pseudotime.isna().any():
+		raise ValueError(f"NaNs are not a valid input")
+
 	entropy = entropy.reindex(pseudotime.index)
 	if len(entropy) < 500:
 		warnings.warn("Less than 500 samples, pvalue might not be accurate. Consider bootstrapping")
@@ -91,58 +107,6 @@ def spearman_entropy_pseudotime(entropy: pd.Series, pseudotime: pd.Series, seed:
 		res, ci  = spearmanr(pseudotime.values, entropy.values), {}
 	return (res.statistic, res.pvalue, getattr(ci, "confidence_interval", None))
 
-
-
-def entropy_decay_score(pseudotime: pd.Series, entropy: pd.Series, b:int=20, seed:int=42, n_resamples:int=10000, confidence_level:float=0.95) -> tuple:
-	''' 
-	Entropy Decay Score measures the average descreasing tendency of entropy along pseudotime. 
-	Parameters:
-	- pseudotime: pd.Series; contains pseudotime values for each cell. 
-	- entropy: pd.Series; contains entropy values for each cell. 
-	- b: int; number of bins for pseudotime binning procedure. Default is 20.
-	- seed: int; seed for reproducibility. Default is 42.
-	- n_resamples: int; number of bootrapping procedured and permutations in permutation test and boostrap. Defauylt is 10000.
-	- cofidence_level: float; confidence level for confidence interval estimation. Default is 0.95. 
-	Output:
-	- tuple containing correlation, pvalue and confidence interval. 
-	'''
-	rng = np.random.default_rng(seed)
-
-	def _binning(en, ps):
-		bins = pd.qcut(ps, q=b, labels=False, duplicates="drop")
-		df = pd.DataFrame({"bin": bins, "entropy":en})
-		return df.groupby("bin")["entropy"].mean()
-
-	def _boot(en, ps) -> float:
-		men = _binning(en=en, ps=ps)
-		return -spearmanr(men.index.values, men.values).statistic
-
-	entropy = entropy.reindex(pseudotime.index)
-	if entropy.isna().any():
-		warnings.warn("Entropy contains NaNs, cannot compute EDS")
-		return (None, None, None)
-
-	mean_entropy = _binning(entropy.values, pseudotime.values)
-	if len(mean_entropy) < 3:
-		warnings.warn("Too few bins to reliably estimate EDS")
-		return (None, None, None)
-	eds = -spearmanr(mean_entropy.index.values, mean_entropy.values).statistic
-
-	eds_null = np.zeros(n_resamples)
-	for i in range(n_resamples):
-		permuted = rng.permutation(mean_entropy.values)
-		eds_null[i] = -spearmanr(mean_entropy.index.values, permuted).statistic
-	pvalue = np.mean(eds_null >= eds) 
-
-	ci = bootstrap((entropy.values, pseudotime.values), 
-					_boot, 
-					paired = True, 
-					n_resamples = n_resamples,
-					confidence_level=confidence_level,
-					random_state = seed).confidence_interval
-
-	return(eds, pvalue, ci)
-		
 
 
 def fate_concentration_index(fates:pd.DataFrame, pseudotime:pd.Series, seed:int = 42, n_resamples:int=10000, confidence_level:float=0.95) -> tuple:

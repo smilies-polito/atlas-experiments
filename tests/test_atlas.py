@@ -49,7 +49,16 @@ class TestInit(unittest.TestCase):
 		self.assertTrue(atlas._impl.use_activity)
 		self.assertEqual(atlas._impl.pseudotime_key, "pseudotime")
 		self.assertTrue(atlas._impl.backward)
-		
+
+class TestGetData(unittest.TestCase):
+	def test_get_data(self):
+		mudata = MuData({"rna":rna, "activity":activity})
+		atlas = ATLAS(mudata=mudata, 
+				method="palantir", 
+				fragment_path = fragment_path, 
+				other="unused parameter")
+		newdata = atlas.get_data()
+		self.assertEqual(mudata, newdata)	
 
 
 if __name__ == "__main__":
