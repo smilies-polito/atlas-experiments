@@ -1,9 +1,10 @@
+import scipy
 import inspect
 import warnings
 import muon as mu
-import scanpy as sc
 import numpy as np
 import pandas as pd
+import scanpy as sc
 from muon import MuData
 from anndata import AnnData
 from abc import ABC, abstractmethod
@@ -123,6 +124,39 @@ class Base(ABC):
 		Returns the MuData object
 		'''		
 		return self.mudata
+
+	@staticmethod
+	def _minmax(x:np.ndarray) -> np.ndarray:
+		if np.max(x) == np.min(x):
+			return np.zeros_like(x) 
+		return (x-np.min(x))/(np.max(x) - np.min(x))
+	
+
+	def compute_entropy(self):
+		probs = self.mudata.obsm.get("fate_probabilities", None)
+		if probs is None:
+			raise ValueError("Compute fate probabilities before running entropy")
+
+		if not isinstance(probs, pd.DataFrame):
+			raise ValueError("Fate probabilities not a DataFrame")
+
+		if (probs.shape[1] == 0 
+			or np.any(probs.sum(axis=1) == 0) 
+			or np.any(probs.sum(axis=0) == 0)):
+			warnings.warn("No terminal states or cells with no developmental probability or state without assignment")
+			self.mudata.obs["shannon_entropy"] = np.nan
+			self.mudata.obs["kl_divergence"] = np.nan
+			return
+
+		shannon_entropy = scipy.stats.entropy(probs, axis=1)
+		average_distribution = np.mean(probs, axis=0)
+		kl_divergence = np.nan_to_num(scipy.stats.entropy(probs, average_distribution, axis=1, base=2),
+								nan=1.0,	
+								copy=False)
+		shannon_entropy, kl_divergence = self._minmax(shannon_entropy), self._minmax(kl_divergence)
+		self.mudata.obs["shannon_entropy"] = pd.Series(shannon_entropy, index=self.mudata.obs.index)
+		self.mudata.obs["kl_divergence"] = pd.Series(kl_divergence, index=self.mudata.obs.index)
+				
 
 	@abstractmethod
 	def run(self, **kwargs: Any) -> None:

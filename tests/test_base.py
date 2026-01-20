@@ -24,9 +24,12 @@ atac = AnnData(X= pd.read_csv(os.path.join(os.getcwd(), "tests", "dummy_atac.tsv
 
 wrong_shape_activity = activity[:10, :10].copy()
 
+
 class DummyClass(Base):
 	def run(self, message:str)->None:
 		return message
+
+	compute_entropy = Base.compute_entropy
 
 
 class TestInit(unittest.TestCase):
@@ -135,7 +138,95 @@ class TestPreprocessing(unittest.TestCase):
 			dc.preprocessing()
 			
 
+class TestEntropy(unittest.TestCase):
+	def setUp(self):
+		rng = np.random.default_rng(42)
+		self.fate_probabilities = pd.DataFrame(rng.gamma(shape=2.0, scale=1.0, size= (rna.shape[0], 3)),
+							index= rna.obs_names,
+ 							columns = ["fate1", "fate2", "fate3"])
+		self.fate_probabilities = self.fate_probabilities.div(self.fate_probabilities.sum(axis=1), axis=0)
+
+	def test_missing_fate_probabilities(self):
+		mudata = MuData({"rna":rna, "atac":atac})
+		dc = DummyClass(mudata=mudata)
+		with self.assertRaises(ValueError):
+			dc.compute_entropy()
+
+	def test_non_dataframe_fates(self):
+		mudata = MuData({"rna":rna, "atac":atac})
+		mudata.obsm["fate_probabilities"] = np.random.rand(rna.shape[0], 1)
+		dc = DummyClass(mudata=mudata)
+		with self.assertRaises(ValueError):
+			dc.compute_entropy()
+	
+	def test_no_terminal_states(self):
+		mudata = MuData({"rna":rna, "atac":atac})
+		mudata.obsm["fate_probabilities"] = pd.DataFrame(np.empty((rna.shape[0], 0)),
+							index=rna.obs_names)
+		dc = DummyClass(mudata=mudata)
+		with self.assertWarns(UserWarning):
+			dc.compute_entropy()
+		self.assertTrue(mudata.obs["shannon_entropy"].isna().all())
+		self.assertTrue(mudata.obs["kl_divergence"].isna().all())
+
+	def test_cells_with_zero_probability(self):
+		mudata = MuData({"rna":rna, "atac":atac})
+		probs = self.fate_probabilities.copy()
+		probs.iloc[10, :] = 0  
+		mudata.obsm["fate_probabilities"] = probs
+		dc = DummyClass(mudata=mudata)
+		with self.assertWarns(UserWarning):
+			dc.compute_entropy()
+		self.assertTrue(mudata.obs["shannon_entropy"].isna().all())
+		self.assertTrue(mudata.obs["kl_divergence"].isna().all())
+	
+	def test_state_with_zero_probability(self):	
+		mudata = MuData({"rna":rna, "atac":atac})
+		probs = self.fate_probabilities.copy()
+		probs.iloc[:, 1] = 0  
+		mudata.obsm["fate_probabilities"] = probs
+		dc = DummyClass(mudata=mudata)
+		with self.assertWarns(UserWarning):
+			dc.compute_entropy()
+		self.assertTrue(mudata.obs["shannon_entropy"].isna().all())
+		self.assertTrue(mudata.obs["kl_divergence"].isna().all())
+
+	def test_valid_entropy(self):
+		mudata = MuData({"rna":rna, "atac":atac})
+		mudata.obsm["fate_probabilities"] = self.fate_probabilities.copy()
+		dc= DummyClass(mudata=mudata)
+		dc.compute_entropy()
+		self.assertIn("shannon_entropy", mudata.obs.columns)
+		self.assertIn("kl_divergence", mudata.obs.columns)
+		self.assertFalse(mudata.obs["shannon_entropy"].isna().any())
+		self.assertFalse(mudata.obs["kl_divergence"].isna().any())
+		self.assertTrue((mudata.obs["shannon_entropy"] >= 0).all())
+		self.assertTrue((mudata.obs["kl_divergence"] >= 0).all())
+		self.assertTrue((mudata.obs["shannon_entropy"] <=1).all())
+		self.assertTrue((mudata.obs["kl_divergence"] <= 1).all())
+		
+	def test_single_fate(self):
+		mudata = MuData({"rna":rna, "atac":atac})
+		mudata.obsm["fate_probabilities"] = pd.DataFrame(np.ones((rna.shape[0], 1)),
+									index= rna.obs_names,	
+									columns = ["fate1"])
+		dc= DummyClass(mudata=mudata)
+		dc.compute_entropy()
+		self.assertTrue(np.allclose(mudata.obs["shannon_entropy"], 0))
+		self.assertTrue(np.allclose(mudata.obs["kl_divergence"], 0))
+		
+	def test_equal_probabilities(self):
+		mudata = MuData({"rna":rna, "atac":atac})
+		mudata.obsm["fate_probabilities"] = pd.DataFrame(np.ones((rna.shape[0], 2))*0.5,
+									index= rna.obs_names,	
+									columns = ["fate1", "fate2"])
+		dc= DummyClass(mudata=mudata)
+		dc.compute_entropy()
+		self.assertTrue(np.allclose(mudata.obs["shannon_entropy"], 0))
+		self.assertTrue(np.allclose(mudata.obs["kl_divergence"], 0))
+									
+		
+
 
 if __name__=="__main__":
-	unittest.main()
-			
+ 	unittest.main()
