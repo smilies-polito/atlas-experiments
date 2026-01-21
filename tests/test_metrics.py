@@ -2,8 +2,162 @@ import os, math
 import unittest 
 import numpy as np
 import pandas as pd
-from atlas import pearson_entropy_pseudotime, spearman_entropy_pseudotime, fate_concentration_index
+from pandas.testing import assert_series_equal
+from atlas import pearson_entropy_pseudotime, spearman_entropy_pseudotime, fate_concentration_index, terminal_state_silhouette, _hard_ai, _soft_ai, _hard_bi, _soft_bi
 
+
+class TerminalStateSilhouette(unittest.TestCase):
+	def test_no_fates(self):
+		pseudotime = pd.Series([0.2, 0.4, 0.6, 0.8])
+		with self.assertRaises(ValueError):
+			terminal_state_silhouette(fates=pd.DataFrame(index=pseudotime.index))
+
+	def test_hard_no_pseudotime(self):
+		fates = pd.DataFrame([[0,1],[1,0]])
+		with self.assertRaises(ValueError):
+			terminal_state_silhouette(fates, soft_assignment=False, pseudotime=None)
+
+	def test_nan(self):
+		fates = pd.DataFrame([[1,0], [np.nan, np.nan], [0,1]])
+		with self.assertRaises(ValueError):
+			S = terminal_state_silhouette(fates)
+
+	def test_single_terminal(self):
+		fates = pd.DataFrame({"A": [1,1]})
+		with self.assertWarns(UserWarning):
+			result = terminal_state_silhouette(fates)
+		self.assertEqual(result, 0)
+
+	def test_soft_assignment_basic(self):
+		fates = pd.DataFrame([[1,0], [0.9,0.1], [0.1, 0.9], [0,1]],
+					index = ["c1", "c2", "c3", "c4"], 
+					columns = ["A", "B"])
+		S = terminal_state_silhouette(fates, soft_assignment=True)
+		self.assertTrue(-1 <= S <= 1)
+
+	def test_hard_assignment_basic(self):
+		fates = pd.DataFrame([[1,0], [1,0], [0,1], [0,1]],
+					index = ["c1", "c2", "c3", "c4"], 
+					columns = ["A", "B"])
+		pseudotime = pd.Series([0.2, 0.4, 0.6, 0.8], index = fates.index)
+		S = terminal_state_silhouette(fates, pseudotime=pseudotime, soft_assignment=False)
+		self.assertTrue(-1 <= S <= 1)
+		
+
+	def test_hard_ai(self):	
+		# one cell into another terminal
+		f = pd.DataFrame({"A": [0.9, 0.8, 0.1], "B": [0.1, 0.2, 0.9]}, 
+				index = ["c1","c2","c3"])
+		D = pd.DataFrame([[0.0, 1.0, 2.0], [1.0, 0.0, 3.0], [2.0, 3.0, 0.0]],
+				index = ["c1", "c2", "c3"],
+				columns = ["c1", "c2", "c3"])
+		expected = pd.Series({"c1": 1.0, "c2": 1.0, "c3": np.nan})
+		result = _hard_ai(f, D)
+		assert_series_equal(result, expected)	
+		# all cells committed to the same terminal
+		f = pd.DataFrame({"A": [1.0, 1.0, 1.0], "B": [0.0, 0.0, 0.0]}, 
+				index = ["c1", "c2", "c3"])
+		result = _hard_ai(f, D)
+		expected = pd.Series({"c1": (1.0 + 2.0)/2,
+					"c2": (1.0 + 3.0)/2,
+					"c3": (2.0 + 3.0)/2})
+		assert_series_equal(result, expected)
+		# all cells committed to a different terminal 
+		f = pd.DataFrame({ "A": [1.0, 0.0, 0.0], "B":[0.0, 1.0, 0.0], "C":[0.0,0.0,1.0]},
+				index = ["c1","c2", "c3"])
+		result = _hard_ai(f, D)
+		expected = pd.Series({ "c1":np.nan, "c2": np.nan, "c3": np.nan})
+		assert_series_equal(result, expected)
+
+	def test_soft_ai(self):
+		# one cell into another terminal
+		f = pd.DataFrame({"A": [1.0, 1.0, 0.0], "B": [0.0, 0.0, 1.0]}, 
+				index = ["c1","c2","c3"])
+		D = pd.DataFrame([[0.0, 2.0, 4.0], [2.0, 0.0, 6.0], [4.0, 6.0, 0.0]],
+				index = ["c1", "c2", "c3"],
+				columns = ["c1", "c2", "c3"])
+		expected = pd.Series({"c1":2.0, "c2": 2.0, "c3":np.nan})
+		result = _soft_ai(f, D)
+		assert_series_equal(expected, result)
+		# all cells committed to a different terminal 
+		f = pd.DataFrame({ "A": [1.0, 0.0, 0.0], "B":[0.0, 1.0, 0.0], "C":[0.0, 0.0, 1.0]},
+				index = ["c1","c2", "c3"])
+		result = _soft_ai(f, D)
+		expected = pd.Series({"c1":np.nan, "c2": np.nan, "c3": np.nan})
+		assert_series_equal(result, expected)
+		# all cells committed to the same terminal
+		f = pd.DataFrame({"A": [1.0, 1.0, 1.0], "B": [0.0, 0.0, 0.0]}, 
+				index = ["c1", "c2", "c3"])
+		result = _soft_ai(f, D)
+		expected = pd.Series({"c1": 3.0, "c2": 4.0, "c3": 5.0})
+		assert_series_equal(result, expected)
+		# test general case 
+		f = pd.DataFrame({"A":[0.8, 0.6, 0.0], "B": [0.2, 0.4, 1.0]}, 
+				index = ["c1", "c2", "c3"])
+		D = pd.DataFrame([[0.0, 1.0, 3.0], [1.0, 0.0, 5.0], [3.0, 5.0, 0.0]],
+				index = ["c1", "c2", "c3"],
+				columns = ["c1", "c2", "c3"])
+		expected_c1 = (0.56 * 1.0 + 0.2 * 3.0) / (0.56 + 0.2)
+		expected_c2 = (0.56 * 1.0 + 0.4 * 5.0) / (0.56 + 0.4)
+		expected_c3 = (0.2 * 3.0 + 0.4 * 5.0) / (0.2 + 0.4)
+		expected = pd.Series({"c1": expected_c1, "c2": expected_c2, "c3": expected_c3})
+		result = _soft_ai(f,D)
+		assert_series_equal(result, expected)
+
+	def test_hard_bi(self):
+		D = pd.DataFrame([[0,2,3],[2,0,1],[3,1,0]],
+				index = ["c1", "c2", "c3"],
+				columns = ["c1", "c2", "c3"])
+		# all cells committed to different states
+		f = pd.DataFrame(np.eye(3), index = ["c1", "c2", "c3"], columns=[0,1,2])
+		bi = _hard_bi(f,D)
+		expected = pd.Series([2.0, 1.0, 1.0], index=["c1", "c2", "c3"])
+		assert_series_equal(bi, expected)
+		# all cells committed to the same fate
+		f = pd.DataFrame([[1.0, 1.0, 1.0],[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+				index = ["c1", "c2", "c3"],
+				columns = [0,1,2])
+		bi = _hard_bi(f, D)
+		expected = pd.Series({"c1":np.nan, "c2":np.nan, "c3":np.nan})
+		assert_series_equal(bi, expected)
+		# two cluster and one isolated cell
+		f = pd.DataFrame({"A":[1.0, 1.0, 0.0], "B":[0.0, 0.0, 1.0]}, 
+				index = ["c1", "c2", "c3"])
+		bi = _hard_bi(f,D)
+		expected = pd.Series({"c1":3.0, "c2":1.0, "c3": 2.0})
+		assert_series_equal(bi, expected)
+		# three clusters one is empty 
+		f = pd.DataFrame([[1.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], 
+				index = ["c1", "c2", "c3"],
+				columns = [0,1,2])
+		bi = _hard_bi(f,D)
+		expected = pd.Series({"c1":3.0, "c2":1.0, "c3": 2.0})
+		assert_series_equal(bi, expected)
+		
+	
+	def test_soft_bi(self):
+		D = pd.DataFrame([[0,2,3],[2,0,1],[3,1,0]],
+				index = ["c1", "c2", "c3"],
+				columns = ["c1", "c2", "c3"])
+		# all cells committed to different states
+		f = pd.DataFrame(np.eye(3), index = ["c1", "c2", "c3"], columns=[0,1,2])
+		bi = _soft_bi(f,D)
+		expected = pd.Series([2.5, 1.5, 2.0], index=["c1", "c2", "c3"])
+		assert_series_equal(bi, expected)
+		# all cells committed to the same fate
+		f = pd.DataFrame({"A":[1.0, 1.0, 1.0], "B":[0.0, 0.0, 0.0],"C": [0.0, 0.0, 0.0]},
+				index = ["c1", "c2", "c3"])
+		bi = _soft_bi(f, D)
+		expected = pd.Series({"c1":np.nan, "c2":np.nan, "c3":np.nan})
+		assert_series_equal(bi, expected)
+		# two cluster and one isolated cell
+		f = pd.DataFrame({"A":[1.0, 1.0, 0.0], "B":[0.0, 0.0, 1.0]}, 
+				index = ["c1", "c2", "c3"])
+		bi = _soft_bi(f,D)
+		expected = pd.Series({"c1":3.0, "c2":1.0, "c3": 2.0})
+		assert_series_equal(bi, expected)
+		
+		
 class TestFateConcentration(unittest.TestCase):
 	def setUp(self):
 		n_over = 600
@@ -193,7 +347,5 @@ class TestPearsonEntropyPseudotime(unittest.TestCase):
 			self.assertAlmostEqual(ci1.high, ci2.high)
 
 	
-
-
 if __name__=="__main__":
 	unittest.main()
