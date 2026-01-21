@@ -135,6 +135,8 @@ def fate_concentration_index(fates:pd.DataFrame, pseudotime:pd.Series, seed:int 
 		'''
 		return (x**2).sum(axis=1)
 
+	if fates.shape[1] == 0:	
+		raise ValueError(f"No terminal probabilities are found. Provide a 2D dataframe n_cells x n_terminal_states")
 	if len(pseudotime) != fates.shape[0]:
 		raise ValueError(f"#instances do not match {len(pseudotime)} != {fates.shape[0]}")
 	
