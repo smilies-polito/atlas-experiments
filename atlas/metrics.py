@@ -267,8 +267,6 @@ def terminal_state_silhouette(fates: pd.DataFrame,
 
 	Silhouette score for terminal states might be biased for non-fully-committed cell types. Some strategies can be	
 	adopted to deal with this scenario:
-	- Confidence Based Filtering Strategy: each cell is assigned to a lineage using most probable fate strategy argmax(p_it).
-		Computes silhouette only considering those cells with argmax(p_it) > theta.
 	- Pseudotime Weight Strategy: the final silhouette metric is weighted according to pseudotime. S = sum_i(tau_i^alpha * s_i) / sum_i(tau_i^alpha)
 	- Soft Assignment: computes silhouette not assigning each cell to a specific lineage. It helps evaluating how each cell shares its fate
 	with other cells.
@@ -301,3 +299,31 @@ def terminal_state_silhouette(fates: pd.DataFrame,
 	return S
 	
 
+def terminal_pseudotime_enrichment_score(terminal_states:dict, 
+					pseudotime:pd.Series, 
+					rank:bool=False) -> float:
+	'''
+	Computes m(pseudotime_ts) - m(pseudotime_all)
+	Parameters: 
+		- terminal_states: dict; contains as key the terminal state name and as value a list of cells identifying the terminal state.
+		- pseudotime: pandas.Series; pseudotime for each cell. 
+		- rank: bool; whether to use difference of medians directly applied on the pseudotime values or use a rank based approach. Default False. 
+	'''	
+	if not bool(terminal_states):
+		raise ValueError(f"No terminal states available")
+	if rank:
+		m = pseudotime.rank(method="average")
+		if len(m) > 1:
+			m = (m - 1) / (len(m) - 1) #normalization according to number of cells 
+		else: 
+			m = pd.Series(0.0, index = pseudotime.index)
+	else: 
+		m = pseudotime		
+
+	m_global = m.median()
+	enrichment = pd.Series(index= terminal_states.keys(), dtype=float)
+	for ts, cells in terminal_states.items():
+		enrichment.loc[ts] = m.loc[cells].median() - m_global
+	return enrichment.mean()	
+		
+	

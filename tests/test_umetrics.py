@@ -3,9 +3,104 @@ import unittest
 import numpy as np
 import pandas as pd
 from pandas.testing import assert_series_equal
-from atlas import pearson_entropy_pseudotime, spearman_entropy_pseudotime, fate_concentration_index, terminal_state_silhouette, _hard_ai, _soft_ai, _hard_bi, _soft_bi
+from atlas import pearson_entropy_pseudotime, spearman_entropy_pseudotime, fate_concentration_index, terminal_state_silhouette, _hard_ai, _soft_ai, _hard_bi, _soft_bi, terminal_pseudotime_enrichment_score
 
+class TestTerminalPseudotimeEnrichmentScore(unittest.TestCase):
+	def setUp(self):
+		self.pseudotime = pd.Series([0.1, 0.1, 0.2, 0.9, 0.9, 0.6, 0.7, 0.8],
+				 index = ["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c9"])
+	
+	def test_empty_terminal(self):
+		with self.assertRaises(ValueError):
+			terminal_pseudotime_enrichment_score(terminal_states = {},
+								pseudotime = self.pseudotime)	
+	def test_single_terminal_state_rank(self):
+		pseudotime = pd.Series([0.1, 0.5, 0.9], index = ["c1", "c2", "c3"])
+		ts = {"t1": ["c3"]}
+		tpes = terminal_pseudotime_enrichment_score(terminal_states=ts, 
+								pseudotime = pseudotime,
+								rank= True)
+		expected = 0.5 
+		self.assertAlmostEqual(expected, tpes) 
 
+	def test_single_terminal_state_raw(self):
+		pseudotime = pd.Series([0.1, 0.5, 0.9], index = ["c1", "c2", "c3"])
+		ts = {"t1": ["c3"]}
+		tpes = terminal_pseudotime_enrichment_score(terminal_states=ts, 
+								pseudotime = pseudotime)
+		expected = 0.4
+		self.assertAlmostEqual(expected, tpes) 
+
+	def test_multicell_terminal(self):
+		pseudotime = pd.Series([0.1, 0.4, 0.8, 0.9], index = ["c1", "c2", "c3", "c4"])
+		ts = {"t1": ["c3" ,"c4"]}
+		tpes = terminal_pseudotime_enrichment_score(terminal_states=ts, 
+								pseudotime = pseudotime)
+		expected = 0.85 - 0.6
+		self.assertAlmostEqual(expected, tpes) 
+
+	def test_multiple_terminal(self):
+		pseudotime = pd.Series([0.1, 0.3, 0.7, 0.9], index = ["c1", "c2", "c3", "c4"])
+		ts = {"t1": ["c3"], "t2": ["c4"]}
+		tpes = terminal_pseudotime_enrichment_score(terminal_states=ts, 
+								pseudotime = pseudotime)
+		global_mean = 0.5 
+		expected = ((0.7 - global_mean) + (0.9 - global_mean)) / 2
+		self.assertAlmostEqual(expected, tpes) 
+
+	def test_rank_based_invariance_to_scaling(self):
+		pseudotime1 = pd.Series([0.1, 0.5, 0.9], index = ["c1", "c2", "c3"])
+		pseudotime2 = pseudotime1 * 100
+		ts = {"t1": ["c3"]}
+		tpes1 = terminal_pseudotime_enrichment_score(terminal_states=ts, 
+								pseudotime = pseudotime1,
+								rank = True)
+		
+		tpes2 = terminal_pseudotime_enrichment_score(terminal_states=ts, 
+								pseudotime = pseudotime2,
+								rank = True)
+		self.assertAlmostEqual(tpes1, tpes2)
+
+	def test_rank_with_ties(self):
+		pseudotime = pd.Series([0.2, 0.5, 0.5, 0.9], index = ["c1", "c2", "c3", "c4"])
+		ts = {"t1": ["c2", "c3"]}
+		expected = 0.0 
+		tpes = terminal_pseudotime_enrichment_score(terminal_states=ts, 
+								pseudotime = pseudotime,
+								rank = True)
+		self.assertAlmostEqual(expected, tpes)
+
+	def test_single_cell_dataset(self):
+		pseudotime = pd.Series([0.2], index = ["c1"])
+		ts = {"t1": ["c1"]}
+		tpes = terminal_pseudotime_enrichment_score(terminal_states=ts, 
+								pseudotime = pseudotime,
+								rank = True)
+		self.assertAlmostEqual(tpes, 0.0)
+
+	def test_non_informative_ts(self):
+		pseudotime = pd.Series(np.linspace(0,1, 100), index= [f"c{i}" for i in range(100)])
+		ts = {"t1": pseudotime.sample(20, random_state=0).index.tolist()}
+		tpes = terminal_pseudotime_enrichment_score(terminal_states=ts, 
+								pseudotime = pseudotime)
+		self.assertTrue(abs(tpes) < 0.1)
+		tpes = terminal_pseudotime_enrichment_score(terminal_states=ts, 
+								pseudotime = pseudotime, 
+								rank = True)
+		self.assertTrue(abs(tpes) < 0.1)
+
+	def test_early_cells(self):
+		pseudotime = pd.Series(np.linspace(0,1, 100), index= [f"c{i}" for i in range(100)])
+		ts = {"t1": pseudotime.nsmallest(10).index.tolist()}
+		tpes = terminal_pseudotime_enrichment_score(terminal_states=ts, 
+								pseudotime = pseudotime)
+		self.assertLess(tpes, 0.0)
+		tpes = terminal_pseudotime_enrichment_score(terminal_states=ts, 
+								pseudotime = pseudotime, 		
+								rank = True)
+		self.assertLess(tpes, 0.0)
+	
+		
 class TerminalStateSilhouette(unittest.TestCase):
 	def test_no_fates(self):
 		pseudotime = pd.Series([0.2, 0.4, 0.6, 0.8])
@@ -345,7 +440,6 @@ class TestPearsonEntropyPseudotime(unittest.TestCase):
 		else:
 			self.assertAlmostEqual(ci1.low, ci2.low)
 			self.assertAlmostEqual(ci1.high, ci2.high)
-
 	
 if __name__=="__main__":
 	unittest.main()
