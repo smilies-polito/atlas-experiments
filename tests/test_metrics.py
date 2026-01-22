@@ -1,9 +1,69 @@
 import os, math
+import scipy
 import unittest 
 import numpy as np
 import pandas as pd
 from pandas.testing import assert_series_equal
-from atlas import pearson_entropy_pseudotime, spearman_entropy_pseudotime, fate_concentration_index, terminal_state_silhouette, _hard_ai, _soft_ai, _hard_bi, _soft_bi, terminal_pseudotime_enrichment_score
+from atlas import pearson_correlation, spearman_correlation, kendall_correlation, fate_concentration_index, terminal_state_silhouette, _hard_ai, _soft_ai, _hard_bi, _soft_bi, terminal_pseudotime_enrichment_score
+
+class TestKendallCorrelation(unittest.TestCase):
+	def setUp(self):
+		self.n_large= 1000
+		self.n_small = 50
+
+	def test_perfect_positive(self):
+		x = pd.Series(np.arange(self.n_large))
+		y = pd.Series(np.arange(self.n_large))
+		tau, pval = kendall_correlation(x,y)
+		self.assertAlmostEqual(tau, 1.0, places=6)
+		self.assertLess(pval, 0.05)
+
+	def test_perfect_negative(self):
+		x = pd.Series(np.arange(self.n_large))
+		y = pd.Series(np.arange(self.n_large)[::-1])
+		tau, pval = kendall_correlation(x,y)
+		self.assertAlmostEqual(tau, -1.0, places=6)
+		self.assertLess(pval, 0.05)
+	
+	def test_independency(self):
+		rng = np.random.default_rng(42)
+		x = pd.Series(rng.normal(size=self.n_large))
+		y = pd.Series(rng.normal(size=self.n_large))
+		tau, pvalue = kendall_correlation(x,y)
+		self.assertAlmostEqual(tau, 0.0, delta=0.05)
+		self.assertGreater(pvalue, 0.05)
+
+	def test_ties(self):
+		x = pd.Series([0,0,1,1,2,2])
+		y = pd.Series([0,1,1,2,2,3])
+		tau, pvalue = kendall_correlation(x,y)
+		expected_tau, _ = scipy.stats.kendalltau(x,y, variant = "b")
+		self.assertAlmostEqual(tau, expected_tau, places=6)
+
+	def test_small_sample_warning(self):
+		x = pd.Series([0,0,1,1,2,2])
+		y = pd.Series([0,1,1,2,2,3])
+		with self.assertWarns(UserWarning):
+			tau, pvalue = kendall_correlation(x,y)
+	
+	def test_different_sizes(self):
+		x = pd.Series([0,0,1,1,2,2])
+		y = pd.Series([0,1,1])
+		with self.assertRaises(ValueError):
+			tau, pvalue = kendall_correlation(x,y)
+
+	def test_nans(self):
+		x = pd.Series([0,0,1,1,2,np.nan])
+		y = pd.Series([0,1,1,2,2,3])
+		with self.assertRaises(ValueError):
+			tau, pvalue = kendall_correlation(x,y)
+
+	def test_index(self):
+		x = pd.Series([0,1,2], index=[0,1,2])
+		y = pd.Series([2,1,0], index=[2,1,0])
+		tau, pvalue = kendall_correlation(x,y)
+		self.assertAlmostEqual(tau, 1.0, places=6)
+				
 
 class TestTerminalPseudotimeEnrichmentScore(unittest.TestCase):
 	def setUp(self):
@@ -330,15 +390,15 @@ class TestSpearmanEntropyPseudotime(unittest.TestCase):
 
 	def test_input_shape(self):
 		with self.assertRaises(ValueError):
-			spearman_entropy_pseudotime(self.x_over, self.x_under.copy())
+			spearman_correlation(self.x_over, self.x_under.copy())
 	
 	def test_nans(self):
 		x, y = self.x_under.copy(), self.y_under.copy()
 		x[0], y[0] = np.nan, np.nan
 		with self.assertRaises(ValueError):
-			spearman_entropy_pseudotime(x, self.y_under)
+			spearman_correlation(x, self.y_under)
 		with self.assertRaises(ValueError):
-			spearman_entropy_pseudotime(self.x_under, y)
+			spearman_correlation(self.x_under, y)
 	
 
 	def test_reindex(self):
@@ -347,22 +407,22 @@ class TestSpearmanEntropyPseudotime(unittest.TestCase):
 		x_index = x.index.to_numpy().copy()
 		x_index[0], x_index[30] = x_index[30], x_index[0]
 		x = x.loc[x_index]
-		r, p, ci = spearman_entropy_pseudotime(x, y)
+		r, p, ci = spearman_correlation(x, y)
 		self.assertAlmostEqual(r, 1.0)
 
 	def test_ci_None(self):
-		r, p, ci = spearman_entropy_pseudotime(self.x_over, self.y_over_pos)
+		r, p, ci = spearman_correlation(self.x_over, self.y_over_pos)
 		self.assertIsNone(ci)
 
 	def test_ci_not_None(self):
-		r, p, ci = spearman_entropy_pseudotime(self.x_under, self.y_under)
+		r, p, ci = spearman_correlation(self.x_under, self.y_under)
 		self.assertIsNotNone(ci)
 		self.assertTrue(hasattr(ci, "low"))
 		self.assertTrue(hasattr(ci, "high"))
 
 	def test_seed_reproducibility(self):
-		r1, p1, ci1 = spearman_entropy_pseudotime(self.x_under, self.y_under, seed=123)
-		r2, p2, ci2 = spearman_entropy_pseudotime(self.x_under, self.y_under, seed=123)
+		r1, p1, ci1 = spearman_correlation(self.x_under, self.y_under, seed=123)
+		r2, p2, ci2 = spearman_correlation(self.x_under, self.y_under, seed=123)
 		self.assertAlmostEqual(r1, r2)
 		self.assertAlmostEqual(p1, p2)
 		if math.isnan(ci1.low):
@@ -373,11 +433,11 @@ class TestSpearmanEntropyPseudotime(unittest.TestCase):
 			self.assertAlmostEqual(ci1.high, ci2.high)
 
 	def test_perfect_positive_correlation(self):
-		r, p, ci = spearman_entropy_pseudotime(self.x_over, self.y_over_pos)
+		r, p, ci = spearman_correlation(self.x_over, self.y_over_pos)
 		self.assertAlmostEqual(r, 1.0)
 
 	def test_monotonic_non_linear_relationship(self):
-		r, p, ci = spearman_entropy_pseudotime(self.x_over, self.y_non_linear)	
+		r, p, ci = spearman_correlation(self.x_over, self.y_non_linear)	
 		self.assertAlmostEqual(r, 1.0, places=6)
 
 
@@ -392,15 +452,15 @@ class TestPearsonEntropyPseudotime(unittest.TestCase):
 
 	def test_input_shape(self):
 		with self.assertRaises(ValueError):
-			pearson_entropy_pseudotime(self.x_over, self.x_under.copy())
+			pearson_correlation(self.x_over, self.x_under.copy())
 
 	def test_nans(self):
 		x, y = self.x_under.copy(), self.y_under.copy()
 		x[0], y[0] = np.nan, np.nan
 		with self.assertRaises(ValueError):
-			pearson_entropy_pseudotime(x, self.y_under)
+			pearson_correlation(x, self.y_under)
 		with self.assertRaises(ValueError):
-			pearson_entropy_pseudotime(self.x_under, y)
+			pearson_correlation(self.x_under, y)
 
 	def test_reindex(self):
 		x = self.x_over.copy()
@@ -408,30 +468,30 @@ class TestPearsonEntropyPseudotime(unittest.TestCase):
 		x_index = x.index.to_numpy().copy()
 		x_index[0], x_index[30] = x_index[30], x_index[0]
 		x = x.loc[x_index]
-		r, p, ci = pearson_entropy_pseudotime(x, y)
+		r, p, ci = pearson_correlation(x, y)
 		self.assertAlmostEqual(r, 1.0)
 
 	def test_perfect_positive_correlation(self):
-		r, p, ci = pearson_entropy_pseudotime(self.x_over, self.y_over_pos)
+		r, p, ci = pearson_correlation(self.x_over, self.y_over_pos)
 		self.assertAlmostEqual(r, 1.0)
 
 	def test_perfect_negative_correlation(self):
-		r, p, ci = pearson_entropy_pseudotime(self.x_over, self.y_over_neg)
+		r, p, ci = pearson_correlation(self.x_over, self.y_over_neg)
 		self.assertAlmostEqual(r, -1.0)
 
 	def test_ci_None(self):
-		r, p, ci = pearson_entropy_pseudotime(self.x_over, self.y_over_pos)
+		r, p, ci = pearson_correlation(self.x_over, self.y_over_pos)
 		self.assertIsNone(ci)
 
 	def test_ci_not_None(self):
-		r, p, ci = pearson_entropy_pseudotime(self.x_under, self.y_under)
+		r, p, ci = pearson_correlation(self.x_under, self.y_under)
 		self.assertIsNotNone(ci)
 		self.assertTrue(hasattr(ci, "low"))
 		self.assertTrue(hasattr(ci, "high"))
 
 	def test_seed_reproducibility(self):
-		r1, p1, ci1 = pearson_entropy_pseudotime(self.x_under, self.y_under, seed=123)
-		r2, p2, ci2 = pearson_entropy_pseudotime(self.x_under, self.y_under, seed=123)
+		r1, p1, ci1 = pearson_correlation(self.x_under, self.y_under, seed=123)
+		r2, p2, ci2 = pearson_correlation(self.x_under, self.y_under, seed=123)
 		self.assertAlmostEqual(r1, r2)
 		self.assertAlmostEqual(p1, p2)
 		if math.isnan(ci1.low):
@@ -440,6 +500,6 @@ class TestPearsonEntropyPseudotime(unittest.TestCase):
 		else:
 			self.assertAlmostEqual(ci1.low, ci2.low)
 			self.assertAlmostEqual(ci1.high, ci2.high)
-	
+
 if __name__=="__main__":
 	unittest.main()

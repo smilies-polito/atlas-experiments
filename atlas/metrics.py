@@ -9,7 +9,22 @@ from scipy.sparse import csr_matrix
 from scipy.stats import pearsonr, spearmanr, permutation_test, bootstrap, kendalltau
 
 
-def pearson_entropy_pseudotime(entropy: pd.Series, pseudotime: pd.Series, seed:int=42, n_resamples:int=10000,
+def kendall_correlation(x:pd.Series, y: pd.Series) -> tuple:
+	if len(x)!=len(y):
+		raise ValueError(f"#instances do not match {len(y)} != {len(x)}")
+	if len(x) < 100:
+		warnings.warn("Sample size < 100. Kendall's tau may have high variance")
+	
+	if x.isna().any() or y.isna().any():
+		raise ValueError(f"NaNs are not a valid input")
+	
+	x = x.reindex(y.index)
+	res, pvalue = kendalltau(x.values, y.values, variant="b") 
+	return (res, pvalue)
+
+
+
+def pearson_correlation(x: pd.Series, y: pd.Series, seed:int=42, n_resamples:int=10000,
 								confidence_level: float=0.95) -> tuple:
 	'''
 	Pearson Correlation between entropy and pseudotime. Measures the linear correlation between entropy and pseudotime. 
@@ -27,40 +42,40 @@ def pearson_entropy_pseudotime(entropy: pd.Series, pseudotime: pd.Series, seed:i
 	------
 	When the correlation is exactly ±1, the bootstrap distribution is degenerate and confidence intervals may be NaN.
 	'''
-	def stat(x:np.ndarray, y:np.ndarray) -> float: 
-		return pearsonr(x,y).statistic
+	def stat(a1:np.ndarray, a2:np.ndarray) -> float: 
+		return pearsonr(a1,a2).statistic
 
-	if len(entropy)!=len(pseudotime):
-		raise ValueError(f"#instances do not match {len(pseudotime)} != {len(entropy)}")
+	if len(x)!=len(y):
+		raise ValueError(f"#instances do not match {len(y)} != {len(x)}")
 
-	if entropy.isna().any() or pseudotime.isna().any():
+	if x.isna().any() or y.isna().any():
 		raise ValueError(f"NaNs are not a valid input")
 
-	entropy = entropy.reindex(pseudotime.index)
+	x = x.reindex(y.index)
 	# Exact p-value with permutation and confidence interval via bootstrapping
-	if len(entropy) < 500:
+	if len(x) < 500:
 		warnings.warn("Less than 500 samples, pvalue might not be accurate. Permutation test and bootstrapping.")
-		res = permutation_test((pseudotime.values, entropy.values), 
-								stat, 
-								permutation_type="pairings", 
-								n_resamples=n_resamples, 
-								alternative="two-sided", 
-								random_state=seed)
-		ci = bootstrap((pseudotime.values, entropy.values),
-						stat,
-						n_resamples = n_resamples, 
-						paired = True,
-						alternative = "two-sided",
-						confidence_level= confidence_level,
-						random_state= seed)
+		res = permutation_test((x.values, y.values), 
+					stat, 
+					permutation_type="pairings", 
+					n_resamples=n_resamples, 
+					alternative="two-sided", 
+					random_state=seed)
+		ci = bootstrap((x.values, y.values),
+				stat,
+				n_resamples = n_resamples, 
+				paired = True,
+				alternative = "two-sided",
+				confidence_level= confidence_level,
+				random_state= seed)
 						 
 	else:
-	 	res, ci = pearsonr(pseudotime.values, entropy.values), {}
+	 	res, ci = pearsonr(x.values, y.values), {}
 	return (res.statistic, res.pvalue, getattr(ci, "confidence_interval", None))
 
 	
 
-def spearman_entropy_pseudotime(entropy: pd.Series, pseudotime: pd.Series, seed:int=42, n_resamples:int=10000,
+def spearman_correlation(x: pd.Series, y: pd.Series, seed:int=42, n_resamples:int=10000,
 								confidence_level:float=0.95) -> tuple:
 	'''
 	Spearman Correlation between entropy and pseudotime. Measures the monotone correlation between entropy and pseudotime. 
@@ -78,33 +93,33 @@ def spearman_entropy_pseudotime(entropy: pd.Series, pseudotime: pd.Series, seed:
 	------
 	When the correlation is exactly ±1, the bootstrap distribution is degenerate and confidence intervals may be NaN.
 	'''
-	def stat(x:np.ndarray, y:np.ndarray) -> float: 
-		return spearmanr(x,y).statistic
+	def stat(a1:np.ndarray, a2:np.ndarray) -> float: 
+		return spearmanr(a1,a2).statistic
 
-	if len(entropy)!=len(pseudotime):
-		raise ValueError(f"#instances do not match {len(pseudotime)} != {len(entropy)}")
+	if len(x)!=len(y):
+		raise ValueError(f"#instances do not match {len(y)} != {len(y)}")
 
-	if entropy.isna().any() or pseudotime.isna().any():
+	if x.isna().any() or y.isna().any():
 		raise ValueError(f"NaNs are not a valid input")
 
-	entropy = entropy.reindex(pseudotime.index)
-	if len(entropy) < 500:
+	x = x.reindex(y.index)
+	if len(x) < 500:
 		warnings.warn("Less than 500 samples, pvalue might not be accurate. Consider bootstrapping")
-		res = permutation_test((pseudotime.values, entropy.values), 
-								stat, 
-								permutation_type="pairings", 
-								n_resamples= n_resamples,
-								alternative="two-sided", 
-								random_state=seed)
-		ci = bootstrap((pseudotime.values, entropy.values),
-						stat,
-						n_resamples = n_resamples, 
-						paired = True,
-						alternative = "two-sided",
-						confidence_level= confidence_level,
-						random_state= seed)
+		res = permutation_test((x.values, y.values), 
+					stat, 
+					permutation_type="pairings", 
+					n_resamples= n_resamples,
+					alternative="two-sided", 
+					random_state=seed)
+		ci = bootstrap((x.values, y.values),
+				stat,
+				n_resamples = n_resamples, 
+				paired = True,
+				alternative = "two-sided",
+				confidence_level= confidence_level,
+				random_state= seed)
 	else:
-		res, ci  = spearmanr(pseudotime.values, entropy.values), {}
+		res, ci  = spearmanr(x.values, y.values), {}
 	return (res.statistic, res.pvalue, getattr(ci, "confidence_interval", None))
 
 
