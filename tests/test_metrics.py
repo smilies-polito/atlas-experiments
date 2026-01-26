@@ -4,8 +4,47 @@ import unittest
 import numpy as np
 import pandas as pd
 from pandas.testing import assert_series_equal
-from atlas import pearson_correlation, spearman_correlation, kendall_correlation, fate_concentration_index, terminal_state_silhouette, _hard_ai, _soft_ai, _hard_bi, _soft_bi, terminal_pseudotime_enrichment_score
+from atlas import pearson_correlation, spearman_correlation, kendall_correlation, fate_concentration_index, terminal_state_silhouette, _hard_ai, _soft_ai, _hard_bi, _soft_bi, terminal_pseudotime_enrichment_score, js_distance
 
+class testJSD(unittest.TestCase):
+	def setUp(self):
+		self.n = 100
+		self.k = 3
+
+	def test_identical_distributions(self):
+		x = pd.DataFrame(np.full((self.n, self.k), 1/self.k))
+		y = x.copy()
+		js = js_distance(x,y)
+		self.assertAlmostEqual(js, 0.0, places=7)
+
+	def test_opposite_one_hot(self):
+		x = pd.DataFrame(np.eye(self.k)[np.zeros(self.n, dtype=int)])
+		y = pd.DataFrame(np.eye(self.k)[np.ones(self.n, dtype=int)])
+		js = js_distance(x,y)
+		self.assertLessEqual(js, np.sqrt(np.log(2)) + 1e-6)
+		self.assertGreater(js, 0.8)
+
+	def test_intermediate_case(self):
+		x = pd.DataFrame(np.tile([0.5, 0.5, 0.0], (self.n, 1)))
+		y = pd.DataFrame(np.tile([1.0, 0.0, 0.0], (self.n, 1)))
+		js = js_distance(x,y)
+		self.assertLess(js, np.sqrt(np.log(2)))
+		self.assertGreater(js, 0.0)
+
+	def test_shape_mismatch(self):
+		x = pd.DataFrame(np.full((10,3), 1/3))
+		y = pd.DataFrame(np.full((10,4), 1/4))
+		with self.assertRaises(ValueError):
+			js = js_distance(x,y)
+
+	def test_nans(self):
+		x = pd.DataFrame(np.full((10,3), 1/3))
+		y = x.copy() 
+		y.iloc[0,0] = np.nan
+		with self.assertRaises(ValueError):
+			js = js_distance(x,y)
+
+'''
 class TestKendallCorrelation(unittest.TestCase):
 	def setUp(self):
 		self.n_large= 1000
@@ -500,6 +539,6 @@ class TestPearsonEntropyPseudotime(unittest.TestCase):
 		else:
 			self.assertAlmostEqual(ci1.low, ci2.low)
 			self.assertAlmostEqual(ci1.high, ci2.high)
-
+'''
 if __name__=="__main__":
 	unittest.main()

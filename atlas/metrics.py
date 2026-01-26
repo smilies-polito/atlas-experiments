@@ -6,7 +6,18 @@ from typing import Optional
 from collections.abc import Callable
 from scipy.spatial.distance import cdist, jensenshannon
 from scipy.sparse import csr_matrix
+from scipy.spatial.distance import jensenshannon
 from scipy.stats import pearsonr, spearmanr, permutation_test, bootstrap, kendalltau
+
+
+def js_distance(x: pd.DataFrame, y: pd.DataFrame, base:float=np.e) -> float:
+	if x.shape!=y.shape:
+		raise ValueError(f"Instances not match {y.shape} != {x.shape}")
+	if x.isna().any().any() or y.isna().any().any():
+		raise ValueError(f"NaNs are not a valid input")
+	jsd = jensenshannon(x.values, y.values, base=base, axis=1)
+	return float(np.mean(jsd))
+		
 
 
 def kendall_correlation(x:pd.Series, y: pd.Series) -> tuple:
