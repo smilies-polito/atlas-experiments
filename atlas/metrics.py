@@ -10,13 +10,13 @@ from scipy.spatial.distance import jensenshannon
 from scipy.stats import pearsonr, spearmanr, permutation_test, bootstrap, kendalltau
 
 
-def js_distance(x: pd.DataFrame, y: pd.DataFrame, base:float=np.e) -> float:
+def js_distance(x: pd.DataFrame, y: pd.DataFrame, base:float=np.e) -> pd.Series:
 	if x.shape!=y.shape:
 		raise ValueError(f"Instances not match {y.shape} != {x.shape}")
 	if x.isna().any().any() or y.isna().any().any():
 		raise ValueError(f"NaNs are not a valid input")
-	jsd = jensenshannon(x.values, y.values, base=base, axis=1)
-	return float(np.mean(jsd))
+	return pd.Series(jensenshannon(x.values, y.values, base=base, axis=1), index = x.index)
+	
 		
 
 

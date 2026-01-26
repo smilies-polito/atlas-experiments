@@ -14,20 +14,20 @@ class testJSD(unittest.TestCase):
 	def test_identical_distributions(self):
 		x = pd.DataFrame(np.full((self.n, self.k), 1/self.k))
 		y = x.copy()
-		js = js_distance(x,y)
+		js = js_distance(x,y).mean()
 		self.assertAlmostEqual(js, 0.0, places=7)
 
 	def test_opposite_one_hot(self):
 		x = pd.DataFrame(np.eye(self.k)[np.zeros(self.n, dtype=int)])
 		y = pd.DataFrame(np.eye(self.k)[np.ones(self.n, dtype=int)])
-		js = js_distance(x,y)
+		js = js_distance(x,y).mean()
 		self.assertLessEqual(js, np.sqrt(np.log(2)) + 1e-6)
 		self.assertGreater(js, 0.8)
 
 	def test_intermediate_case(self):
 		x = pd.DataFrame(np.tile([0.5, 0.5, 0.0], (self.n, 1)))
 		y = pd.DataFrame(np.tile([1.0, 0.0, 0.0], (self.n, 1)))
-		js = js_distance(x,y)
+		js = js_distance(x,y).mean()
 		self.assertLess(js, np.sqrt(np.log(2)))
 		self.assertGreater(js, 0.0)
 
@@ -44,7 +44,7 @@ class testJSD(unittest.TestCase):
 		with self.assertRaises(ValueError):
 			js = js_distance(x,y)
 
-'''
+
 class TestKendallCorrelation(unittest.TestCase):
 	def setUp(self):
 		self.n_large= 1000
@@ -539,6 +539,6 @@ class TestPearsonEntropyPseudotime(unittest.TestCase):
 		else:
 			self.assertAlmostEqual(ci1.low, ci2.low)
 			self.assertAlmostEqual(ci1.high, ci2.high)
-'''
+
 if __name__=="__main__":
 	unittest.main()
