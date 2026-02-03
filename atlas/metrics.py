@@ -10,6 +10,54 @@ from scipy.spatial.distance import jensenshannon
 from scipy.stats import pearsonr, spearmanr, permutation_test, bootstrap, kendalltau
 
 
+def terminal_state_score(pseudotime:pd.Series,
+			membership : pd.Series,
+			terminal_states: dict, 
+			terminal_clusters: list) -> tuple:
+
+	def _construct_terminal_df(ts: dict, p: pd.Series, m:pd.Series) -> pd.DataFrame:
+		df = (pd.DataFrame.from_dict(ts, orient="index").
+			rename_axis("terminal_state").
+			rename(columns={0: "cell"}).
+			explode("cell").
+			reset_index() )	
+		df["pseudotime"] = p.loc[df["cell"]].values
+		df["cluster"] = m.loc[df["cell"]].values
+		return df 
+
+	tau_min = pseudotime.min()
+	terminal_df = _construct_terminal_df(
+				terminal_states, pseudotime, membership
+			)
+	gt_tau = (pseudotime.groupby(membership).max().
+			reindex(terminal_clusters, fill_value=tau_min))
+	inferred_tau = (terminal_df[terminal_df["cluster"].isin(terminal_clusters)].
+					groupby("cluster")["pseudotime"].
+					median().
+					reindex(terminal_clusters, fill_value=tau_min)
+			)
+	tts_i =  1 - (gt_tau- inferred_tau) / (gt_tau - tau_min)
+	tts = tts_i.mean()
+
+	if terminal_df.empty:
+		ttp = 0
+	else:
+		ttp = terminal_df["cluster"].isin(terminal_clusters).mean()
+
+	df_term = terminal_df[terminal_df["cluster"].isin(terminal_clusters)]
+	if df_term.empty:
+		ttc = 0
+	else:
+		iqr = (df_term.groupby("cluster")["pseudotime"].quantile(0.75) - 
+			df_term.groupby("cluster")["pseudotime"].quantile(0.25))
+		iqr = iqr.reindex(terminal_clusters, fill_value=0.0)
+		ttc = (1-iqr).mean()  
+	
+	overall = (tts * ttp * ttc) ** (1/3)
+	
+	return tts, ttp, ttc, overall
+
+
 def js_distance(x: pd.DataFrame, y: pd.DataFrame, base:float=np.e) -> pd.Series:
 	if x.shape!=y.shape:
 		raise ValueError(f"Instances not match {y.shape} != {x.shape}")

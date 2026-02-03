@@ -132,8 +132,8 @@ class Base(ABC):
 		return (x-np.min(x))/(np.max(x) - np.min(x))
 	
 
-	def compute_entropy(self):
-		probs = self.mudata.obsm.get("fate_probabilities", None)
+	def compute_entropy(self, fate_prob_key:str="fate_probabilities"):
+		probs = self.mudata.obsm.get(fate_prob_key, None)
 		if probs is None:
 			raise ValueError("Compute fate probabilities before running entropy")
 
@@ -292,20 +292,6 @@ class PalantirWrapper(Base):
 		result = palantir.utils.determine_multiscale_space(dm_res = dm_dict, n_eigs=n_eigs, eigval_key = eigval_key, eigvec_key = eigvec_key, out_key=out_key) # eigval_key, eigvec_key and out_key are not used 
 		data.obsm[out_key] = result.values
 
-
-	def compute_priming_degree(self,
-				fate_prob_key: str = "palantir_fate_probabilities",
-				entropy_type: Literal["entropy", "kl-divergence"] = "entropy"):
-		'''
-		Function that computes KL-divergence and entropy as in CellRank. 
-		Parameters:
-			- fate_prob_key: str; Key in mudata.obsp/uns/obsm where to look for fate probabilities. Default is "palantir_fate_probabilities".
-			- entropy_type: str; Key identifying whether to compute Shannon entropy or KL-divergence. Accepts either "entropy" or "kl-divergence". Default is "entropy".
-		'''	
-		# Guarda se ho dataframe in mudata.obsm[fate_prob_key] o se ho obsp + uns (dipende da self.run save_as_df=
-		# checj entropy_type diverso da quelli listati: problema.
-		pass		
-
 	
 	def run(self, *,
 			early_cell: str,
@@ -326,55 +312,54 @@ class PalantirWrapper(Base):
 			eigvec_key: str = "DM_EigenVectors",
 			eigvec_multi_key: str = "DM_EigenVectors_multiscaled",
 			eigval_key: str = "DM_Eigenvalues",
-			pseudotime_key: str = "palantir_pseudotime",
-			entropy_key: str = "palantir_entropy",
-			fate_prob_key: str = "palantir_fate_probabilities",
+			pseudotime_key: str = "pseudotime",
+			fate_prob_key: str = "probabilities",
 			waypoints_key: str = "palantir_waypoints",
-			save_as_df: bool = True, 
-			compute_kernel: bool = True,
-			compute_diffusion_maps: bool = True,
-			seed:int = 42, **kwargs: Any):
-		'''
-		Runs Palantir on MuData object. 
-		Eventually computes kernel when the compute_kernel key is True, otherwise a predefined kernel must be present in mudata.obsp[kernel_key]. 
-		Eventually computes the multiscaled space if compute_diffusion_maps is True. This requires a kernel to be present in mudata.obsp[kernel_key], otherwise provide the precomputed multiscaled space in mudata.obsm[eigenvec_multi_key] to estimate psedutime and trajectories. 
-
-		Parameters:
-			- early_cell: str; early_cell specified by the user. 
-			- terminal_states: list, dictionary or pandas.Series; User-defined terminal states in the form {"terminal_name: cell_name}. Default is None.
-			- knn: int; Number of neighbors in KNN graph construction among waypoints. Default is 30.
-			- num_waypoints: int; Number of waypoints to sample. Default is 1200.
-			- n_jobs: int; number of jobs. Default is -1.
-			- scale_components: bool; If true components are scaled. Default is True.
-			- use_early_cell_as_start: bool; If True, then the early cell is used as starting point. Default False. 
-			- max_iterations: int; Maximum nuber of iterations for pseudotime convergence. Default is 25. 
-			- n_components: int; Number of components to estimate for diffusion maps (see check_diffusion_maps). Defaults is 10. 
-			- alpha: float; Normalization parameter for the diffusion operator when diffusion maps need to be computed (see compute_diffusion_maps). Default is 0.  
-			- n_eigs: int, optional; Number of eigenvalues to use to determine the multiscale space (see parameter compute_diffusion_map). Only used when diffusion maps need to be computed and if not provided the eigen gap heuristic is used.
-			- knn_key: str; Key in mudata.uns where the graph parameters for kernel computation are stored (check parameter compute_kernel). Default is "wnn". 
-			- distance_key: str; Key in mudata.obsp where distances are stored and used to compute the gaussian kernel. Check compute_kernel parameter to identify whether the kernel is to be computed. Default is "wnn_distances".
-			- sim_key: str; Key in data.obsp where to store the diffusion operator if diffusion maps are estimates (see parameter compute_diffusion_maps). Default is "DM_Similarity".
-			- kernel_key: str; Key in mudata.obsp where the precomputed kernel for diffusion maps estimation is located or location where to store the kernel (check parameter precomputed_kernel)
-			- eigvec_key: str; Key in mudata.obsm where the eigenvectors are stored. Used only to determine the multiscale space (see parameter compute_diffusion_maps). Default is "DM_EigenVectors".
-			- eigvec_multi_key: str; Key in mudata.obsm where the multiscale space is stored. It is either computed (see parameter compute_duffsion_maps) or it needs to be pre-computed and stored in mudata.obsm. Default is "DM_EigenVectors_multiscaled".
-			- eigval_key: str; Key in mudata.uns where the eigenvalues are stored. Used only to determine the multiscale space (see parameter compute_diffusion_maps). Default is "DM_EigenValues". 
-			- pseudotime_key: str; key in mudata.obs where pseudotime values for each cell are stores. Default is "palantir_pseudotime".
-			- entropy_key: str; Key in mudata.obs where entropy for each cell is stored. Default is "palantir_entropy".
-			- fate_prob_key: str; Key in mudata.obsm/data.obsp/data.uns where to store fate probabilities (check parameter save_as_df).
-			- waypoints_key: str; Key in mudata.uns where to store the waypoints. Default is "palantir_waypoints".
-			- save_as_df: bool; If true then fate probabilities towards the terminal states are stored as a pd.DataFrame; otherwise they are stored as a numpy.array and terminal states names are in mudata.uns.
-			- compute_kernel: bool; Whether to compute Gaussian Kernel from distance matrix. Default is True.If False, please provide in "kernel_key" the key to access the kernel for diffusion maps computations.
-			- compute_diffusion_maps: bool; Whether to compute diffusion maps and multiscaled distances. Defauls is True. If False, please provide in "eigenvec_multi_key" the key to access the multiscales space to correctly run pseudotime and fate probabilities estimation. 
-			- seed: int; random state seed. Default is 42.
-		Output:
-			MuData object with palantir results.
-		'''
-		pass	
-		# Se devo calcolare il kernel (compute_kernel è True) allora chiamare "self.compute_kernel" e passargli knn_key
-		# Se devo calcolare i diffusion maps controlla che ci sia un kernel precalcolato o che ci sia compute_kernel = True. Calcolare i diffusion maps significa richiamare sia compute_diffusion_maps che multiscale_space.
-		# palantir.run 
-		# self.compute_priming_degree
+			**kwargs: Any):
 	 
+		self.compute_kernel(knn_key = knn_key, 
+				distance_key = distance_key, 
+				knn = knn,
+				alpha = alpha,
+				kernel_key = kernel_key)
+
+		self.compute_diffusion_map(kernel_key=kernel_key,
+					sim_key= sim_key,
+					eigval_key= eigval_key,
+					eigvec_key= eigvec_key,
+					n_components = n_components,
+					seed = self.random_state)
+
+		 self.compute_multiscale_space(n_eigs = n_eigs,
+					eigval_key = eigval_key,
+					eigvec_key = eigvec_key,
+					out_key = eigvec_multi_key):
+
+		input_df = pd.DataFrame(data.obsm[eigvec_key], index=data.obs_names)
+		res = palantir.core.run_palantir(data = input_df,
+						early_cell = early_cell,
+						terminal_states = terminal_states,
+						knn = knn,
+						num_waypoints = num_waypoints,
+						n_jobs = n_jobs, 
+						scale_components = scale_components,
+						use_early_cell_as_start = use_early_cell_as_start,
+						max_iterations = max_iterations, 
+						eigvec_key = eigvec_key,
+						pseudo_time_key = pseudotime_key,
+						entropy_key = "palantir_entropy",
+						fate_prob_key = fate_prob_key, 
+						save_as_df = True,
+						waypoints_key = waypoints_key, 
+						seed= self.random_state)
+
+		self.mudata.obs[pseudotime_key] = res.pseudotime_key 	
+		self.mudata.uns[waypoints_key] = res.waypoints.values
+		if isinstance(terminal_states, pd.Series):
+			res.branch_probs.columns = terminal_states[res.branch_probs.columns]
+		data.obsm[fate_prob_key] = res.branch_probs 	
+		self.compute_entropy(fate_prob_key=fate_prob_key)	
+	
 
 class GPCCAWrapper:
 	def __init__(self, backward:bool, **kwargs):
