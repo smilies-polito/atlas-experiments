@@ -3,11 +3,16 @@ import inspect
 import warnings
 import muon as mu
 import numpy as np
-import pandas as pd
 import scanpy as sc
+import pandas as pd
+import matplotlib.pyplot as plt
+from utils import _assign_state_colors
 from muon import MuData
 from anndata import AnnData
+from scipy.sparse import csr_matrix
 from abc import ABC, abstractmethod
+from cellrank.kernels import PseudotimeKernel
+from cellrank.estimators import GPCCA
 from typing import Optional, Literal, List, Dict, Any, Union, Type
 
 
@@ -162,6 +167,120 @@ class Base(ABC):
 	def run(self, **kwargs: Any) -> None:
 		pass	 
 
+	
+	def plot_embedding(self,
+						embedding_key: str = "X_umap",
+						observation: str= "pseudotime",
+						saving_path: Optional[str] = None,
+						cmap: str = "coolwarm",
+						s: int = 5):
+
+		if observation not in self.mudata.obs.columns:
+			warnings.warn(f"WARNING: {observation} not a valid cell metadata")
+			return 
+
+		embedding = self.mudata.obsm.get(embedding_key, None)
+		if embedding is None:
+			warnings.warn(f"WARNING: {embedding_key} is not an available embedding")
+			return 
+
+		values = self.mudata.obs[observation].values
+		fig, ax = plt.subplots(figsize=(6,6))
+		sc = ax.scatter(embedding[:,0], 
+						embedding[:,1],
+						c = values, 
+						cmap = cmap,
+						s =s)
+
+		ax.set_xticks([])
+		ax.set_yticks([])
+		ax.set_frame_on(False)
+		ax.set_xlabel(f"{embedding_key}1")
+		ax.set_ylabel(f"{embedding_key}2")
+		ax.set_title(observation)
+		cbar = plt.colorbar(sc, ax=ax, fraction = 0.046, pad=0.04)
+		plt.tight_layout()
+		if saving_path is not None:
+			plt.savefig(saving_path, dpi=300, bbox_inches="tight")
+
+
+	def plot_fate_probabilities(self,
+								embedding_key: str = "X_umap",
+								saving_path: Optional[str] = None,
+								s: int=5):
+
+		def _state_labeling_position(embedding, mask):
+			return np.median(embedding[mask, :2], axis=0)
+
+		if not hasattr(self, "fate_probability_key") or self.fate_probability_key is None: 
+			warnings.warn("WARNING: fate probabilities are not available; Try recompute them")
+			return 
+
+		fate_probs = self.mudata.obsm[self.fate_probability_key] 
+		if fate_probs.shape[1] == 0:
+			warnings.warn("WARNING: no terminal states have been detected")
+			return 
+
+		embedding = self.mudata.obsm.get(embedding_key, None)
+		if embedding is None:
+			warnings.warn(f"WARNING: {embedding_key} is not an available embedding")
+			return 
+
+		state_colors = self.mudata.uns.get("fate_state_colors", {})
+		if not state_colors:
+			warnings.warn("WARNING: fate state colors not found")
+			return
+
+		max_state = fate_probs.idxmax(axis=1)
+		max_prob = fate_probs.max(axis=1)
+		states = list(fate_probs.columns)
+		
+		fig, ax = plt.subplots(figsize= (6,6))
+		for state in states:
+
+			if state not in state_colors:
+				continue
+
+			mask = max_state == state
+			if not np.any(mask):
+				continue
+
+			ax.scatter(embedding[mask, 0],
+						embedding[mask, 1], 
+						c = [state_colors[state]],
+						alpha = np.clip(max_prob[mask].values, 0.05, 1.0)
+						s=s,
+						label = state)
+
+			x, y = _state_label_positioning(embedding, mask)
+			ax.text(x, y, state,
+					fontsize = max(8, 14 - len(states))
+					fontweight = "bold", 
+					color = state_colors[state],
+					ha = "center", va="center", 
+					bbox = dict(
+								facecolor = "white",
+								edgecolor = "none",
+								alpha = 0.6,
+								boxstyle = "round,pad=0.2",
+							),
+					zorder = 10)
+
+		ax.set_title("Fate probabilities")
+		ax.set_xticks([])
+		ax.set_yticks([])
+		ax.set_frame_on(False)
+		ax.set_xlabel(f"{embedding_key}1")
+		ax.set_ylabel(f"{embedding_key}2")
+		plt.tight_layout() 
+		if saving_path is not None:
+			plt.savefig(saving_path, dpi=300, bbox_inches="tight")
+			
+
+				
+		
+
+								
 
 
 class ATLAS:
@@ -295,6 +414,7 @@ class PalantirWrapper(Base):
 	
 	def run(self, *,
 			early_cell: str,
+			cluster_key: Optional[str] = None,
 			terminal_states: Optional[Union[List, Dict, pd.Series]] = None,
 			knn: int=30,
 			num_waypoints: int = 1200,
@@ -357,20 +477,38 @@ class PalantirWrapper(Base):
 		self.mudata.uns[waypoints_key] = res.waypoints.values
 		if isinstance(terminal_states, pd.Series):
 			res.branch_probs.columns = terminal_states[res.branch_probs.columns]
-		data.obsm[fate_prob_key] = res.branch_probs 	
+	
+		if cluster_key is not None and cluster_key in self.mudata.obs.columns: 
+			cell_to_cluster = self.mudata.obs[cluster_key] 
+			terminal_states = {}
+			for cell in res.branch_probs.columns: 
+				cluster= cell_to_cluster.loc[cell]
+				terminal_states.setdefault(cluster, []).append(cell) 
+				
+			initial_states = {cell_to_cluster.loc[early_cell] : [early_cell]}
+			res.branch_probs.columns = cell_to_cluster.loc[res.branch_probs.columns].values
+			fate_probs = res.branch_probs.groupby(level=0, axis=1).sum()
+				
+		else: 
+			terminal_states = {cell: [cell] for cell in res.branch_probs}
+			initial_states = {early_cell : [early_cell]}
+			fate_probs = res.branch_probs
+
+		self.mudata.uns["initial_states"] = initial_states
+		self.mudata.uns["terminal_states"] = terminal_states	
+		self.mudata.obsm[fate_prob_key] = fate_probs
+		self.fate_probability_key = fate_prob_key
+		_assign_state_colors(self.mudata)
+
 		self.compute_entropy(fate_prob_key=fate_prob_key)	
 	
-
-class GPCCAWrapper:
-	def __init__(self, backward:bool, **kwargs):
-		self.backward = backward
-
 
 class PseudotimeKernelWrapper(Base, GPCCAWrapper):
 	def __init__(self, 
 			mudata:MuData, 
 			pseudotime_key:str="pseudotime",
 			connectivity_key: str = "wnn_connectivities",
+			cluster_key: Optional[str] = None,
 			backward:bool=False, 
 			**kwargs):
 		'''
@@ -380,21 +518,48 @@ class PseudotimeKernelWrapper(Base, GPCCAWrapper):
 		- connectivity_key: str; Key in mudata.obsm where knn connectivites are stored. Default is "wnn_connectivities".
 		- backward: bool; Indicating whether forwards or backward direction needs to be identified. Defaults is False.
 		'''
-		Base.__init__(self, mudata=mudata, **kwargs)
-		GPCCAWrapper.__init__(self, backward=backward)
-	
+		super().__init__(self, mudata=mudata, **kwargs)
+
+		if connectivity_key not in self.mudata.obsp.keys():
+			raise KeyError(f"{connectivity_key} not in obsp")	
+		if pseudotime_key not in self.mudata.obs.columns:
+			raise KeyError(f"{pseudotime_key} not in obs")	
+		if cluster_key is not None and cluster_key not in self.mudata.obs.columns:
+			warnings.warn(f"{cluster_key} not in self.mudata.obs. Setting to None")
+			cluster_key = None
+
+		self.cluster_key = cluster_key
 		self.pseudotime_key = pseudotime_key
 		self.connectivity_key = connectivity_key
 		# creare oggetto AnnData per cellrank kernel
-		# che contiene: adata.obsm["connectivities"] le connectivities del wnn cioè mudata.obsm["wnn_connectvitiies"]
-		# adata.obs deve contenere adata.obs[pseudotime_key] lo pseudotime per ogni cellula. 
-		# creo oggetto cellrank.kernel.PseudotimeKernel 
+		self._adata = AnnData(X = csr_matrix((self.mudata.obs.shape[0], self.mudata["rna"].shape[0]),
+												obs = self.mudata.obs, 
+												var = pd.DataFrame([]))
+		self._adata.obsp[connectivity_key] = self.mudata.obsp[connectivity_key]
+		self.kernel = PseudotimeKernel(adata= self._adata, 
+									time_key = self.pseudotime_key, 
+									conn_key = connectivity_key, 
+									backward = backward)
 
-	def run(self,
+	def run(self, *, 
 			threshold_scheme: Literal["soft", "hard"] = "hard", 
 			frac_to_keep: float = 0.3, 
 			b: float = 10.0, nu: float = 0.5, 
-			):
+			n_states: Optional[int] = None,
+			n_cells: int: 30, 
+			cluster_key: Optional[str] = None, 
+			allow_overlap: bool = False,
+			states_method: Literal["stability", "top_n", "eigengap", "eigengap_coarse"] = "stability",
+			alpha: float = 1, 
+			stability_threshold: float = 0.96, 
+			terminal_states: Optional[dict[str, Sequence[str]]] = None,
+			initial_states: Optional[dict[str, Sequence[str]]] = None,
+			solver = Literal["direct", "gmres", "lgmres", "bicgstab", "gcrotmk"] = "gmres", 
+			use_petsc: bool = True, 
+			n_jobs: int = -1,
+ 			tol: float = 1e-6, 
+			preconditioner: Optional[str] = None,	
+			**kwargs):
 		'''
 		Computes transition matrix and then runs GPCCA. 
 		Parameters:
@@ -402,9 +567,52 @@ class PseudotimeKernelWrapper(Base, GPCCAWrapper):
 			- frac_to_keep: float; fraction of nearest neighbors according to local connectivity that is kept independently from pseudotime (radius in threshold_scheme=="hard" see parameter "threshold_scheme"). Default is 0.3.
 			- b, nu: float; respectively the ---- and --- used when threshold_scheme is "soft". Default are 10.0 and 0.5. 
 		'''
-		# to do 
-		pass
+		def _invert_assignment(assignment):
+			if not isinstance(assignment.dtype, pd.CategoricalDtype):
+				assignment = assignment.astype("category")
 
+			inverted_assignment = { state: assignment.index[assignment == state].tolist()
+									for state in assignment.cat.categories}
+			return inverted_assignment
+
+		self.kernel.compute_transition_matrix(threshold_scheme = threshold_scheme, 
+											frac_to_keep = frac_to_keep, 
+											b=b, nu = nu, n_jobs = n_jobs) 
+		self._G = cr.estimators.GPCCA(self.kernel.kernel)										
+		self._G.compute_schur()
+		if n_states is not None:
+			self._G.compute_macrostates(n_states = n_states, cluster_key = self.cluster_key)
+			self._G.predict_terminal_states(method = states_method, 
+											n_cells = n_cells, 
+											alpha = alpha, 
+											stability_threshold = stability_threshold,
+											n_states = n_states, 
+											allow_overlap = allow_overlap)
+  
+			self._G.predict_initial_states(n_states = 1, 
+											n_cells = n_cells, 
+											allow_overlap = allow_overlap)
+		elif terminal_states is not None and initial_states is not None:
+			self._G.set_initial_states(states = initial_states) 
+			self._G.set_terminal_states(states = terminal_states)
+
+		self._G.compute_fate_probabilities(keys = None,
+											solver = solver,
+											use_petsc = use_petsc, 
+											n_jobs = n_jobs,
+											tol = tol,
+											preconditioner = preconditioner)
+	
+		self.mudata.obsm["fate_probabilities"] = pd.DataFrame(g.fate_probabilities.X, 
+																index = self.mudata.obs_names,
+																columns = g.fate_probabilities.names)		
+		self.mudata.uns["initial_states"] = _invert_assignment(g.initial_states.assignment)
+		self.mudata.uns["terminal_states"] = _invert_assignment(g.terminal_states.assignment)
+		self.mudata.uns["macrostates"] = _invert_assignment(g.macrostates.assignment)
+		self.fate_probability_key = "fate_probabilities"
+		_assign_state_colors(self.mudata)
+
+		self.compute_entropy(fate_prob_key="fate_probabilities")	
 
 RUN_REGISTRY = {"palantir": PalantirWrapper,
 		"pseudotime-kernel": PseudotimeKernelWrapper}
