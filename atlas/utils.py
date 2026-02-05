@@ -23,6 +23,6 @@ def _assign_state_colors(mudata:MuData,
 
 	cmap_obj = plt.get_cmap(cmap, len(new_states))
 	for i, state in enumerate(sorted(new_states)):
-		color_map[state] = to_hex(cmap_obj(i))
+		color_map[state] = to_hex(cmap_obj(i))
 
 	

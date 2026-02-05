@@ -5,15 +5,18 @@ import muon as mu
 import numpy as np
 import scanpy as sc
 import pandas as pd
+import scvelo as scv
 import matplotlib.pyplot as plt
-from utils import _assign_state_colors
 from muon import MuData
 from anndata import AnnData
 from scipy.sparse import csr_matrix
 from abc import ABC, abstractmethod
-from cellrank.kernels import PseudotimeKernel
+from matplotlib.colors import to_hex
 from cellrank.estimators import GPCCA
-from typing import Optional, Literal, List, Dict, Any, Union, Type
+from .utils import _assign_state_colors
+from cellrank.kernels import PseudotimeKernel
+from cellrank._utils._lineage import Lineage
+from typing import Optional, Literal, List, Dict, Any, Union, Type, Sequence
 
 
 class Base(ABC):
@@ -171,118 +174,91 @@ class Base(ABC):
 	def plot_embedding(self,
 						embedding_key: str = "X_umap",
 						observation: str= "pseudotime",
-						saving_path: Optional[str] = None,
-						cmap: str = "coolwarm",
-						s: int = 5):
+						save: Optional[Union[bool, str]] = None,
+						cmap: str = "Blues",
+						**kwargs):
 
 		if observation not in self.mudata.obs.columns:
 			warnings.warn(f"WARNING: {observation} not a valid cell metadata")
 			return 
 
-		embedding = self.mudata.obsm.get(embedding_key, None)
-		if embedding is None:
-			warnings.warn(f"WARNING: {embedding_key} is not an available embedding")
-			return 
+		if embedding_key not in self.mudata.obsm:
+			raise KeyError(f"{embedding_key} not in mudata.obsm")
 
-		values = self.mudata.obs[observation].values
-		fig, ax = plt.subplots(figsize=(6,6))
-		sc = ax.scatter(embedding[:,0], 
-						embedding[:,1],
-						c = values, 
-						cmap = cmap,
-						s =s)
+		_tmp = AnnData(X = np.zeros((self.mudata.n_obs, 1)),
+						obs = self.mudata.obs.copy())
+		_tmp.obsm[embedding_key] = self.mudata.obsm[embedding_key]
+		title = observation
+		kwargs.setdefault("save", save)
 
-		ax.set_xticks([])
-		ax.set_yticks([])
-		ax.set_frame_on(False)
-		ax.set_xlabel(f"{embedding_key}1")
-		ax.set_ylabel(f"{embedding_key}2")
-		ax.set_title(observation)
-		cbar = plt.colorbar(sc, ax=ax, fraction = 0.046, pad=0.04)
-		plt.tight_layout()
-		if saving_path is not None:
-			plt.savefig(saving_path, dpi=300, bbox_inches="tight")
+		scv.pl.scatter(_tmp, 
+						title = title,
+						color = observation,
+						color_map = cmap,
+						**kwargs)
 
 
 	def plot_fate_probabilities(self,
 								embedding_key: str = "X_umap",
-								saving_path: Optional[str] = None,
-								s: int=5):
-
-		def _state_labeling_position(embedding, mask):
-			return np.median(embedding[mask, :2], axis=0)
+								states: Optional[Union[str, Sequence[str]]] = None,
+								cmap: str = "viridis",
+								title: str =  "Fate Probabilities",
+								save: Optional[Union[bool, str]] = None,
+								**kwargs):
 
 		if not hasattr(self, "fate_probability_key") or self.fate_probability_key is None: 
 			warnings.warn("WARNING: fate probabilities are not available; Try recompute them")
 			return 
 
-		fate_probs = self.mudata.obsm[self.fate_probability_key] 
-		if fate_probs.shape[1] == 0:
-			warnings.warn("WARNING: no terminal states have been detected")
-			return 
+		if embedding_key not in self.mudata.obsm:
+			raise KeyError(f"{embedding_key} not in mudata.obsm")
 
-		embedding = self.mudata.obsm.get(embedding_key, None)
-		if embedding is None:
-			warnings.warn(f"WARNING: {embedding_key} is not an available embedding")
-			return 
+		fate_probabilities = self.mudata.obsm[self.fate_probability_key]	
+		_terminal_states = list(fate_probabilities.columns)
+		_all_colors = self.mudata.uns["fate_state_colors"]
 
-		state_colors = self.mudata.uns.get("fate_state_colors", {})
-		if not state_colors:
-			warnings.warn("WARNING: fate state colors not found")
-			return
-
-		max_state = fate_probs.idxmax(axis=1)
-		max_prob = fate_probs.max(axis=1)
-		states = list(fate_probs.columns)
+		if states is not None and isinstance(states, str):
+			states = [states]
+		states = [s for s in states if s in _terminal_states] if states is not None else _terminal_states
+		if not len(states):
+			raise ValueError(f"No lineages have been selected.")
+	
+		# compatibility with scvelo plot
+		_terminal_colors = [_all_colors[state] for state in _terminal_states]
+		_data = Lineage(fate_probabilities.to_numpy(),
+						names = _terminal_states,
+						colors = _terminal_colors)
 		
-		fig, ax = plt.subplots(figsize= (6,6))
-		for state in states:
+		_singleton = _data.shape[1]==1
+		_data = _data[states].copy()
+		_X = _data.X
+		
+		if _X.shape[1] == 1 and np.allclose(_X, 1.0):
+			_X = np.ones_like(_X)
 
-			if state not in state_colors:
-				continue
+		for col in _X.T:
+			mask = ~np.isclose(col, 1.0)
+			if np.any(mask):
+				col[~mask] = np.nanmax(col[mask])
+		
+		kwargs.setdefault("save", save)
+		kwargs.setdefault("legend_loc", "on data")	
+		kwargs["color_gradients"] =  _data
 
-			mask = max_state == state
-			if not np.any(mask):
-				continue
+		if _singleton and not np.allclose(_X, 1.0):
+			kwargs.setdefault("perc", [0,95])
+			_ = kwargs.pop("color_gradients", None)
 
-			ax.scatter(embedding[mask, 0],
-						embedding[mask, 1], 
-						c = [state_colors[state]],
-						alpha = np.clip(max_prob[mask].values, 0.05, 1.0)
-						s=s,
-						label = state)
+		_tmp = AnnData(X = np.zeros((self.mudata.n_obs, 1)),
+						obs = self.mudata.obs.copy())
+		_tmp.obsm[embedding_key] = self.mudata.obsm[embedding_key]
 
-			x, y = _state_label_positioning(embedding, mask)
-			ax.text(x, y, state,
-					fontsize = max(8, 14 - len(states))
-					fontweight = "bold", 
-					color = state_colors[state],
-					ha = "center", va="center", 
-					bbox = dict(
-								facecolor = "white",
-								edgecolor = "none",
-								alpha = 0.6,
-								boxstyle = "round,pad=0.2",
-							),
-					zorder = 10)
+		scv.pl.scatter(_tmp, 
+						title = title,
+						color_map = cmap,
+						**kwargs)
 
-		ax.set_title("Fate probabilities")
-		ax.set_xticks([])
-		ax.set_yticks([])
-		ax.set_frame_on(False)
-		ax.set_xlabel(f"{embedding_key}1")
-		ax.set_ylabel(f"{embedding_key}2")
-		plt.tight_layout() 
-		if saving_path is not None:
-			plt.savefig(saving_path, dpi=300, bbox_inches="tight")
 			
-
-				
-		
-
-								
-
-
 class ATLAS:
 	def __init__(self,
 			mudata: MuData,
@@ -308,6 +284,14 @@ class ATLAS:
 	def run(self, **kwargs):
 		return self._impl.run(**kwargs)
 	
+	def plot_embedding(self, **kwargs):
+		return self._impl.plot_embedding(**kwargs)
+
+	def plot_fate_probabilities(self, **kwargs):
+		return self._impl.plot_fate_probabilities(**kwargs)
+
+	def set_probability_key(self, key: str):
+		self._impl.fate_probability_key = key 
 
 
 class PalantirWrapper(Base):
@@ -450,10 +434,10 @@ class PalantirWrapper(Base):
 					n_components = n_components,
 					seed = self.random_state)
 
-		 self.compute_multiscale_space(n_eigs = n_eigs,
+		self.compute_multiscale_space(n_eigs = n_eigs,
 					eigval_key = eigval_key,
 					eigvec_key = eigvec_key,
-					out_key = eigvec_multi_key):
+					out_key = eigvec_multi_key)
 
 		input_df = pd.DataFrame(data.obsm[eigvec_key], index=data.obs_names)
 		res = palantir.core.run_palantir(data = input_df,
@@ -473,7 +457,7 @@ class PalantirWrapper(Base):
 						waypoints_key = waypoints_key, 
 						seed= self.random_state)
 
-		self.mudata.obs[pseudotime_key] = res.pseudotime_key 	
+		self.mudata.obs[pseudotime_key] = res.pseudotime_key 	
 		self.mudata.uns[waypoints_key] = res.waypoints.values
 		if isinstance(terminal_states, pd.Series):
 			res.branch_probs.columns = terminal_states[res.branch_probs.columns]
@@ -498,12 +482,12 @@ class PalantirWrapper(Base):
 		self.mudata.uns["terminal_states"] = terminal_states	
 		self.mudata.obsm[fate_prob_key] = fate_probs
 		self.fate_probability_key = fate_prob_key
-		_assign_state_colors(self.mudata)
+#		_assign_state_colors(self.mudata)
 
 		self.compute_entropy(fate_prob_key=fate_prob_key)	
 	
 
-class PseudotimeKernelWrapper(Base, GPCCAWrapper):
+class PseudotimeKernelWrapper(Base):
 	def __init__(self, 
 			mudata:MuData, 
 			pseudotime_key:str="pseudotime",
@@ -532,7 +516,7 @@ class PseudotimeKernelWrapper(Base, GPCCAWrapper):
 		self.pseudotime_key = pseudotime_key
 		self.connectivity_key = connectivity_key
 		# creare oggetto AnnData per cellrank kernel
-		self._adata = AnnData(X = csr_matrix((self.mudata.obs.shape[0], self.mudata["rna"].shape[0]),
+		self._adata = AnnData(X = csr_matrix((self.mudata.obs.shape[0], self.mudata["rna"].shape[0])),
 												obs = self.mudata.obs, 
 												var = pd.DataFrame([]))
 		self._adata.obsp[connectivity_key] = self.mudata.obsp[connectivity_key]
@@ -546,7 +530,7 @@ class PseudotimeKernelWrapper(Base, GPCCAWrapper):
 			frac_to_keep: float = 0.3, 
 			b: float = 10.0, nu: float = 0.5, 
 			n_states: Optional[int] = None,
-			n_cells: int: 30, 
+			n_cells: int= 30, 
 			cluster_key: Optional[str] = None, 
 			allow_overlap: bool = False,
 			states_method: Literal["stability", "top_n", "eigengap", "eigengap_coarse"] = "stability",
@@ -554,7 +538,7 @@ class PseudotimeKernelWrapper(Base, GPCCAWrapper):
 			stability_threshold: float = 0.96, 
 			terminal_states: Optional[dict[str, Sequence[str]]] = None,
 			initial_states: Optional[dict[str, Sequence[str]]] = None,
-			solver = Literal["direct", "gmres", "lgmres", "bicgstab", "gcrotmk"] = "gmres", 
+			solver: Literal["direct", "gmres", "lgmres", "bicgstab", "gcrotmk"] = "gmres", 
 			use_petsc: bool = True, 
 			n_jobs: int = -1,
  			tol: float = 1e-6, 
@@ -606,11 +590,11 @@ class PseudotimeKernelWrapper(Base, GPCCAWrapper):
 		self.mudata.obsm["fate_probabilities"] = pd.DataFrame(g.fate_probabilities.X, 
 																index = self.mudata.obs_names,
 																columns = g.fate_probabilities.names)		
-		self.mudata.uns["initial_states"] = _invert_assignment(g.initial_states.assignment)
-		self.mudata.uns["terminal_states"] = _invert_assignment(g.terminal_states.assignment)
+		self.mudata.uns["initial_states"] = _invert_assignment(g.initial_states.assignment)
+		self.mudata.uns["terminal_states"] = _invert_assignment(g.terminal_states.assignment)
 		self.mudata.uns["macrostates"] = _invert_assignment(g.macrostates.assignment)
 		self.fate_probability_key = "fate_probabilities"
-		_assign_state_colors(self.mudata)
+#		_assign_state_colors(self.mudata)
 
 		self.compute_entropy(fate_prob_key="fate_probabilities")	
 
