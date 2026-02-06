@@ -1,3 +1,4 @@
+import os
 import scipy
 import inspect
 import warnings
@@ -13,9 +14,9 @@ from scipy.sparse import csr_matrix
 from abc import ABC, abstractmethod
 from matplotlib.colors import to_hex
 from cellrank.estimators import GPCCA
-from .utils import _assign_state_colors
 from cellrank.kernels import PseudotimeKernel
 from cellrank._utils._lineage import Lineage
+from .utils import _assign_state_colors, MultiBranchGAM
 from typing import Optional, Literal, List, Dict, Any, Union, Type, Sequence
 
 
@@ -258,6 +259,81 @@ class Base(ABC):
 						color_map = cmap,
 						**kwargs)
 
+
+	def plot_trends(self, 
+					ptf: str,
+					gene: str,
+					branches: Optional[Union[list, str]] = None,
+					deriv_threshold: float = 0.1,
+					sharex: bool = True,
+					n_splines: int = 8,
+					n_points: int = 200,
+					order: int = 1,
+					save: Optional[str] = None):
+
+		if not hasattr(self, "trends"):
+			mbgam = MultiBranchGAM(
+							mudata = self.mudata,	
+							ptf = ptf, 
+							gene = gene, 
+							pseudotime_key = self.pseudotime_key,
+							fate_prob_key = self.fate_probability_key,
+							rna_modality = self.rna_key, 
+							activity_modality = self.activity_key,	
+							n_splines= n_splines)
+			mbgam.fit()	
+			mbgam.predict(n_points = n_points)
+			mbgam.derivative(n_points= n_points, order=order)
+			self.trends = mbgam
+
+		if branches is None:
+			branches = list(self.trends.models.keys())
+		elif isinstance(branches, str):
+			branches = [branches]
+
+		colors = self.mudata.uns.get("fate_state_colors", {})
+		default_color = "grey"
+
+		fig, axes = plt.subplots(3, 1, 
+							figsize = (7, 9),
+							sharex = False, 
+							gridspec_kw = {"height_ratios": [2,2,1]} )
+
+		for branch in branches:
+			pred = self.trends.predictions[branch]
+			der = self.trends.derivatives[branch]
+			t = pred["t_grid"]
+			c = colors.get(branch, default_color)
+
+			axes[0].plot(t, pred["gex"], color=c, lw=2, label=branch)
+			axes[1].plot(t, pred["act"], color=c, lw=2, label=branch)
+			axes[2].plot(t, der["act_deriv"], color=c, lw=2, label=branch)
+
+		axes[0].set_ylabel(f"{ptf} expression (z-score)")
+		axes[1].set_ylabel(f"{gene} activity (z-score)")
+		axes[2].set_ylabel(f"d/dt activity")
+		axes[2].axhline(0, ls="--", lw=1, color="black")
+		axes[2].set_xlabel(self.pseudotime_key)
+		axes[0].set_title(f"Dynamics: {ptf} -> {gene}")
+		
+		handles, labels = axes[0].get_legend_handles_labels()
+		fig.legend(handles, labels, loc="center right", frameon=False)
+
+		plt.tight_layout(rect=[0,0,0.85,1])
+
+		if save:
+			figure_path = os.path.join(os.getcwd(), "figures")
+			if not os.path.exists(figure_path):
+				os.mkdir(figure_path)
+			path = os.path.join(figure_path, f"trends_{save}.png")
+			plt.savefig(path)
+
+		
+		
+		
+			
+
+
 			
 class ATLAS:
 	def __init__(self,
@@ -290,8 +366,8 @@ class ATLAS:
 	def plot_fate_probabilities(self, **kwargs):
 		return self._impl.plot_fate_probabilities(**kwargs)
 
-	def set_probability_key(self, key: str):
-		self._impl.fate_probability_key = key 
+	def plot_trends(self, **kwargs):
+		return self._impl.plot_trends(**kwargs)
 
 
 class PalantirWrapper(Base):
@@ -482,7 +558,7 @@ class PalantirWrapper(Base):
 		self.mudata.uns["terminal_states"] = terminal_states	
 		self.mudata.obsm[fate_prob_key] = fate_probs
 		self.fate_probability_key = fate_prob_key
-#		_assign_state_colors(self.mudata)
+		_assign_state_colors(self.mudata)
 
 		self.compute_entropy(fate_prob_key=fate_prob_key)	
 	
@@ -529,7 +605,7 @@ class PseudotimeKernelWrapper(Base):
 			threshold_scheme: Literal["soft", "hard"] = "hard", 
 			frac_to_keep: float = 0.3, 
 			b: float = 10.0, nu: float = 0.5, 
-			n_states: Optional[int] = None,
+			n_states: Optional[Union[int, Sequence[int]]] = None,
 			n_cells: int= 30, 
 			cluster_key: Optional[str] = None, 
 			allow_overlap: bool = False,
@@ -541,7 +617,9 @@ class PseudotimeKernelWrapper(Base):
 			solver: Literal["direct", "gmres", "lgmres", "bicgstab", "gcrotmk"] = "gmres", 
 			use_petsc: bool = True, 
 			n_jobs: int = -1,
- 			tol: float = 1e-6, 
+ 			tol: float = 1e-6,
+			n_terminal_states: Optional[int] = None, 
+			n_initial_states: int = 1,
 			preconditioner: Optional[str] = None,	
 			**kwargs):
 		'''
@@ -570,10 +648,10 @@ class PseudotimeKernelWrapper(Base):
 											n_cells = n_cells, 
 											alpha = alpha, 
 											stability_threshold = stability_threshold,
-											n_states = n_states, 
+											n_states = n_terminal_states, 
 											allow_overlap = allow_overlap)
   
-			self._G.predict_initial_states(n_states = 1, 
+			self._G.predict_initial_states(n_states = n_initial_states,
 											n_cells = n_cells, 
 											allow_overlap = allow_overlap)
 		elif terminal_states is not None and initial_states is not None:
@@ -594,7 +672,7 @@ class PseudotimeKernelWrapper(Base):
 		self.mudata.uns["terminal_states"] = _invert_assignment(g.terminal_states.assignment)
 		self.mudata.uns["macrostates"] = _invert_assignment(g.macrostates.assignment)
 		self.fate_probability_key = "fate_probabilities"
-#		_assign_state_colors(self.mudata)
+		_assign_state_colors(self.mudata)
 
 		self.compute_entropy(fate_prob_key="fate_probabilities")	
 

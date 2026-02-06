@@ -27,6 +27,8 @@ if __name__=="__main__":
 	cell_labels = [f"cell{i}" for i in range(total_cells)]
 	gene_labels = [f"gene{i}" for i in range(n_genes)]
 	noise_scale = 0.07
+	gene = "gene1"
+	ptf = "gene0"
 
 	# umap construction
 	t_trunk = np.linspace(0, 1, n_trunk)
@@ -56,28 +58,7 @@ if __name__=="__main__":
 	pt = umap["UMAP1"]
 	pseudotime = (pt - pt.min()) / (pt.max() - pt.min())
 	entropy = 1-pseudotime
-	
-	# MuData construction
-	rna_matrix = np.zeros(shape=(total_cells, n_genes))
-	activity_matrix = np.zeros(shape=(total_cells, n_genes))
-	rna = AnnData(X=csr_matrix(rna_matrix), 
-						obs=pd.DataFrame([], index= cell_labels),
-						var = pd.DataFrame([], index=gene_labels))
-	activity = AnnData(X=csr_matrix(activity_matrix), 
-						obs=pd.DataFrame([], index= cell_labels),
-						var = pd.DataFrame([], index=gene_labels))
-	data = MuData({"rna":rna, "activity":activity})
-	data.obs["cluster"] = umap["state"]
-	data.obs["pseudotime"] = pseudotime
-	data.obs["entropy"] = entropy
-	data.obsm["X_umap"] = umap[["UMAP1", "UMAP2"]].values
 
-	# identification of terminal and initial state probabilities
-	data.uns["initial_states"] = {"trunk": umap["UMAP1"].idxmin()}
-	data.uns["terminal_states"] = {"branchA": umap.loc[umap["state"] == "branchA", "UMAP1"].idxmax(), 
-									"branchB": umap.loc[umap["state"] == "branchB", "UMAP2"].idxmax()} 
-	_assign_state_colors(data)
-	
 	# fate probabilities
 	fateA = np.zeros(total_cells)
 	fateB = np.zeros(total_cells)
@@ -98,18 +79,61 @@ if __name__=="__main__":
 	total = fateA + fateB
 	fateA /= total
 	fateB /= total
-
 	fate_probs = pd.DataFrame({"branchA": fateA, "branchB": fateB}, index = cell_labels)
+
+	# biological signals 
+	gexA = 2*pseudotime + 0.3 * np.sin(2* np.pi * pseudotime)
+	gexB = 2*pseudotime - 0.3 * np.sin(2* np.pi * pseudotime)
+	gex = (fate_probs["branchA"].values * gexA + 
+				fate_probs["branchB"].values * gexB)
+	gex += rng.normal(0, 0.1, size=total_cells)
+		
+	actA = 1/(1 + np.exp(-10* (pseudotime-0.35)))
+	actB = 1/(1 + np.exp(-10* (pseudotime-0.65)))
+	act = (fate_probs["branchA"].values * actA + 
+				fate_probs["branchB"].values * actB)
+	act+= rng.normal(0, 0.05, size = total_cells)
+
+	
+	# MuData construction
+	rna_matrix = np.zeros(shape=(total_cells, n_genes))
+	activity_matrix = np.zeros(shape=(total_cells, n_genes))
+	ptf_idx = gene_labels.index(ptf)
+	gene_idx = gene_labels.index(gene)
+	rna_matrix[:, ptf_idx] = gex
+	activity_matrix[:, gene_idx] = act
+
+	rna = AnnData(X=csr_matrix(rna_matrix), 
+						obs=pd.DataFrame(index= cell_labels),
+						var = pd.DataFrame(index=gene_labels))
+	activity = AnnData(X=csr_matrix(activity_matrix), 
+						obs=pd.DataFrame(index= cell_labels),
+						var = pd.DataFrame(index=gene_labels))
+	data = MuData({"rna":rna, "activity":activity})
+	data.obs["cluster"] = umap["state"]
+	data.obs["pseudotime"] = pseudotime
+	data.obs["entropy"] = entropy
+	data.obsm["X_umap"] = umap[["UMAP1", "UMAP2"]].values
+
+	# identification of terminal and initial state probabilities
+	data.uns["initial_states"] = {"trunk": umap["UMAP1"].idxmin()}
+	data.uns["terminal_states"] = {"branchA": umap.loc[umap["state"] == "branchA", "UMAP1"].idxmax(), 
+									"branchB": umap.loc[umap["state"] == "branchB", "UMAP2"].idxmax()} 
+	_assign_state_colors(data)
 	data.obsm["fate_probabilities"] = fate_probs	
+
 
 	# initialize ATLAS object 
 	atlas = ATLAS(mudata = data, method = "palantir", fragment_path = None, random_state = 42)	
-	atlas.set_probability_key("fate_probabilities")
-	saving = "pseudotime.png"
-	atlas.plot_embedding(embedding_key = "X_umap", observation= "pseudotime", save = saving)
-	atlas.plot_embedding(embedding_key = "X_umap", observation= "entropy")
-	saving = "fate_probabilities.png"
-	atlas.plot_fate_probabilities(embedding_key = "X_umap", states= None, save = saving)
-	plt.show()
-	
+	atlas._impl.pseudotime_key = "pseudotime"
+	atlas._impl.fate_probability_key = "fate_probabilities"
+#	saving = "pseudotime.png"
+#	atlas.plot_embedding(embedding_key = "X_umap", observation= "pseudotime", save = saving)
+#	atlas.plot_embedding(embedding_key = "X_umap", observation= "entropy")
+#	saving = "fate_probabilities.png"
+#	atlas.plot_fate_probabilities(embedding_key = "X_umap", states= None, save = saving)
+	saving = f"{ptf}_{gene}"
+	atlas.plot_trends(ptf=ptf, gene=gene, save=saving)
+
+		
 	
