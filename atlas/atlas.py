@@ -7,6 +7,7 @@ import numpy as np
 import scanpy as sc
 import pandas as pd
 import scvelo as scv
+import scFates as scf
 import matplotlib.pyplot as plt
 from muon import MuData
 from anndata import AnnData
@@ -294,26 +295,21 @@ class Base(ABC):
 		colors = self.mudata.uns.get("fate_state_colors", {})
 		default_color = "grey"
 
-		fig, axes = plt.subplots(3, 1, 
+		fig, axes = plt.subplots(2, 1, 
 							figsize = (7, 9),
-							sharex = False, 
-							gridspec_kw = {"height_ratios": [2,2,1]} )
+							sharex = False)
 
 		for branch in branches:
 			pred = self.trends.predictions[branch]
-			der = self.trends.derivatives[branch]
 			t = pred["t_grid"]
 			c = colors.get(branch, default_color)
 
 			axes[0].plot(t, pred["gex"], color=c, lw=2, label=branch)
 			axes[1].plot(t, pred["act"], color=c, lw=2, label=branch)
-			axes[2].plot(t, der["act_deriv"], color=c, lw=2, label=branch)
 
 		axes[0].set_ylabel(f"{ptf} expression (z-score)")
 		axes[1].set_ylabel(f"{gene} activity (z-score)")
-		axes[2].set_ylabel(f"d/dt activity")
-		axes[2].axhline(0, ls="--", lw=1, color="black")
-		axes[2].set_xlabel(self.pseudotime_key)
+		axes[1].set_xlabel(self.pseudotime_key)
 		axes[0].set_title(f"Dynamics: {ptf} -> {gene}")
 		
 		handles, labels = axes[0].get_legend_handles_labels()
@@ -328,7 +324,78 @@ class Base(ABC):
 			path = os.path.join(figure_path, f"trends_{save}.png")
 			plt.savefig(path)
 
+
+	def plot_tree(self,
+					embedding_key: str = "umap",
+					nodes: int = 300,
+					method: Literal["ppt", "epg"] = "ppt",
+					ppt_lambda: int = 100,
+					auto_root: bool = False,
+					root_params: dict = {},
+					reassign_pseudotime: bool = False, 
+					crowdedness: float = 1, 
+					color_milestones: bool = True,
+					n_jobs: int = -1,
+					n_map: int = 1,
+					save: Optional[str] = None,
+					**kwargs):
+		fate_prob_key, lineage_key = "term_states_fwd_memberships", "lineages_fwd"
+
+		if not hasattr(self, "fate_probability_key") or self.fate_probability_key is None: 
+			raise KeyError("Fate probabilities are not available; Try recompute them")
+		if "kl_divergence" not in self.mudata.obs:	
+			raise KeyError("entropy as KL-divergence required")
+		if f"X_{embedding_key}" not in self.mudata.obsm:
+			raise KeyError(f"X_{embedding_key} not in mudata.obsm")
 		
+		fate_probabilities = self.mudata.obsm[self.fate_probability_key].loc[self.mudata.obs_names]
+		_terminal_states = list(fate_probabilities.columns)
+		_all_colors = self.mudata.uns["fate_state_colors"]
+		_terminal_colors = [_all_colors[s] for s in _terminal_states]
+		_data = Lineage(fate_probabilities.to_numpy(),
+						names = _terminal_states,
+						colors = _terminal_colors)
+
+
+		_tmp = AnnData(X = np.zeros((self.mudata.n_obs, 1)),
+						obs = self.mudata.obs.copy())
+		_tmp.obsm[fate_prob_key] = self.mudata.obsm[self.fate_probability_key].values 
+		_tmp.obsm[lineage_key] = _data
+		_tmp.obsm[f"X_{embedding_key}"] = self.mudata.obsm[f"X_{embedding_key}"]
+
+		scf.tl.cellrank_to_tree(adata = _tmp,
+						time = self.pseudotime_key,
+						Nodes = nodes,		
+						method = method, 
+						ppt_lambda = ppt_lambda,
+						auto_root = auto_root,
+						root_params = root_params,
+						reassign_pseudotime = reassign_pseudotime,
+						key_cellrank = fate_prob_key,
+						copy = False,
+						**kwargs)
+	
+		root = next(iter(self.mudata.uns["initial_states"].values()))
+		root = int(_tmp.obsm["X_R"][_tmp.obs_names.get_loc(root)].argmax())
+		scf.tl.root(_tmp, root)
+		scf.tl.pseudotime(_tmp,
+							n_jobs= n_jobs,
+							n_map = n_map,
+							seed = self.random_state,
+							copy=False)
+		scf.tl.dendrogram(_tmp, crowdedness=crowdedness)
+		plt.close()
+		
+		scf.pl.graph(_tmp, 
+				basis = embedding_key, 
+				save = save,
+				**kwargs)
+		scf.pl.dendrogram(_tmp,
+						color_milestones = color_milestones,
+						save = save,
+						**kwargs)
+
+
 		
 		
 			
@@ -368,6 +435,9 @@ class ATLAS:
 
 	def plot_trends(self, **kwargs):
 		return self._impl.plot_trends(**kwargs)
+
+	def plot_tree(self, **kwargs):
+		return self._impl.plot_tree(**kwargs)
 
 
 class PalantirWrapper(Base):
