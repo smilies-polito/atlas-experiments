@@ -21,9 +21,9 @@ def add_perpendicular_noise(x, y, scale):
 if __name__=="__main__":
 	rng = np.random.default_rng(42)
 	n_genes = 30	
-	n_trunk = 40
+	n_progenitors = 40
 	n_branch = 30  # per ramo
-	total_cells = n_trunk + n_branch * 2
+	total_cells = n_progenitors + n_branch * 2
 	cell_labels = [f"cell{i}" for i in range(total_cells)]
 	gene_labels = [f"gene{i}" for i in range(n_genes)]
 	noise_scale = 0.07
@@ -31,11 +31,11 @@ if __name__=="__main__":
 	ptf = "gene0"
 
 	# umap construction
-	t_trunk = np.linspace(0, 1, n_trunk)
-	x_trunk = t_trunk * 4
-	y_trunk = np.zeros_like(t_trunk)
-	x_trunk, y_trunk = add_perpendicular_noise(x_trunk, y_trunk, noise_scale)
-	x0, y0 = x_trunk[-1], y_trunk[-1]
+	t_progenitors = np.linspace(0, 1, n_progenitors)
+	x_progenitors = t_progenitors * 4
+	y_progenitors = np.zeros_like(t_progenitors)
+	x_progenitors, y_progenitors = add_perpendicular_noise(x_progenitors, y_progenitors, noise_scale)
+	x0, y0 = x_progenitors[-1], y_progenitors[-1]
 
 	t_a = np.linspace(0, 1, n_branch)
 	x_a = x0 + t_a * 3
@@ -48,9 +48,9 @@ if __name__=="__main__":
 	x_b, y_b = add_perpendicular_noise(x_b, y_b, noise_scale)
 
 	umap = pd.DataFrame({ 
-		"UMAP1": np.concatenate([x_trunk, x_a, x_b]),
-		"UMAP2": np.concatenate([y_trunk, y_a, y_b]),
-	 	"state":	(["trunk"] * n_trunk +
+		"UMAP1": np.concatenate([x_progenitors, x_a, x_b]),
+		"UMAP2": np.concatenate([y_progenitors, y_a, y_b]),
+	 	"state":	(["progenitors"] * n_progenitors +
 				["branchA"] * n_branch +
 				["branchB"] * n_branch )}
 			, index=cell_labels)
@@ -65,7 +65,7 @@ if __name__=="__main__":
 	for i, cell in enumerate(umap.index):
 		pt = pseudotime.loc[cell]
 		state = umap.loc[cell, "state"]
-		if state == "trunk":
+		if state == "progenitors":
 			eps = 1e-6
 			fateA[i] = 0.5 + rng.uniform(-eps, eps)
 			fateB[i] = 0.5 + rng.uniform(-eps, eps) 
@@ -112,13 +112,13 @@ if __name__=="__main__":
 	data = MuData({"rna":rna, "activity":activity})
 	data.obs["cluster"] = umap["state"]
 	data.obs["pseudotime"] = pseudotime
-	data.obs["entropy"] = entropy
+	data.obs["kl_divergence"] = entropy
 	data.obsm["X_umap"] = umap[["UMAP1", "UMAP2"]].values
 
 	# identification of terminal and initial state probabilities
-	data.uns["initial_states"] = {"trunk": umap["UMAP1"].idxmin()}
-	data.uns["terminal_states"] = {"branchA": umap.loc[umap["state"] == "branchA", "UMAP1"].idxmax(), 
-									"branchB": umap.loc[umap["state"] == "branchB", "UMAP2"].idxmax()} 
+	data.uns["initial_states"] = {"progenitors": [umap["UMAP1"].idxmin()]}
+	data.uns["terminal_states"] = {"branchA": [umap.loc[umap["state"] == "branchA", "UMAP1"].idxmax()], 
+									"branchB": [umap.loc[umap["state"] == "branchB", "UMAP2"].idxmax()]} 
 	_assign_state_colors(data)
 	data.obsm["fate_probabilities"] = fate_probs	
 
@@ -127,13 +127,13 @@ if __name__=="__main__":
 	atlas = ATLAS(mudata = data, method = "palantir", fragment_path = None, random_state = 42)	
 	atlas._impl.pseudotime_key = "pseudotime"
 	atlas._impl.fate_probability_key = "fate_probabilities"
-#	saving = "pseudotime.png"
-#	atlas.plot_embedding(embedding_key = "X_umap", observation= "pseudotime", save = saving)
-#	atlas.plot_embedding(embedding_key = "X_umap", observation= "entropy")
-#	saving = "fate_probabilities.png"
-#	atlas.plot_fate_probabilities(embedding_key = "X_umap", states= None, save = saving)
+	saving = "pseudotime.png"
+	atlas.plot_embedding(embedding_key = "X_umap", observation= "pseudotime", save = saving)
+	saving = "entropy.png"
+	atlas.plot_embedding(embedding_key = "X_umap", observation= "entropy", save = saving)
+	saving = "fate_probabilities.png"
+	atlas.plot_fate_probabilities(embedding_key = "X_umap", states= None, save = saving)
 	saving = f"{ptf}_{gene}"
 	atlas.plot_trends(ptf=ptf, gene=gene, save=saving)
-
-		
-	
+	saving = f"_scfates.png"
+	atlas.plot_tree(nodes=50, save="scfates.png", color="cluster")

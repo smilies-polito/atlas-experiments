@@ -122,7 +122,7 @@ if __name__=="__main__":
 
 
 	# identification of terminal and initial states
-	data.uns["initial_states"] = {"branchC": cell_labels[np.argmin(pseudotime)]}
+	data.uns["initial_states"] = {"branchC": [cell_labels[np.argmin(pseudotime)], cell_labels[np.argmin(pseudotime)]]}
 	terminal_states = {}
 	for branch in ["branchA", "branchB", "branchC"]:
 		mask = umap["state"].values == branch
@@ -139,7 +139,7 @@ if __name__=="__main__":
 	atlas._impl.pseudotime_key = "pseudotime"
 	atlas._impl.fate_probability_key = "fate_probabilities"
 
-	atlas.plot_tree(nodes=50, save="scfates.png")
+	atlas.plot_tree(nodes=50, save="scfates.png", color="cluster")
 
 
 
