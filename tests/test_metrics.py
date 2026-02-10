@@ -4,9 +4,85 @@ import unittest
 import numpy as np
 import pandas as pd
 from pandas.testing import assert_series_equal
-from atlas import pearson_correlation, spearman_correlation, kendall_correlation, fate_concentration_index, terminal_state_silhouette, _hard_ai, _soft_ai, _hard_bi, _soft_bi, terminal_pseudotime_enrichment_score, js_distance
+from atlas import pearson_correlation, spearman_correlation, kendall_correlation, fate_concentration_index, terminal_state_silhouette, _hard_ai, _soft_ai, _hard_bi, _soft_bi, terminal_pseudotime_enrichment_score, js_distance, terminal_state_score
 
-class testJSD(unittest.TestCase):
+class TestTSS(unittest.TestCase):
+	def test_perfect_terminal_states(self):
+		pseudotime = pd.Series([0.1, 0.2, 1.0, 1.0],
+								index = ["c1", "c2", "c3", "c4"])
+		memberships = pd.Series(["A", "A", "B", "B"], 
+								index = ["c1", "c2", "c3", "c4"])
+		terminal_states = {"T1": ["c3", "c4"]}
+		terminal_clusters = ["B"]
+		tts, ttp, ttc, overall = terminal_state_score(pseudotime,
+														memberships,
+														terminal_states,
+														terminal_clusters)
+
+		self.assertAlmostEqual(tts, 1.0)
+		self.assertAlmostEqual(ttp, 1.0)
+		self.assertAlmostEqual(ttc, 1.0)
+		self.assertAlmostEqual(overall, 1.0)
+		
+	def test_early_terminal_states(self):
+		pseudotime = pd.Series([0.1, 0.2, 0.5, 1.0],
+								index = ["c1", "c2", "c3", "c4"])
+		memberships = pd.Series(["A", "A", "B", "B"], 
+								index = ["c1", "c2", "c3", "c4"])
+		terminal_states = {"T1": ["c3"]}
+		terminal_clusters = ["B"]
+		tts, ttp, ttc, overall = terminal_state_score(pseudotime,
+														memberships,
+														terminal_states,
+														terminal_clusters)
+		self.assertLess(tts, 1.0)
+		self.assertAlmostEqual(ttp, 1.0)
+		self.assertGreater(ttc, 0.0)
+
+	def test_spurious_terminal_cells(self):
+		pseudotime = pd.Series([0.1, 0.2, 0.9, 1.0],
+								index = ["c1", "c2", "c3", "c4"])
+		memberships = pd.Series(["A", "A", "B", "B"], 
+								index = ["c1", "c2", "c3", "c4"])
+		terminal_states = {"T1": ["c2", "c3", "c4"]}
+		terminal_clusters = ["B"]
+		tts, ttp, ttc, overall = terminal_state_score(pseudotime,
+														memberships,
+														terminal_states,
+														terminal_clusters)
+		self.assertAlmostEqual(ttp, 2/3)
+		self.assertLess(overall, 1.0)
+
+	def test_temporal_dispersion(self):
+		pseudotime = pd.Series([0.1, 0.2, 0.6, 1.0],
+								index = ["c1", "c2", "c3", "c4"])
+		memberships = pd.Series(["A", "A", "B", "B"], 
+								index = ["c1", "c2", "c3", "c4"])
+		terminal_states = {"T1": ["c3", "c4"]}
+		terminal_clusters = ["B"]
+		tts, ttp, ttc, overall = terminal_state_score(pseudotime,
+														memberships,
+														terminal_states,
+														terminal_clusters)
+		self.assertLess(ttc, 1.0)
+		
+	def test_no_terminal_cells(self):
+		pseudotime = pd.Series([0.1, 0.2, 0.9, 1.0],
+								index = ["c1", "c2", "c3", "c4"])
+		memberships = pd.Series(["A", "A", "B", "B"], 
+								index = ["c1", "c2", "c3", "c4"])
+		terminal_states = {}
+		terminal_clusters = ["B"]
+		tts, ttp, ttc, overall = terminal_state_score(pseudotime,
+														memberships,
+														terminal_states,
+														terminal_clusters)
+		self.assertEqual(ttp, 0.0)
+		self.assertEqual(ttc, 0.0)
+		self.assertEqual(overall, 0.0)
+			
+
+class TestJSD(unittest.TestCase):
 	def setUp(self):
 		self.n = 100
 		self.k = 3

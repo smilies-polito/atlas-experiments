@@ -16,19 +16,23 @@ def terminal_state_score(pseudotime:pd.Series,
 			terminal_clusters: list) -> tuple:
 
 	def _construct_terminal_df(ts: dict, p: pd.Series, m:pd.Series) -> pd.DataFrame:
-		df = (pd.DataFrame.from_dict(ts, orient="index").
-			rename_axis("terminal_state").
-			rename(columns={0: "cell"}).
-			explode("cell").
-			reset_index() )	
-		df["pseudotime"] = p.loc[df["cell"]].values
-		df["cluster"] = m.loc[df["cell"]].values
-		return df 
+		rows = []	
+		for state, cells in ts.items():
+			for cell in cells:
+				rows.append({"terminal_state": state,
+							"cell": cell,
+							"pseudotime": p.loc[cell],
+							"cluster": m.loc[cell]})
+		return pd.DataFrame(rows)
 
 	tau_min = pseudotime.min()
 	terminal_df = _construct_terminal_df(
 				terminal_states, pseudotime, membership
 			)
+	if terminal_df.empty:
+		warnings.warn("WARNING: no terminal states detected")
+		return 0.0, 0.0, 0.0, 0.0
+
 	gt_tau = (pseudotime.groupby(membership).max().
 			reindex(terminal_clusters, fill_value=tau_min))
 	inferred_tau = (terminal_df[terminal_df["cluster"].isin(terminal_clusters)].
@@ -58,6 +62,7 @@ def terminal_state_score(pseudotime:pd.Series,
 	return tts, ttp, ttc, overall
 
 
+
 def js_distance(x: pd.DataFrame, y: pd.DataFrame, base:float=np.e) -> pd.Series:
 	if x.shape!=y.shape:
 		raise ValueError(f"Instances not match {y.shape} != {x.shape}")
@@ -65,9 +70,8 @@ def js_distance(x: pd.DataFrame, y: pd.DataFrame, base:float=np.e) -> pd.Series:
 		raise ValueError(f"NaNs are not a valid input")
 	return pd.Series(jensenshannon(x.values, y.values, base=base, axis=1), index = x.index)
 	
+
 		
-
-
 def kendall_correlation(x:pd.Series, y: pd.Series) -> tuple:
 	if len(x)!=len(y):
 		raise ValueError(f"#instances do not match {len(y)} != {len(x)}")
