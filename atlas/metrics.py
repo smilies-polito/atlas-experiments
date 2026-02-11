@@ -68,6 +68,9 @@ def js_distance(x: pd.DataFrame, y: pd.DataFrame, base:float=np.e) -> pd.Series:
 		raise ValueError(f"Instances not match {y.shape} != {x.shape}")
 	if x.isna().any().any() or y.isna().any().any():
 		raise ValueError(f"NaNs are not a valid input")
+	if set(x.columns) != set(y.columns):
+		raise ValueError(f"Fate columns do not match")
+	x = x.loc[y.index, y.columns]	
 	return pd.Series(jensenshannon(x.values, y.values, base=base, axis=1), index = x.index)
 	
 

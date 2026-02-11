@@ -2,6 +2,7 @@ import os
 import scipy
 import inspect
 import warnings
+import palantir
 import muon as mu
 import numpy as np
 import scanpy as sc
@@ -11,7 +12,7 @@ import scFates as scf
 import matplotlib.pyplot as plt
 from muon import MuData
 from anndata import AnnData
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, find
 from abc import ABC, abstractmethod
 from matplotlib.colors import to_hex
 from cellrank.estimators import GPCCA
@@ -334,7 +335,8 @@ class Base(ABC):
 					root_params: dict = {},
 					reassign_pseudotime: bool = False, 
 					crowdedness: float = 1, 
-					color_milestones: bool = True,
+					color: Optional[str] = None,
+					color_milestones: bool = False,
 					n_jobs: int = -1,
 					n_map: int = 1,
 					save: Optional[str] = None,
@@ -347,8 +349,18 @@ class Base(ABC):
 			raise KeyError("entropy as KL-divergence required")
 		if f"X_{embedding_key}" not in self.mudata.obsm:
 			raise KeyError(f"X_{embedding_key} not in mudata.obsm")
+		if color is not None and color not in self.mudata.obs.columns:
+				raise KeyError(f"{color} not in mudata.obs")
 		
 		fate_probabilities = self.mudata.obsm[self.fate_probability_key].loc[self.mudata.obs_names]
+		# scFates.cellrank_to_tree does not check n_fates = 1 and cellrank.pl.circular_projection does not work.
+		if fate_probabilities is None and fate_probabilities.shape[1] == 0:
+			raise KeyError("Fate probabilities are not available; Try recompute them")
+		
+		if fate_probabilities.shape[1] < 2:
+			warnings.warn("WARNING: only one fate has been found, principal tree not available")
+			return 
+
 		_terminal_states = list(fate_probabilities.columns)
 		_all_colors = self.mudata.uns["fate_state_colors"]
 		_terminal_colors = [_all_colors[s] for s in _terminal_states]
@@ -375,8 +387,11 @@ class Base(ABC):
 						copy = False,
 						**kwargs)
 	
-		root = next(iter(self.mudata.uns["initial_states"].values()))
-		root = int(_tmp.obsm["X_R"][_tmp.obs_names.get_loc(root)].argmax())
+		initial_cells = next(iter(self.mudata.uns["initial_states"].values())) 
+		initial_idx = _tmp.obs_names.get_indexer(initial_cells)
+		R_init = _tmp.obsm["X_R"][initial_idx, :]
+		root = int(R_init.mean(axis=0).argmax())
+
 		scf.tl.root(_tmp, root)
 		scf.tl.pseudotime(_tmp,
 							n_jobs= n_jobs,
@@ -390,8 +405,10 @@ class Base(ABC):
 				basis = embedding_key, 
 				save = save,
 				**kwargs)
+
 		scf.pl.dendrogram(_tmp,
 						color_milestones = color_milestones,
+						color = color,
 						save = save,
 						**kwargs)
 
@@ -419,7 +436,7 @@ class ATLAS:
 						**kwargs)
 
 	def preprocessing(self, **kwargs):
-		return self._impl.preprocessing(kwargs)
+		return self._impl.preprocessing(**kwargs)
 
 	def get_data(self):
 		return self._impl.get_data()
@@ -438,6 +455,10 @@ class ATLAS:
 
 	def plot_tree(self, **kwargs):
 		return self._impl.plot_tree(**kwargs)
+
+	@property
+	def random_state(self):
+		return self._impl.random_state
 
 
 class PalantirWrapper(Base):
@@ -462,17 +483,17 @@ class PalantirWrapper(Base):
 			- kernel_key: str; Key in obsp where to store the kernel; Default is "DM_Kernel".
 		Adds a scipy.sparse.csr_matrix in mudata.obsp slot.
 		'''
-		if distance_key not in data.obsp.keys(): 
+		if distance_key not in self.mudata.obsp.keys(): 
 			raise KeyError(f"{distance_key} not in data.obsp")
 		if knn is None:
 			print(f"WARNING - knn parameter not specified. Looking for data.uns[{knn_key}][""params""][""n_neighbors""]")
-			if knn_key not in data.uns.keys():
+			if knn_key not in self.mudata.uns.keys():
 				raise KeyError(f"{knn_key} not in data.uns")	
 			else:
-				knn = int(data.uns[knn_key]["params"]["n_neighbors"])
+				knn = int(self.mudata.uns[knn_key]["params"]["n_neighbors"])
 
-		N = data.shape[0]
-		kNN = data.obsp[distance_key]
+		N = self.mudata.shape[0]
+		kNN = self.mudata.obsp[distance_key]
 		adaptive_k = int(np.floor(knn/3))
 		adaptive_std = np.zeros(N)
 		for i in np.arange(N):
@@ -487,7 +508,7 @@ class PalantirWrapper(Base):
 			mat = csr_matrix((D, (range(N), range(N))), shape=[N,N])
 			kernel = mat.dot(kernel).dot(mat)
 
-		data.obsp[kernel_key] = kernel
+		self.mudata.obsp[kernel_key] = kernel
 
 
 	def compute_diffusion_map(self, 
@@ -508,14 +529,14 @@ class PalantirWrapper(Base):
 			- seed: int; random seed. Default is 0.
 		Updates MuData object with the results from diffusion maps.
 		'''
-		if kernel_key not in data.obsp.keys():
+		if kernel_key not in self.mudata.obsp.keys():
 			raise KeyError(f"{kernel_key} not in data.obsp")
 
-		kernel= data.obsp[kernel_key]
-		res = palantir.utils.diffusion_maps_from_kernel(data.obsp[kernel_key], n_components, seed)
-		data.obsp[sim_key] = res["T"] 
-		data.obsm[eigvec_key] = res["EigenVectors"].values
-		data.uns[eigval_key] = res["EigenValues"].values
+		kernel= self.mudata.obsp[kernel_key]
+		res = palantir.utils.diffusion_maps_from_kernel(self.mudata.obsp[kernel_key], n_components, seed)
+		self.mudata.obsp[sim_key] = res["T"] 
+		self.mudata.obsm[eigvec_key] = res["EigenVectors"].values
+		self.mudata.uns[eigval_key] = res["EigenValues"].values
 
 
 	def compute_multiscale_space(self,
@@ -531,15 +552,15 @@ class PalantirWrapper(Base):
 			- eigvec_key: str; Key in mudata.obsm storing eigenvectors. Default is "DM_EigenVectors". 
 			- out_key: str; Key in mudata.obsm where results are stored. Default is "DM_EigenVectors_multiscaled"
 		'''
-		if eigval_key not in data.uns.keys():
+		if eigval_key not in self.mudata.uns.keys():
 			raise KeyError(f"{eigval_key} not in data.uns")
-		if eigvec_key not in data.obsm.keys():
+		if eigvec_key not in self.mudata.obsm.keys():
 			raise KeyError(f"{eigvec_key} not in data.obsm")
 		
-		eigenvectors = pd.DataFrame(data.obsm[eigvec_key], index=data.obs_names) if not isinstance(data.obsm[eigvec_key], pd.DataFrame) else data.obsm[eigvec_key] # for compatibility with Palantir framework
-		dm_dict = {"EigenValues": data.uns[eigval_key], "EigenVectors": eigenvectors}
+		eigenvectors = pd.DataFrame(self.mudata.obsm[eigvec_key], index=self.mudata.obs_names) if not isinstance(self.mudata.obsm[eigvec_key], pd.DataFrame) else self.mudata.obsm[eigvec_key] 
+		dm_dict = {"EigenValues": self.mudata.uns[eigval_key], "EigenVectors": eigenvectors}
 		result = palantir.utils.determine_multiscale_space(dm_res = dm_dict, n_eigs=n_eigs, eigval_key = eigval_key, eigvec_key = eigvec_key, out_key=out_key) # eigval_key, eigvec_key and out_key are not used 
-		data.obsm[out_key] = result.values
+		self.mudata.obsm[out_key] = result.values
 
 	
 	def run(self, *,
@@ -547,6 +568,7 @@ class PalantirWrapper(Base):
 			cluster_key: Optional[str] = None,
 			terminal_states: Optional[Union[List, Dict, pd.Series]] = None,
 			knn: int=30,
+			kernel_knn: Optional[int] = None,
 			num_waypoints: int = 1200,
 			n_jobs:int = -1,
 			scale_components: bool= True, 
@@ -563,13 +585,13 @@ class PalantirWrapper(Base):
 			eigvec_multi_key: str = "DM_EigenVectors_multiscaled",
 			eigval_key: str = "DM_Eigenvalues",
 			pseudotime_key: str = "pseudotime",
-			fate_prob_key: str = "probabilities",
+			fate_prob_key: str = "fate_probabilities",
 			waypoints_key: str = "palantir_waypoints",
 			**kwargs: Any):
 	 
 		self.compute_kernel(knn_key = knn_key, 
 				distance_key = distance_key, 
-				knn = knn,
+				knn = kernel_knn,
 				alpha = alpha,
 				kernel_key = kernel_key)
 
@@ -585,7 +607,7 @@ class PalantirWrapper(Base):
 					eigvec_key = eigvec_key,
 					out_key = eigvec_multi_key)
 
-		input_df = pd.DataFrame(data.obsm[eigvec_key], index=data.obs_names)
+		input_df = pd.DataFrame(self.mudata.obsm[eigvec_key], index=self.mudata.obs_names)
 		res = palantir.core.run_palantir(data = input_df,
 						early_cell = early_cell,
 						terminal_states = terminal_states,
@@ -603,7 +625,7 @@ class PalantirWrapper(Base):
 						waypoints_key = waypoints_key, 
 						seed= self.random_state)
 
-		self.mudata.obs[pseudotime_key] = res.pseudotime_key 	
+		self.mudata.obs[pseudotime_key] = res.pseudotime
 		self.mudata.uns[waypoints_key] = res.waypoints.values
 		if isinstance(terminal_states, pd.Series):
 			res.branch_probs.columns = terminal_states[res.branch_probs.columns]
@@ -628,6 +650,7 @@ class PalantirWrapper(Base):
 		self.mudata.uns["terminal_states"] = terminal_states	
 		self.mudata.obsm[fate_prob_key] = fate_probs
 		self.fate_probability_key = fate_prob_key
+		self.pseudotime_key = pseudotime_key
 		_assign_state_colors(self.mudata)
 
 		self.compute_entropy(fate_prob_key=fate_prob_key)	
