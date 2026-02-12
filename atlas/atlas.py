@@ -9,6 +9,7 @@ import scanpy as sc
 import pandas as pd
 import scvelo as scv
 import scFates as scf
+import cellrank as cr
 import matplotlib.pyplot as plt
 from muon import MuData
 from anndata import AnnData
@@ -69,6 +70,7 @@ class Base(ABC):
 
 		self.random_state = random_state
 		self.mudata = mudata	
+		return
 
 	def preprocessing(self, 
 			n_pcs_rna: int= 30,
@@ -660,9 +662,7 @@ class PseudotimeKernelWrapper(Base):
 	def __init__(self, 
 			mudata:MuData, 
 			pseudotime_key:str="pseudotime",
-			connectivity_key: str = "wnn_connectivities",
 			cluster_key: Optional[str] = None,
-			backward:bool=False, 
 			**kwargs):
 		'''
 		Parameters:
@@ -671,10 +671,8 @@ class PseudotimeKernelWrapper(Base):
 		- connectivity_key: str; Key in mudata.obsm where knn connectivites are stored. Default is "wnn_connectivities".
 		- backward: bool; Indicating whether forwards or backward direction needs to be identified. Defaults is False.
 		'''
-		super().__init__(self, mudata=mudata, **kwargs)
+		super().__init__(mudata=mudata, **kwargs)
 
-		if connectivity_key not in self.mudata.obsp.keys():
-			raise KeyError(f"{connectivity_key} not in obsp")	
 		if pseudotime_key not in self.mudata.obs.columns:
 			raise KeyError(f"{pseudotime_key} not in obs")	
 		if cluster_key is not None and cluster_key not in self.mudata.obs.columns:
@@ -683,24 +681,16 @@ class PseudotimeKernelWrapper(Base):
 
 		self.cluster_key = cluster_key
 		self.pseudotime_key = pseudotime_key
-		self.connectivity_key = connectivity_key
-		# creare oggetto AnnData per cellrank kernel
-		self._adata = AnnData(X = csr_matrix((self.mudata.obs.shape[0], self.mudata["rna"].shape[0])),
-												obs = self.mudata.obs, 
-												var = pd.DataFrame([]))
-		self._adata.obsp[connectivity_key] = self.mudata.obsp[connectivity_key]
-		self.kernel = PseudotimeKernel(adata= self._adata, 
-									time_key = self.pseudotime_key, 
-									conn_key = connectivity_key, 
-									backward = backward)
+
 
 	def run(self, *, 
+			connectivity_key: str = "wnn_connectivities", 
+			backward: bool = False, 			
 			threshold_scheme: Literal["soft", "hard"] = "hard", 
 			frac_to_keep: float = 0.3, 
 			b: float = 10.0, nu: float = 0.5, 
 			n_states: Optional[Union[int, Sequence[int]]] = None,
 			n_cells: int= 30, 
-			cluster_key: Optional[str] = None, 
 			allow_overlap: bool = False,
 			states_method: Literal["stability", "top_n", "eigengap", "eigengap_coarse"] = "stability",
 			alpha: float = 1, 
@@ -730,12 +720,30 @@ class PseudotimeKernelWrapper(Base):
 									for state in assignment.cat.categories}
 			return inverted_assignment
 
-		self.kernel.compute_transition_matrix(threshold_scheme = threshold_scheme, 
-											frac_to_keep = frac_to_keep, 
-											b=b, nu = nu, n_jobs = n_jobs) 
-		self._G = cr.estimators.GPCCA(self.kernel.kernel)										
+		if connectivity_key not in self.mudata.obsp.keys():
+			raise KeyError(f"{connectivity_key} not in obsp")	
+		self.connectivity_key = connectivity_key
+
+		self._adata = AnnData(X = csr_matrix((self.mudata.n_obs, self.mudata["rna"].n_vars)),
+												obs = self.mudata.obs, 
+												var = pd.DataFrame([], index = self.mudata["rna"].var_names))
+		self._adata.obs[self.cluster_key] = self._adata.obs[self.cluster_key].astype("category")
+
+		self._adata.obsp[connectivity_key] = self.mudata.obsp[connectivity_key]
+		self.kernel = PseudotimeKernel(adata= self._adata, 
+									time_key = self.pseudotime_key, 
+									conn_key = connectivity_key, 
+									backward = backward).compute_transition_matrix(
+														threshold_scheme = threshold_scheme, 
+														frac_to_keep = frac_to_keep, 
+														b=b, nu = nu, n_jobs = n_jobs) 
+
+		self._G = cr.estimators.GPCCA(self.kernel)										
 		self._G.compute_schur()
-		if n_states is not None:
+		if terminal_states is not None and initial_states is not None:
+			self._G.set_initial_states(states = initial_states) 
+			self._G.set_terminal_states(states = terminal_states)
+		else:
 			self._G.compute_macrostates(n_states = n_states, cluster_key = self.cluster_key)
 			self._G.predict_terminal_states(method = states_method, 
 											n_cells = n_cells, 
@@ -743,13 +751,9 @@ class PseudotimeKernelWrapper(Base):
 											stability_threshold = stability_threshold,
 											n_states = n_terminal_states, 
 											allow_overlap = allow_overlap)
-  
 			self._G.predict_initial_states(n_states = n_initial_states,
 											n_cells = n_cells, 
 											allow_overlap = allow_overlap)
-		elif terminal_states is not None and initial_states is not None:
-			self._G.set_initial_states(states = initial_states) 
-			self._G.set_terminal_states(states = terminal_states)
 
 		self._G.compute_fate_probabilities(keys = None,
 											solver = solver,
@@ -758,16 +762,26 @@ class PseudotimeKernelWrapper(Base):
 											tol = tol,
 											preconditioner = preconditioner)
 	
-		self.mudata.obsm["fate_probabilities"] = pd.DataFrame(g.fate_probabilities.X, 
+		self.mudata.obsm["fate_probabilities"] = pd.DataFrame(self._G.fate_probabilities.X, 
 																index = self.mudata.obs_names,
-																columns = g.fate_probabilities.names)		
-		self.mudata.uns["initial_states"] = _invert_assignment(g.initial_states.assignment)
-		self.mudata.uns["terminal_states"] = _invert_assignment(g.terminal_states.assignment)
-		self.mudata.uns["macrostates"] = _invert_assignment(g.macrostates.assignment)
+																columns = self._G.fate_probabilities.names)		
+		self.mudata.uns["initial_states"] = _invert_assignment(self._G.initial_states)
+		self.mudata.uns["terminal_states"] = _invert_assignment(self._G.terminal_states)
+		if terminal_states is None and initial_states is None:
+			intermediate = self._G.macrostates[
+											(self._G.initial_states.isna()) & 
+											(self._G.terminal_states.isna())
+											]
+			intermediate = intermediate.cat.remove_unused_categories()
+			self.mudata.uns["intermediate_states"] = _invert_assignment(intermediate)
+		else:
+			self.mudata.uns["intermediate_states"] = {}
+			
 		self.fate_probability_key = "fate_probabilities"
 		_assign_state_colors(self.mudata)
 
 		self.compute_entropy(fate_prob_key="fate_probabilities")	
+
 
 RUN_REGISTRY = {"palantir": PalantirWrapper,
 		"pseudotime-kernel": PseudotimeKernelWrapper}

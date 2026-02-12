@@ -15,7 +15,7 @@ def _assign_state_colors(mudata:MuData,
 
 	color_map = mudata.uns["fate_state_colors"]
 
-	for key in ["terminal_states", "initial_states", "macrostates"]:
+	for key in ["terminal_states", "initial_states", "intermediate_states"]:
 		states = mudata.uns.get(key, None)
 
 		if isinstance(states, dict):
