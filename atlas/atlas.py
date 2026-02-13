@@ -278,6 +278,11 @@ class Base(ABC):
 					order: int = 1,
 					save: Optional[str] = None):
 
+		if ptf not in self.mudata[self.rna_key].obs_names:
+			raise KeyError(f"TF {ptf} not available")
+		if gene not in self.mudata[self.activity_key].obs_names:
+			raise KeyError(f"Gene {gene} not available")
+
 		if not hasattr(self, "trends"):
 			mbgam = MultiBranchGAM(
 							mudata = self.mudata,	
