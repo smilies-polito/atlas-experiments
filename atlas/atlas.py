@@ -44,8 +44,6 @@ class Base(ABC):
 		
 		if self.rna_key is None:
 			raise KeyError(f"rna modality is missing")
-		if self.activity_key is not None and mudata[self.activity_key].shape != mudata[self.rna_key].shape:
-			raise ValueError("Rna and activity shape mismatch, please provide activity values for all genes.")
 		if self.atac_key is None and self.activity_key is None:
 			raise KeyError("Both atac and activity modalities are missing. Please provide at least one modality.")
 		if self.atac_key is not None and self.activity_key is not None:
@@ -113,16 +111,21 @@ class Base(ABC):
 				raise ValueError("Feature start must be >=0 after 0-basedconversion")
 
 			self.activity_key = "activity"
-			self.mudata["activity"] = mu.atac.tl.count_fragments_features(data=self.mudata.mod[self.atac_key], 
+			self.mudata.mod["activity"] = mu.atac.tl.count_fragments_features(data=self.mudata.mod[self.atac_key], 
 											features = features, 
 											stranded=stranded)	
 			sc.pp.normalize_total(self.mudata.mod[self.activity_key])
-		
+			sc.pp.pca(self.mudata.mod[self.activity_key], random_state= self.random_state)
+	
+		# mu.pp.neighbors works on all possible modalities, but we only require rna and activity -> must create a mudata object with only gex and activity
+		self.mudata = MuData({ self.rna_key: self.mudata[self.rna_key],
+								self.activity_key: self.mudata[self.activity_key] })
+	
 		if not "distances" in self.mudata[self.rna_key].obsp: 
 			sc.pp.neighbors(self.mudata.mod[self.rna_key], n_neighbors=knn_rna, n_pcs=n_pcs_rna, random_state=self.random_state, use_rep=use_rep)
 		if not "distances" in self.mudata[self.activity_key].obsp: 
 			sc.pp.neighbors(self.mudata.mod[self.activity_key], n_neighbors=knn_act, n_pcs=n_pcs_act, random_state=self.random_state, use_rep=use_rep)
-
+		
 		mu.pp.neighbors(self.mudata, 
 				key_added="wnn", 
 				n_neighbors=n_neighbors, 
@@ -415,12 +418,6 @@ class Base(ABC):
 						**kwargs)
 
 
-		
-		
-			
-
-
-			
 class ATLAS:
 	def __init__(self,
 			mudata: MuData,
@@ -537,7 +534,7 @@ class PalantirWrapper(Base):
 		kernel= self.mudata.obsp[kernel_key]
 		res = palantir.utils.diffusion_maps_from_kernel(self.mudata.obsp[kernel_key], n_components, seed)
 		self.mudata.obsp[sim_key] = res["T"] 
-		self.mudata.obsm[eigvec_key] = res["EigenVectors"].values
+		self.mudata.obsm[eigvec_key] = res["EigenVectors"].set_index(self.mudata.obs.index)
 		self.mudata.uns[eigval_key] = res["EigenValues"].values
 
 
@@ -562,7 +559,7 @@ class PalantirWrapper(Base):
 		eigenvectors = pd.DataFrame(self.mudata.obsm[eigvec_key], index=self.mudata.obs_names) if not isinstance(self.mudata.obsm[eigvec_key], pd.DataFrame) else self.mudata.obsm[eigvec_key] 
 		dm_dict = {"EigenValues": self.mudata.uns[eigval_key], "EigenVectors": eigenvectors}
 		result = palantir.utils.determine_multiscale_space(dm_res = dm_dict, n_eigs=n_eigs, eigval_key = eigval_key, eigvec_key = eigvec_key, out_key=out_key) # eigval_key, eigvec_key and out_key are not used 
-		self.mudata.obsm[out_key] = result.values
+		self.mudata.obsm[out_key] = result
 
 	
 	def run(self, *,
@@ -609,8 +606,7 @@ class PalantirWrapper(Base):
 					eigvec_key = eigvec_key,
 					out_key = eigvec_multi_key)
 
-		input_df = pd.DataFrame(self.mudata.obsm[eigvec_key], index=self.mudata.obs_names)
-		res = palantir.core.run_palantir(data = input_df,
+		res = palantir.core.run_palantir(data = self.mudata.obsm[eigvec_multi_key],
 						early_cell = early_cell,
 						terminal_states = terminal_states,
 						knn = knn,

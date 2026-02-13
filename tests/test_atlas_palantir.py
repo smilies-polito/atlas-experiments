@@ -1,5 +1,4 @@
 import os
-import argparse
 import muon as mu
 import numpy as np
 import pandas as pd
@@ -9,68 +8,51 @@ import matplotlib.pyplot as plt
 from atlas import ATLAS
 from muon import MuData
 from anndata import AnnData
-from itertools import product
 from scipy.sparse import csr_matrix
-from .utils import initial_macrostate, terminal_macrostate, truth_like_fates
+from simulated_data import initial_macrostate, terminal_macrostate, truth_like_fates
 
 if __name__=="__main__":
 	seed = 42
+	working_directory = os.getcwd() # set path to repository 
 	np.random.seed(seed)
 	
-	# parse arguments from 
-	parser = argparse.ArgumentParser() 
-	parser.add_argument("--tree", type=str)
-	parser.add_argument("--rd", type=float)
-	parser.add_argument("--sigma", type=float)
-	parser.add_argument("--knn_rna", type=int)
-	parser.add_argument("--knn_activity", type=int)
-	parser.add_argument("--wnn", type=int)
-	args = parser.parse_args()
+	#1. TEST CONSTRUCTION WITHOUT FRAGMENT FILES AND ACTIVITY ALREADY PROVIDED
+	tree = "three_branches"
+	diff_cif_fraction, cif_sigma = 0.3, 0.3
+	knn_rna, knn_activity, wnn = 30, 30, 30
+	n_pcs_rna, n_pcs_activity = 20, 10
 	
-	working_directory = os.getcwd() # set path to repository 
-	data_path = os.path.join(working_directory, "data", "simulated_data", args.tree)
-	n_pcs_rna = 20
-	n_pcs_activity = 10
-	
-	# Lettura dei dati 
-	diff_cif_fraction, cif_sigma = args.rd, args.sigma
+	data_path = os.path.join(working_directory, "data", "simulated_data", tree)
 	activity = pd.read_csv(os.path.join(data_path, f"{diff_cif_fraction}_{cif_sigma}_activity.tsv"), sep="\t", header=0, index_col=0)
 	spliced = pd.read_csv(os.path.join(data_path, f"{diff_cif_fraction}_{cif_sigma}_spliced.tsv"), sep="\t", header=0, index_col=0)
-	unspliced = pd.read_csv(os.path.join(data_path, f"{diff_cif_fraction}_{cif_sigma}_unspliced.tsv"), sep="\t", header=0, index_col=0)
 	metadata = pd.read_csv(os.path.join(data_path, f"{diff_cif_fraction}_{cif_sigma}_metadata.tsv"), sep="\t", header=0, index_col=0)
 
-	# creazione matrice di attività
+	# create activity matrix
 	activity = AnnData(X=csr_matrix(activity.values), 
 			obs = pd.DataFrame(data=None, index=activity.index.values, columns=None), 
 			var = pd.DataFrame(data=None, index=activity.columns, columns=None))	
-	# creazione matrice di rna	
-	total_rna = csr_matrix(spliced.values.T)
-	rna = AnnData(X=csr_matrix(total_rna), 
+	sc.pp.normalize_total(activity)
+	sc.pp.pca(activity, random_state=seed, use_highly_variable=False)
+	# create rna matrix
+	rna = AnnData(X=csr_matrix(spliced.values.T), 
 			obs=pd.DataFrame(data=None, index=spliced.columns, columns=None), 
 			var=pd.DataFrame(data=None, index=spliced.index.values, columns=None))
 	rna.obs = rna.obs.merge(metadata, how="left", left_index=True, right_index=True)
-		
-	# creazione oggetto MuData 
+	sc.pp.normalize_total(rna)
+	sc.pp.log1p(rna)
+	sc.pp.pca(rna, random_state=seed, use_highly_variable=False)
+
 	data = MuData({"rna":rna, "activity":activity})
-	
-	# rna preprocessing
-	sc.pp.normalize_total(data["rna"])
-	sc.pp.log1p(data["rna"])
-	sc.pp.pca(data["rna"], random_state=seed, use_highly_variable=False)
+	early_cell = initial_macrostate(mudata = data, 
+									pseudotime_key = "rna:pseudotime", 
+									n_cells=1)
+	n_cells, n_rna, n_activity = data.n_obs, data["rna"].n_vars, data["activity"].n_vars
 
-	# activity preprocessing
-	sc.pp.normalize_total(data["activity"])
-	sc.pp.pca(data["activity"], random_state=seed, use_highly_variable=False)
-
-	knn_rna, knn_activity, wnn = args.knn_rna, args.knn_activity, args.wnn
-	saving_folder = os.path.join(data_path, f"{knn_rna}_{knn_activity}_{wnn}") 
-	if not os.path.exists(saving_folder):
-		os.mkdir(saving_folder)
-			
 	atlas = ATLAS(mudata = data,
 					method= "palantir",
 					fragment_path = None,
-					random_state =  seed)
+					random_state = seed)
+
 	assert atlas._impl.rna_key == "rna"
 	assert atlas._impl.activity_key == "activity"
 	assert atlas._impl.atac_key is None
@@ -80,85 +62,157 @@ if __name__=="__main__":
 	assert not hasattr(atlas._impl.mudata["activity"].uns, "files")
 
 
+	# 2. TEST PREPROCESSING 
 	atlas.preprocessing(n_pcs_rna = n_pcs_rna,
 						n_pcs_act = n_pcs_activity,
 						knn_rna = knn_rna,
 						knn_act = knn_activity,
 						n_neighbors = wnn) 
 
-	assert "distances" in atlas._impl.mudata["rna"].obsp
-	assert "connectivities" in atlas._impl.mudata["rna"].obsp
-	assert "distances" in atlas._impl.mudata["activity"].obsp
-	assert "connectivities" in atlas._impl.mudata["activity"].obsp
-	assert "wnn_distances" in atlas._impl.mudata.obsp	
-	assert "wnn_connectivities" in atlas._impl.mudata.obsp	
-	assert atlas._impl.mudata.obsp["wnn_distances"].shape == (data.n_obs, data.n_obs)
-	assert "X_umap" in atlas._impl.mudata.obsm
+	mudata = atlas.get_data()
+	assert "distances" in mudata["rna"].obsp
+	assert "connectivities" in mudata["rna"].obsp
+	assert "distances" in mudata["activity"].obsp
+	assert "connectivities" in mudata["activity"].obsp
+	assert "wnn_distances" in mudata.obsp	
+	assert "wnn_connectivities" in mudata.obsp	
+	assert mudata.obsp["wnn_distances"].shape == (n_cells, n_cells)
+	assert "X_umap" in mudata.obsm
 
-	mu.pl.embedding(data, 
-					basis="X_umap", 
-					color=["rna:pop", "rna:pseudotime"], 
-					show=False, 
-					save = f"{diff_cif_fraction}_{cif_sigma}_{knn_rna}:{knn_activity}:{wnn}.png" )
-
-	early_cell = initial_macrostate(mudata = data, 
-									pseudotime_key = "rna:pseudotime", 
-									n_cells=1)
-	terminal_cells = []
-	for branch in ["4_1", "5_2", "5_3"]:
-		cell = terminal_macrostate(mudata = data,
-											pseudotime_key = "rna:pseudotime", 
-											cluster_key = "rna:pop",
-											terminal_state = branch,
-											n_cells=1)			
-		terminal_cells.extend(cell)
-
-	# test non fixed terminal states	
+	# 3. TEST RUN WITH NO FIXED TERMINAL 
+	kernel_key, eigval_key, eigvec_key, sim_key, out_key, waypoint_key  = "kernel", "eigvals", "eigvecs", "similarity", "multiscale", "waypoints"
+	n_components, num_waypoints = 5, 250
 	atlas.run(early_cell = early_cell[0],
 				cluster_key = "rna:pop",
 				terminal_states = None,
+				n_components= n_components,
+				kernel_key = kernel_key,
+				eigval_key = eigval_key,
+				eigvec_key = eigvec_key,
+				sim_key = sim_key,
+				eigvec_multi_key = out_key,
+				waypoints_key = waypoint_key,
 				knn = 30,
-				num_waypoints = 250)
-	assert "pseudotime" in data.obs.columns	
-	assert "shannon_entropy" in data.obs.columns	
-	assert "kl_divergence" in data.obs.columns	
-	assert "palantir_waypoints" in data.uns
-	assert "fate_probabilities" in data.obsm 
-	assert isinstance(data.obsm["fate_probabilities"], pd.DataFrame)
-	assert "initial_states" in data.uns
-	assert isinstance(data.uns["initial_states"], dict)
-	assert "terminal_states" in data.uns
-	assert isinstance(data.uns["terminal_states"], dict)
+				num_waypoints = num_waypoints)
+
+	assert kernel_key in mudata.obsp
+	assert isinstance(mudata.obsp[kernel_key], csr_matrix)
+	assert mudata.obsp[kernel_key].shape == (n_cells, n_cells)
+	assert sim_key in mudata.obsp
+	assert mudata.obsp[sim_key].shape == (n_cells, n_cells)
+	assert eigvec_key in mudata.obsm 
+	assert mudata.obsm[eigvec_key].shape == (n_cells, n_components)
+	assert eigval_key in mudata.uns
+	assert out_key in mudata.obsm
+	assert mudata.obsm[out_key].shape[1] <= n_components
+	assert waypoint_key in mudata.uns
+	assert len(mudata.uns[waypoint_key]) <= num_waypoints
+	assert "pseudotime" in mudata.obs.columns	
+	assert "shannon_entropy" in mudata.obs.columns	
+	assert "kl_divergence" in mudata.obs.columns	
+	assert waypoint_key in mudata.uns
+	assert "fate_probabilities" in mudata.obsm 
+	assert isinstance(mudata.obsm["fate_probabilities"], pd.DataFrame)
+	assert "initial_states" in mudata.uns
+	assert isinstance(mudata.uns["initial_states"], dict)
+	assert "terminal_states" in mudata.uns
+	assert isinstance(mudata.uns["terminal_states"], dict)
 	assert hasattr(atlas._impl, "fate_probability_key")
 	assert atlas._impl.fate_probability_key == "fate_probabilities"
-	assert "fate_state_colors" in data.uns
-	n_states = len(data.uns["initial_states"]) + len(data.uns["terminal_states"])
-	assert len(data.uns["fate_state_colors"]) == n_states
+	assert "fate_state_colors" in mudata.uns
+	n_states = len(mudata.uns["initial_states"]) + len(mudata.uns["terminal_states"])
+	assert len(mudata.uns["fate_state_colors"]) == n_states
 
 	# test fixed terminal states 
+	terminal_cells = []
+	for branch in ["4_1", "5_2", "5_3"]:
+		cell = terminal_macrostate(mudata = data,
+									pseudotime_key = "rna:pseudotime", 
+									cluster_key = "rna:pop",
+									terminal_state = branch,
+									n_cells=1)			
+		terminal_cells.extend(cell)
 	atlas.run(early_cell = early_cell[0], 
 				cluster_key = "rna:pop",
 				terminal_states = terminal_cells,
 				knn = 30,
 				num_waypoints = 250)
 			
-	assert "pseudotime" in data.obs.columns	
-	assert "shannon_entropy" in data.obs.columns	
-	assert "kl_divergence" in data.obs.columns	
-	assert "palantir_waypoints" in data.uns
-	assert "fate_probabilities" in data.obsm 
-	assert isinstance(data.obsm["fate_probabilities"], pd.DataFrame)
-	assert "initial_states" in data.uns
-	assert isinstance(data.uns["initial_states"], dict)
-	assert "terminal_states" in data.uns
-	assert isinstance(data.uns["terminal_states"], dict)
+	assert "pseudotime" in mudata.obs.columns	
+	assert "shannon_entropy" in mudata.obs.columns	
+	assert "kl_divergence" in mudata.obs.columns	
+	assert waypoint_key in mudata.uns
+	assert "fate_probabilities" in mudata.obsm 
+	assert isinstance(mudata.obsm["fate_probabilities"], pd.DataFrame)
+	assert "initial_states" in mudata.uns
+	assert isinstance(mudata.uns["initial_states"], dict)
+	assert "terminal_states" in mudata.uns
+	assert isinstance(mudata.uns["terminal_states"], dict)
+	assert len(mudata.uns["terminal_states"]) == len(terminal_cells)
 	assert hasattr(atlas._impl, "fate_probability_key")
 	assert atlas._impl.fate_probability_key == "fate_probabilities"
-	assert "fate_state_colors" in data.uns
-	n_states = len(data.uns["initial_states"]) + len(data.uns["terminal_states"])
-	assert len(data.uns["fate_state_colors"]) == n_states
-		
+	assert "fate_state_colors" in mudata.uns
+	n_states = len(mudata.uns["initial_states"]) + len(mudata.uns["terminal_states"])
+	assert len(mudata.uns["fate_state_colors"]) == n_states
 
 
+	# TEST ATAC TO ACTIVITY TRANSFORM ON REAL DATASET
+	data_path = os.path.join(working_directory, "data", "embryonic_mouse_brain", "filtered_feature_bc_matrix")
+	features_path = os.path.join(data_path, "features.tsv.gz")
+	fragment_path = os.path.join(working_directory, "data", "embryonic_mouse_brain", "e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz")
+	annotation_path = os.path.join(working_directory, "data", "embryonic_mouse_brain", "cell_annotations.tsv")
+	features = pd.read_csv(features_path, sep="\t", index_col = 0, header = None)
+	features.columns = ["name", "type", "Chromosome", "start", "end"]
+	features = features[features["type"] == "Gene Expression"]
 
+	annotations = pd.read_csv(annotation_path, sep="\t", header=0, index_col=0)
+	data = sc.read_10x_mtx(data_path, var_names = "gene_symbols", gex_only=False)
+	atac = data[:, data.var["feature_types"] == "Peaks"]
+	rna = data[:, data.var["feature_types"] == "Gene Expression"]
+	rna.var_names_make_unique()
+	rna.var = rna.var.reset_index(names="symbol").set_index("gene_ids").join(features, how="left").set_index("symbol")
+
+	sc.pp.normalize_total(rna, target_sum=1e4)
+	sc.pp.log1p(rna)
+	sc.pp.highly_variable_genes(rna)
+	sc.pp.pca(rna, random_state=seed)
+
+	mudata = MuData({"rna": rna, "ATAC": atac})
+	
+	atlas = ATLAS(mudata=mudata, fragment_path = fragment_path, random_state = seed, method="palantir")
+	assert atlas._impl.atac_key == "atac"
+	assert atlas._impl.rna_key == "rna"
+	assert atlas._impl.activity_key is None
+	assert not atlas._impl.use_activity 
+	assert "files" in atlas._impl.mudata["atac"].uns
+	assert "fragments" in atlas._impl.mudata["atac"].uns["files"] 
+	assert atlas._impl.random_state == seed
+
+	features = rna.var[["Chromosome", "start", "end"]]
+	features["start"] = features["start"].astype(int)
+	features["end"] = features["end"].astype(int)
+	mask = (features["Chromosome"].notna() & \
+			features["Chromosome"].str.startswith("chr") & \
+			 ~ features["Chromosome"].isin(["chrX", "chrY"]))
+	features = features[mask]
+	
+	atlas.preprocessing(n_pcs_rna = 20,
+						n_pcs_act = 10,
+						knn_rna = 30,
+						knn_act = 30,
+						n_neighbors = 30, 
+						stranded = False, 
+						features = features)
+
+	assert atlas._impl.activity_key == "activity"
+	assert "activity" in atlas._impl.mudata.mod
+	assert "X_pca" in atlas._impl.mudata["activity"].obsm
+	assert "distances" in atlas._impl.mudata["rna"].obsp
+	assert "connectivities" in atlas._impl.mudata["rna"].obsp
+	assert "distances" in atlas._impl.mudata["activity"].obsp
+	assert "connectivities" in atlas._impl.mudata["activity"].obsp
+	assert "wnn_distances" in atlas._impl.mudata.obsp
+	assert "wnn_connectivities" in atlas._impl.mudata.obsp
+	assert "X_umap" in atlas._impl.mudata.obsm
+						
 
