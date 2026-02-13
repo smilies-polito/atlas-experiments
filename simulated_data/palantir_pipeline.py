@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 from atlas import ATLAS, pearson_correlation, spearman_correlation, kendall_correlation, fate_concentration_index, terminal_state_silhouette, terminal_pseudotime_enrichment_score, js_distance, terminal_state_score
 from muon import MuData
 from anndata import AnnData
-from itertools import product
 from scipy.sparse import csr_matrix
 from .utils import initial_macrostate, terminal_macrostate, truth_like_fates, TERM_DICT, POTENCY_DICT
 
@@ -23,24 +22,35 @@ def _save_simulation(atlas:ATLAS,
 					wnn: int,
 					fixed_terminal: bool, 
 					results: dict,
+					ground_truth: dict,
 					saving_folder: str):
-
+	'''
+		Save simulation results.
+	'''
 	code = f"{tree}_{fixed_terminal}_{rd}_{sigma}_{knn_rna}:{knn_activity}:{wnn}.h5mu"
-	data = atlas.get_data()
-	mod = AnnData( X = csr_matrix( np.zeros(shape = (data.n_obs, len(data["rna"].var_names))) ),
-					obs = pd.DataFrame([], index = data["rna"].obs.index) ,
-					var = pd.DataFrame([], index = data["rna"].var.index) )
-	mudata = MuData({"sim": mod})
-	mudata.obsm["fate_probabilities"] = data.obsm["fate_probabilities"]
-	mudata.obsm["true_probabilities"] = data.obsm["true_probabilities"]
-	mudata.obsm["X_umap"] = data.obsm["X_umap"]
-	mudata.obsp["wnn_connectivities"] = data.obsp["wnn_connectivities"] 
-	mudata.obsp["wnn_distances"] = data.obsp["wnn_distances"] 
-	mudata.uns = data.uns.copy()
-	mudata.uns["simulation_results"] = results
+	data = atlas.get_data().copy()
+	del data.mod[atlas._impl.activity_key].obsm
+	del data.mod[atlas._impl.activity_key].obsp
+	del data.mod[atlas._impl.activity_key].uns
+	del data.mod[atlas._impl.activity_key].varm
+	data.mod[atlas._impl.activity_key].X = None
+	del data.mod[atlas._impl.rna_key].obsm
+	del data.mod[atlas._impl.rna_key].obsp
+	del data.mod[atlas._impl.rna_key].uns
+	del data.mod[atlas._impl.rna_key].varm
+	data.mod[atlas._impl.activity_key].X = None
+
+	data.obsm["true_fates"] = ground_truth["fate_probabilities"]
+	data.uns["true_states"] = ground_truth["true_states"]
+	data.obsm["DM_EigenVectors"].columns = [str(c) for c in data.obsm["DM_EigenVectors"].columns]
+	data.obsm["DM_EigenVectors_multiscaled"].columns = [str(c) for c in data.obsm["DM_EigenVectors_multiscaled"].columns]
+
+	if results["jsd"] is not None:
+		results["jsd"] = {"values": results["jsd"].to_numpy(),
+							"index": results["jsd"].index.to_list() }
+	data.uns["simulation_results"] = results
+	data.write(os.path.join(saving_folder, code))
 	
-	mudata.write(os.path.join(saving_folder, code))
-			
 
 def _apply_metrics_and_visualize(atlas: ATLAS,
 								tree: str,
@@ -51,9 +61,13 @@ def _apply_metrics_and_visualize(atlas: ATLAS,
 								wnn: int,
 								ts_dict: dict,
 								terminal_clusters: list,
+								true_probabilities: pd.DataFrame,
 								failed: bool = False,
 								fixed_terminal: bool = False,
 								):
+	'''
+		Compute metrics.
+	'''
 	code = f"{tree}_{fixed_terminal}_{rd}_{sigma}_{knn_rna}:{knn_activity}:{wnn}"
 	results = {
 				"code" : code,
@@ -83,14 +97,13 @@ def _apply_metrics_and_visualize(atlas: ATLAS,
 				"terminal_silhouette_pse": None,
 			}
 
-	mudata = atlas.get_data()
+	data = atlas.get_data()
 	if failed:
 		return results
+					
+	results["n_terminal_states"] = data.obsm["fate_probabilities"].shape[1]
 
-	if "fate_probabilities" in mudata.obsm and mudata.obsm["fate_probabilities"] is not None:
-		results["n_terminal_states"] = mudata.obsm["fate_probabilities"].shape[1]
-
-	# SUPERVISED 
+	# SUPERVISED - correlation true and inferred pseudotime
 	stat, pval, _ = spearman_correlation(data.obs["rna:pseudotime"], data.obs["pseudotime"], seed = atlas.random_state)	
 	results["spearman_stat_pseudotime"] = stat
 	results["spearman_pval_pseudotime"] = pval
@@ -98,23 +111,27 @@ def _apply_metrics_and_visualize(atlas: ATLAS,
 	results["kendall_stat_pseudotime"] = stat
 	results["kendall_pval_pseudotime"] = pval
 
+	# no fate probabilities	
+	if results["n_terminal_states"] <= 0:
+		return results	
+
+	#SUPERVISED - JSD
 	if fixed_terminal:
-		jsd = js_distance(data.obsm["fate_probabilities"], data.obsm["true_probabilities"])
+		jsd = js_distance(data.obsm["fate_probabilities"], true_probabilities)
 		if not jsd.index.equals(data.obs["rna:pop"].index):
 			jsd = jsd.loc[data.obs["rna:pop"].index]
 		jsdf = pd.DataFrame({"jsd": jsd, "cluster": data.obs["rna:pop"]})
 		jsdf["potency"] = jsdf["cluster"].map(POTENCY_DICT[tree])
 		results["jsd"] = jsdf.groupby("potency")["jsd"].mean()
-		
 
-	if not fixed_terminal:
-		tts, ttp, ttc, overall = terminal_state_score(data.obs["rna:pseudotime"], data.obs["rna:pop"], ts_dict, terminal_clusters)
-		results["tts"] = tts
-		results["ttp"] = ttp
-		results["ttc"] = ttc
-		results["temporal_state_score"] = overall
+	#SUPERVISED - TERMINAL STATE SCORE
+	tts, ttp, ttc, overall = terminal_state_score(data.obs["rna:pseudotime"], data.obs["rna:pop"], ts_dict, terminal_clusters)
+	results["tts"] = tts
+	results["ttp"] = ttp
+	results["ttc"] = ttc
+	results["temporal_state_score"] = overall
 
-	# UNSUPERVISED
+	#UNSUPERVISED
 	stat, pval, _ = spearman_correlation(data.obs["pseudotime"], data.obs["kl_divergence"], seed = atlas.random_state)	
 	results["spearman_stat_KLD"] = stat
 	results["spearman_pval_KLD"] = pval
@@ -132,43 +149,38 @@ def _apply_metrics_and_visualize(atlas: ATLAS,
 	results["fate_index_pval"] = pval
 	results["terminal_silhouette_soft"] = terminal_state_silhouette(data.obsm["fate_probabilities"], soft_assignment=True)
 	results["terminal_silhouette_pse"] = terminal_state_silhouette(data.obsm["fate_probabilities"], soft_assignment=False, pseudotime=data.obs["pseudotime"])
-	
+
 	# VISUALIZATION
-	# pseudotime
 	atlas.plot_embedding(embedding_key = "X_umap",
 						observation = "pseudotime",
 						save = f"_PSTIME{code}.png",
 						show= False)
-	# shannon entropy	
 	atlas.plot_embedding(embedding_key = "X_umap",
 						observation = "kl_divergence",
 						save = f"_KLDIV_{code}.png",
 						show= False)
-	# kl divergence
 	atlas.plot_embedding(embedding_key = "X_umap",
 						observation = "shannon_entropy",
 						save = f"_SHENTR_{code}.png",
 						show= False)
-	# fate probabilities
 	atlas.plot_fate_probabilities(embedding_key= "X_umap",
 									states = None,
 									save =  "_fates_{code}.png",
 									show= False)
-	# tree
 	atlas.plot_tree(embedding_key = "umap",
 					save = f"_{code}.png",
 					color = "rna:pop", 
 					color_milestones = False,
 					show = False)
-
 	return results
+	
 
 
 if __name__=="__main__":
 	seed = 42
+	working_directory = os.getcwd() # set path to repository 
 	np.random.seed(seed)
-	
-	# parse arguments from 
+
 	parser = argparse.ArgumentParser() 
 	parser.add_argument("--tree", type=str)
 	parser.add_argument("--rd", type=float)
@@ -178,118 +190,104 @@ if __name__=="__main__":
 	parser.add_argument("--wnn", type=int)
 	args = parser.parse_args()
 	
-	working_directory = os.getcwd() # set path to repository 
-	data_path = os.path.join(working_directory, "data", "simulated_data", args.tree)
-	saving_simulation_path = os.path.join(working_directory, "data", "simulated_data", "simulations", "palantir")
-	n_pcs_rna = 20
-	n_pcs_activity = 10
-	
-	# Lettura dei dati 
+	# DATA CONTRUCTION 
+	tree = args.tree
 	diff_cif_fraction, cif_sigma = args.rd, args.sigma
+	knn_rna, knn_activity, wnn = args.knn_rna, args.knn_activity, args.wnn
+	n_pcs_rna, n_pcs_activity = 20, 10
+	
+	data_path = os.path.join(working_directory, "data", "simulated_data", tree)
+	saving_simulation_path = os.path.join(working_directory, "data", "simulated_data", "simulations", "palantir")
 	activity = pd.read_csv(os.path.join(data_path, f"{diff_cif_fraction}_{cif_sigma}_activity.tsv"), sep="\t", header=0, index_col=0)
 	spliced = pd.read_csv(os.path.join(data_path, f"{diff_cif_fraction}_{cif_sigma}_spliced.tsv"), sep="\t", header=0, index_col=0)
-	unspliced = pd.read_csv(os.path.join(data_path, f"{diff_cif_fraction}_{cif_sigma}_unspliced.tsv"), sep="\t", header=0, index_col=0)
 	metadata = pd.read_csv(os.path.join(data_path, f"{diff_cif_fraction}_{cif_sigma}_metadata.tsv"), sep="\t", header=0, index_col=0)
 
-	# creazione matrice di attività
+	# create activity matrix
 	activity = AnnData(X=csr_matrix(activity.values), 
 			obs = pd.DataFrame(data=None, index=activity.index.values, columns=None), 
 			var = pd.DataFrame(data=None, index=activity.columns, columns=None))	
-	# creazione matrice di rna	
-	total_rna = csr_matrix(spliced.values.T)
-	rna = AnnData(X=csr_matrix(total_rna), 
+	sc.pp.normalize_total(activity)
+	sc.pp.pca(activity, random_state=seed, use_highly_variable=False)
+	# create rna matrix
+	rna = AnnData(X=csr_matrix(spliced.values.T), 
 			obs=pd.DataFrame(data=None, index=spliced.columns, columns=None), 
 			var=pd.DataFrame(data=None, index=spliced.index.values, columns=None))
 	rna.obs = rna.obs.merge(metadata, how="left", left_index=True, right_index=True)
-		
-	# creazione oggetto MuData 
+	sc.pp.normalize_total(rna)
+	sc.pp.log1p(rna)
+	sc.pp.pca(rna, random_state=seed, use_highly_variable=False)
+
 	data = MuData({"rna":rna, "activity":activity})
-	
-	# rna preprocessing
-	sc.pp.normalize_total(data["rna"])
-	sc.pp.log1p(data["rna"])
-	sc.pp.pca(data["rna"], random_state=seed, use_highly_variable=False)
 
-	# activity preprocessing
-	sc.pp.normalize_total(data["activity"])
-	sc.pp.pca(data["activity"], random_state=seed, use_highly_variable=False)
+	# ground truth construction
+	early_cell = initial_macrostate(mudata = data, 
+									pseudotime_key = "rna:pseudotime", 
+									n_cells=1)
+	terminal_cells = []
+	for branch in ["4_1", "5_2", "5_3"]:
+		cell = terminal_macrostate(mudata = data,
+									pseudotime_key = "rna:pseudotime", 
+									cluster_key = "rna:pop",
+									terminal_state = branch,
+									n_cells=1)			
+		terminal_cells.extend(cell)
 
-	knn_rna, knn_activity, wnn = args.knn_rna, args.knn_activity, args.wnn
-			
+	true_fates = truth_like_fates(pseudotime = data.obs["rna:pseudotime"],
+									membership = data.obs["rna:pop"],
+									tree = args.tree)
+
+	truth_dictionary = { "fate_probabilities" :true_fates, 
+						"true_states": {"initial" : early_cell,	
+										"terminal": terminal_cells}
+						}
+
+	# INITIALIZATION
 	atlas = ATLAS(mudata = data,
 					method= "palantir",
 					fragment_path = None,
-					random_state =  seed)
+					random_state = seed)
 
+
+	# PREPROCESSING 
 	atlas.preprocessing(n_pcs_rna = n_pcs_rna,
 						n_pcs_act = n_pcs_activity,
 						knn_rna = knn_rna,
 						knn_act = knn_activity,
 						n_neighbors = wnn) 
 
-	mu.pl.embedding(data, 
-					basis="X_umap", 
-					color=["rna:pop", "rna:pseudotime"], 
-					show=False, 
-					save = f"{diff_cif_fraction}_{cif_sigma}_{knn_rna}:{knn_activity}:{wnn}.png" )
-
-	# ground truth 
-	early_cell = initial_macrostate(mudata = data, 
-									pseudotime_key = "rna:pseudotime", 
-									n_cells=1)
-	terminal_cells = []
-	expected_terminal_clusters = TERM_DICT[args.tree]
-
-	for branch in expected_terminal_clusters:
-		cell = terminal_macrostate(mudata = data,
-											pseudotime_key = "rna:pseudotime", 
-											cluster_key = "rna:pop",
-											terminal_state = branch,
-											n_cells=1)			
-		terminal_cells.extend(cell)
-	true_fates = truth_like_fates(pseudotime = data.obs["rna:pseudotime"],
-									membership = data.obs["rna:pop"],
-									tree = args.tree)
-	data.obsm["true_probabilities"] = true_fates
-	data.uns["selected_cells"] = {"initial" : early_cell,	
-								"terminal": terminal_cells}
-
-	# test non fixed terminal states	
+	# RUN WITH NO FIXED TERMINAL 
 	try: 
+		n_components, num_waypoints = 5, 250
 		atlas.run(early_cell = early_cell[0],
 				cluster_key = "rna:pop",
 				terminal_states = None,
-				knn = 30,
-				num_waypoints = 250)
-		failed = False	
-	except:
-		failed = True
-
-	ts_dict = data.uns.get("terminal_states", {})
-	results = _apply_metrics_and_visualize(atlas = atlas, tree = args.tree, rd= diff_cif_fraction, sigma = cif_sigma,
-					knn_rna = knn_rna, knn_activity = knn_activity, wnn = wnn,
-					failed = failed, fixed_terminal = False, terminal_clusters = expected_terminal_clusters,
-					ts_dict = ts_dict)
-
-	_save_simulation(atlas = atlas, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, knn_rna = knn_rna, knn_activity = 
-					knn_activity, wnn= wnn, fixed_terminal = False, saving_folder = saving_simulation_path, results=results)
-
-	# test fixed terminal states 
-	try:
-		atlas.run(early_cell = early_cell[0], 
-					cluster_key = "rna:pop",
-					terminal_states = terminal_cells,
-					knn = 30,
-					num_waypoints = 250)
+				n_components= n_components,
+				num_waypoints = num_waypoints)
 		failed = False
 	except:
 		failed = True
 
-	ts_dict = data.uns.get("terminal_states", {})
+	ts_dict = atlas.get_data().uns.get("terminal_states", {})
 	results = _apply_metrics_and_visualize(atlas = atlas, tree = args.tree, rd= diff_cif_fraction, sigma = cif_sigma,
 					knn_rna = knn_rna, knn_activity = knn_activity, wnn = wnn,
-					failed = failed, fixed_terminal = True, terminal_clusters = expected_terminal_clusters,
-					ts_dict = ts_dict)
+					failed = failed, fixed_terminal = False, terminal_clusters = TERM_DICT[tree],
+					ts_dict = ts_dict, true_probabilities = true_fates)
+	_save_simulation(atlas = atlas, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, knn_rna = knn_rna, knn_activity = knn_activity, wnn= wnn, fixed_terminal = False, saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary)
 
-	_save_simulation(atlas = atlas, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, knn_rna = knn_rna, knn_activity = 
-					knn_activity, wnn= wnn, fixed_terminal = True, saving_folder = saving_simulation_path, results = results)
+	# RUN WITH FIXED TERMINAL
+	try: 
+		atlas.run(early_cell = early_cell[0], 
+				cluster_key = "rna:pop",
+				terminal_states = terminal_cells,
+				n_components = n_components,
+				num_waypoints = num_waypoints)
+		failed = False
+	except:
+		failed = True
+			
+	ts_dict = atlas.get_data().uns.get("terminal_states", {})
+	results = _apply_metrics_and_visualize(atlas = atlas, tree = args.tree, rd= diff_cif_fraction, sigma = cif_sigma,
+					knn_rna = knn_rna, knn_activity = knn_activity, wnn = wnn,
+					failed = failed, fixed_terminal = True, terminal_clusters = TERM_DICT[tree],
+					ts_dict = ts_dict, true_probabilities = true_fates)
+	_save_simulation(atlas = atlas, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, knn_rna = knn_rna, knn_activity = knn_activity, wnn= wnn, fixed_terminal = True, saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary)
