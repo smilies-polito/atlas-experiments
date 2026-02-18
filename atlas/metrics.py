@@ -31,7 +31,7 @@ def terminal_state_score(pseudotime:pd.Series,
 			)
 	if terminal_df.empty:
 		warnings.warn("WARNING: no terminal states detected")
-		return 0.0, 0.0, 0.0, 0.0
+		return 0.0, 0.0, 0.0, 0.0, 0.0
 
 	gt_tau = (pseudotime.groupby(membership).max().
 			reindex(terminal_clusters, fill_value=tau_min))
@@ -48,6 +48,13 @@ def terminal_state_score(pseudotime:pd.Series,
 	else:
 		ttp = terminal_df["cluster"].isin(terminal_clusters).mean()
 
+	if terminal_df.empty:
+		ttr = 0
+	else: 
+		found, expected = set(terminal_df["cluster"]), set(terminal_clusters)
+		missing = expected.difference(found) 
+		tsr = 1 - (len(missing) / len(expected))
+
 	df_term = terminal_df[terminal_df["cluster"].isin(terminal_clusters)]
 	if df_term.empty:
 		ttc = 0
@@ -57,9 +64,9 @@ def terminal_state_score(pseudotime:pd.Series,
 		iqr = iqr.reindex(terminal_clusters, fill_value=0.0)
 		ttc = (1-iqr).mean()  
 	
-	overall = (tts * ttp * ttc) ** (1/3)
+	overall = (tsr* tts * ttp * ttc) ** (1/4)
 	
-	return tts, ttp, ttc, overall
+	return tts, ttp, tsr, ttc, overall
 
 
 

@@ -80,6 +80,7 @@ def _apply_metrics_and_visualize(atlas: ATLAS,
 				"tts": None,
 				"ttp": None,
 				"ttc": None,
+				"tsr": None,
 				"temporal_state_score": None,
 				"pearson_stat_KLD": None,
 				"pearson_pval_KLD": None,
@@ -93,6 +94,7 @@ def _apply_metrics_and_visualize(atlas: ATLAS,
 				"fate_index_pval": None,
 				"terminal_silhouette_soft": None,
 				"terminal_silhouette_pse": None,
+				"terminal_enrichment": None
 			}
 
 	data = atlas.get_data()
@@ -115,9 +117,10 @@ def _apply_metrics_and_visualize(atlas: ATLAS,
 		results["jsd"] = jsdf.groupby("potency")["jsd"].mean()
 
 	#SUPERVISED - TERMINAL STATE SCORE
-	tts, ttp, ttc, overall = terminal_state_score(data.obs["rna:pseudotime"], data.obs["rna:pop"], ts_dict, terminal_clusters)
+	tts, ttp, tsr, ttc, overall = terminal_state_score(data.obs["rna:pseudotime"], data.obs["rna:pop"], ts_dict, terminal_clusters)
 	results["tts"] = tts
 	results["ttp"] = ttp
+	results["tsr"] = tsr
 	results["ttc"] = ttc
 	results["temporal_state_score"] = overall
 
@@ -139,6 +142,8 @@ def _apply_metrics_and_visualize(atlas: ATLAS,
 	results["fate_index_pval"] = pval
 	results["terminal_silhouette_soft"] = terminal_state_silhouette(data.obsm["fate_probabilities"], soft_assignment=True)
 	results["terminal_silhouette_pse"] = terminal_state_silhouette(data.obsm["fate_probabilities"], soft_assignment=False, pseudotime=data.obs["rna:pseudotime"])
+	results["terminal_enrichment"] = terminal_pseudotime_enrichment_score(terminal_states = ts_dict, pseudotime = data.obs["pseudotime"])	
+	
 
 	# VISUALIZATION
 	atlas.plot_embedding(embedding_key = "X_umap",

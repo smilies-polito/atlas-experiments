@@ -25,9 +25,11 @@ def _assign_state_colors(mudata:MuData,
 	if not new_states:
 		return 
 
-	cmap_obj = plt.get_cmap(cmap, len(new_states))
-	for i, state in enumerate(sorted(new_states)):
-		color_map[state] = to_hex(cmap_obj(i))
+	base_colors = plt.get_cmap(cmap).colors
+	for state in sorted(new_states):
+		idx = len(color_map)
+		color = base_colors[idx % len(base_colors)]
+		color_map[state] = to_hex(color)
 
 
 def _weighted_quantile(x, w, q):

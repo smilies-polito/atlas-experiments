@@ -14,7 +14,7 @@ class TestTSS(unittest.TestCase):
 								index = ["c1", "c2", "c3", "c4"])
 		terminal_states = {"T1": ["c3", "c4"]}
 		terminal_clusters = ["B"]
-		tts, ttp, ttc, overall = terminal_state_score(pseudotime,
+		tts, ttp, tsr, ttc, overall = terminal_state_score(pseudotime,
 														memberships,
 														terminal_states,
 														terminal_clusters)
@@ -22,6 +22,7 @@ class TestTSS(unittest.TestCase):
 		self.assertAlmostEqual(tts, 1.0)
 		self.assertAlmostEqual(ttp, 1.0)
 		self.assertAlmostEqual(ttc, 1.0)
+		self.assertAlmostEqual(tsr, 1.0)
 		self.assertAlmostEqual(overall, 1.0)
 		
 	def test_early_terminal_states(self):
@@ -31,12 +32,13 @@ class TestTSS(unittest.TestCase):
 								index = ["c1", "c2", "c3", "c4"])
 		terminal_states = {"T1": ["c3"]}
 		terminal_clusters = ["B"]
-		tts, ttp, ttc, overall = terminal_state_score(pseudotime,
+		tts, ttp, tsr, ttc, overall = terminal_state_score(pseudotime,
 														memberships,
 														terminal_states,
 														terminal_clusters)
 		self.assertLess(tts, 1.0)
 		self.assertAlmostEqual(ttp, 1.0)
+		self.assertAlmostEqual(tsr, 1.0)
 		self.assertGreater(ttc, 0.0)
 
 	def test_spurious_terminal_cells(self):
@@ -46,11 +48,12 @@ class TestTSS(unittest.TestCase):
 								index = ["c1", "c2", "c3", "c4"])
 		terminal_states = {"T1": ["c2", "c3", "c4"]}
 		terminal_clusters = ["B"]
-		tts, ttp, ttc, overall = terminal_state_score(pseudotime,
+		tts, ttp, tsr, ttc, overall = terminal_state_score(pseudotime,
 														memberships,
 														terminal_states,
 														terminal_clusters)
 		self.assertAlmostEqual(ttp, 2/3)
+		self.assertAlmostEqual(tsr, 1.0)
 		self.assertLess(overall, 1.0)
 
 	def test_temporal_dispersion(self):
@@ -60,7 +63,7 @@ class TestTSS(unittest.TestCase):
 								index = ["c1", "c2", "c3", "c4"])
 		terminal_states = {"T1": ["c3", "c4"]}
 		terminal_clusters = ["B"]
-		tts, ttp, ttc, overall = terminal_state_score(pseudotime,
+		tts, ttp, tsr, ttc, overall = terminal_state_score(pseudotime,
 														memberships,
 														terminal_states,
 														terminal_clusters)
@@ -73,14 +76,32 @@ class TestTSS(unittest.TestCase):
 								index = ["c1", "c2", "c3", "c4"])
 		terminal_states = {}
 		terminal_clusters = ["B"]
-		tts, ttp, ttc, overall = terminal_state_score(pseudotime,
+		tts, ttp, tsr, ttc, overall = terminal_state_score(pseudotime,
 														memberships,
 														terminal_states,
 														terminal_clusters)
 		self.assertEqual(ttp, 0.0)
 		self.assertEqual(ttc, 0.0)
+		self.assertEqual(tsr, 0.0)
 		self.assertEqual(overall, 0.0)
-			
+
+	def test_partial_terminal_recovery(self):
+		pseudotime = pd.Series([0.1, 0.2, 0.9, 1.0, 0.85, 0.95],
+								index = ["c1", "c2", "c3", "c4", "c5", "c6"])
+		memberships = pd.Series(["A", "A", "B", "B", "C", "C"], 
+								index = ["c1", "c2", "c3", "c4", "c5", "c6"])
+
+		terminal_clusters = ["B", "C"]
+		terminal_states = {"T1": ["c3", "c4"]}
+		tts, ttp, tsr, ttc, overall = terminal_state_score(pseudotime,
+														memberships,
+														terminal_states,
+														terminal_clusters)
+		self.assertAlmostEqual(ttp, 1.0)
+		self.assertAlmostEqual(tsr, 0.5)
+		self.assertLess(tts, 1.0)
+		self.assertLess(overall, 1.0)	
+
 
 class TestJSD(unittest.TestCase):
 	def setUp(self):
