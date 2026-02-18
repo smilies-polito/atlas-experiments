@@ -39,7 +39,7 @@ DEV_DICT = {"three_branches": PHYLA3,
 				
 def truth_like_fates(pseudotime: pd.Series, 
 			membership: pd.Series, 
-			tree:Literal["phyla3", "phyla5"]="phyla3",
+			tree:Literal["three_branches", "five_branches"]="three_branches",
 			alpha: float = 2.0)-> pd.DataFrame:
 
 	development = DEV_DICT[tree]

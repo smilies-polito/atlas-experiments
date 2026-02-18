@@ -1,6 +1,8 @@
 import os
 import json
+import fcntl
 import time
+import tracemalloc
 import argparse
 import muon as mu
 import numpy as np
@@ -8,7 +10,6 @@ import pandas as pd
 import scanpy as sc
 import scvelo as scv
 import matplotlib.pyplot as plt
-from memory_profiler import memory_usage
 from atlas import ATLAS, pearson_correlation, spearman_correlation, kendall_correlation, fate_concentration_index, terminal_state_silhouette, terminal_pseudotime_enrichment_score, js_distance, terminal_state_score
 from muon import MuData
 from anndata import AnnData
@@ -55,14 +56,20 @@ def _save_simulation(atlas:ATLAS,
 	data.uns["simulation_results"] = results
 	data.write(os.path.join(saving_folder, code))
 
-	results_path = os.path.join(os.getcwd(), "data", "simulated_data", "simulations", "palantir", "results.csv")
-	resources_path = os.path.join(os.getcwd(), "data", "simulated_data", "simulations", "palantir", "resources.csv")
+	results_path = os.path.join(saving_folder, "results.csv")
+	resources_path = os.path.join(saving_folder, "resources.csv")
 	flat_results = { k: json.dumps(v) if isinstance(v, (dict, list)) else v	for k,v in results.items() }
 	resources["code"] = code
-	pd.DataFrame([flat_results]).to_csv(results_path,
-								index=False, header= not os.path.exists(results_path), mode="a")	
-	pd.DataFrame([resources]).to_csv(resources_path,
-								index=False, header= not os.path.exists(resources_path), mode="a")	
+
+	with open(results_path, "a") as f:
+		fcntl.flock(f, fcntl.LOCK_EX)
+		pd.DataFrame([flat_results]).to_csv(f, index=False, header=f.tell() == 0)
+		fcntl.flock(f, fcntl.LOCK_UN)
+
+	with open(resources_path, "a") as f:
+		fcntl.flock(f, fcntl.LOCK_EX)
+		pd.DataFrame([resources]).to_csv(f, index=False, header=f.tell() == 0)
+		fcntl.flock(f, fcntl.LOCK_UN)
 	
 	
 
@@ -242,7 +249,7 @@ if __name__=="__main__":
 									pseudotime_key = "rna:pseudotime", 
 									n_cells=1)
 	terminal_cells = []
-	for branch in ["4_1", "5_2", "5_3"]:
+	for branch in TERM_DICT[tree]:
 		cell = terminal_macrostate(mudata = data,
 									pseudotime_key = "rna:pseudotime", 
 									cluster_key = "rna:pop",
@@ -261,30 +268,29 @@ if __name__=="__main__":
 
 	# INITIALIZATION
 	start_i_wall, start_i_cpu = time.perf_counter(), time.process_time()
-	init_mem_peak, atlas = memory_usage(
-							(ATLAS, (), 
-							{"mudata":  data,
-							"method": "palantir",
-							"fragment_path": None,
-							"random_state": seed}), 
-							retval = True,
-							max_usage= True)
-							
+	tracemalloc.start()
+	atlas = ATLAS(mudata=data,
+					method="palantir",
+					fragment_path=None,
+					random_state=seed)
+	_, init_mem_peak = tracemalloc.get_traced_memory()
+	tracemalloc.stop()
+	init_mem_peak = init_mem_peak / (1024 * 1024)  # bytes -> MiB
 	end_i_wall, end_i_cpu = time.perf_counter(), time.process_time()
 	init_wall, init_cpu = end_i_wall - start_i_wall, end_i_cpu - start_i_cpu
 	
 
 	# PREPROCESSING 
 	start_p_wall, start_p_cpu = time.perf_counter(), time.process_time()
-	preprocessing_mem_peak, _ = memory_usage( 
-									(atlas.preprocessing, (), 
-									{"n_pcs_rna": n_pcs_rna,
-									"n_pcs_act": n_pcs_activity,
-									"knn_rna": knn_rna,
-									"knn_act": knn_activity,
-									"n_neighbors": wnn}),
-									retval= True, 
-									max_usage = True) 
+	tracemalloc.start()
+	atlas.preprocessing(n_pcs_rna=n_pcs_rna,
+						n_pcs_act=n_pcs_activity,
+						knn_rna=knn_rna,
+						knn_act=knn_activity,
+						n_neighbors=wnn)
+	_, preprocessing_mem_peak = tracemalloc.get_traced_memory()
+	tracemalloc.stop()
+	preprocessing_mem_peak = preprocessing_mem_peak / (1024 * 1024)  # bytes -> MiB
 	end_p_wall, end_p_cpu = time.perf_counter(), time.process_time()
 	preprocessing_wall, preprocessing_cpu = end_p_wall - start_p_wall, end_p_cpu - start_p_cpu
 
@@ -292,21 +298,21 @@ if __name__=="__main__":
 	try: 
 		n_components, num_waypoints = 5, 250
 		start_r_wall, start_r_cpu = time.perf_counter(), time.process_time()
-		
-	
-		run_mem_peak, _ = memory_usage(
-						( atlas.run, (),
-						{"early_cell" : early_cell[0],
-						"cluster_key" : "rna:pop",
-						"terminal_states" : None,
-						"n_components" : n_components,
-						"num_waypoints" : num_waypoints} ),
-						retval = True, 
-						max_usage = True) 
+		tracemalloc.start()
+		atlas.run(early_cell=early_cell[0],
+					cluster_key="rna:pop",
+					terminal_states=None,
+					n_components=n_components,
+					num_waypoints=num_waypoints)
+		_, run_mem_peak = tracemalloc.get_traced_memory()
+		tracemalloc.stop()
+		run_mem_peak = run_mem_peak / (1024 * 1024)  # bytes -> MiB
 		end_r_wall, end_r_cpu = time.perf_counter(), time.process_time()
 		run_wall, run_cpu = end_r_wall - start_r_wall, end_r_cpu - start_r_cpu
 		failed = False
 	except:
+		if tracemalloc.is_tracing():
+			tracemalloc.stop()
 		failed = True
 		run_wall, run_cpu, run_mem_peak = None, None, None
 
@@ -332,20 +338,21 @@ if __name__=="__main__":
 	# RUN WITH FIXED TERMINAL
 	try: 
 		start_r_wall, start_r_cpu = time.perf_counter(), time.process_time()
-		
-		run_mem_peak, _ = memory_usage( 
-							(atlas.run, (),
-							{"early_cell" : early_cell[0], 
-							"cluster_key" : "rna:pop",
-							"terminal_states" : terminal_cells,
-							"n_components" : n_components,
-							"num_waypoints" : num_waypoints} ),
-							retval = True, 
-							max_usage = True)
+		tracemalloc.start()
+		atlas.run(early_cell=early_cell[0],
+					cluster_key="rna:pop",
+					terminal_states=terminal_cells,
+					n_components=n_components,
+					num_waypoints=num_waypoints)
+		_, run_mem_peak = tracemalloc.get_traced_memory()
+		tracemalloc.stop()
+		run_mem_peak = run_mem_peak / (1024 * 1024)  # bytes -> MiB
 		end_r_wall, end_r_cpu = time.perf_counter(), time.process_time()
 		run_wall, run_cpu = end_r_wall - start_r_wall, end_r_cpu - start_r_cpu
 		failed = False
 	except:
+		if tracemalloc.is_tracing():
+			tracemalloc.stop()
 		failed = True
 		run_wall, run_cpu, run_mem_peak = None, None, None
 			
