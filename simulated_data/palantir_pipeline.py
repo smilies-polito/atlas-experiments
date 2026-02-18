@@ -1,4 +1,6 @@
 import os
+import json
+import time
 import argparse
 import muon as mu
 import numpy as np
@@ -6,6 +8,7 @@ import pandas as pd
 import scanpy as sc
 import scvelo as scv
 import matplotlib.pyplot as plt
+from memory_profiler import memory_usage
 from atlas import ATLAS, pearson_correlation, spearman_correlation, kendall_correlation, fate_concentration_index, terminal_state_silhouette, terminal_pseudotime_enrichment_score, js_distance, terminal_state_score
 from muon import MuData
 from anndata import AnnData
@@ -23,7 +26,8 @@ def _save_simulation(atlas:ATLAS,
 					fixed_terminal: bool, 
 					results: dict,
 					ground_truth: dict,
-					saving_folder: str):
+					saving_folder: str,
+					resources: dict):
 	'''
 		Save simulation results.
 	'''
@@ -46,12 +50,19 @@ def _save_simulation(atlas:ATLAS,
 	data.obsm["DM_EigenVectors_multiscaled"].columns = [str(c) for c in data.obsm["DM_EigenVectors_multiscaled"].columns]
 
 	if results["jsd"] is not None:
-		results["jsd"] = {"values": results["jsd"].to_numpy(),
+		results["jsd"] = {"values": results["jsd"].to_list(),
 							"index": results["jsd"].index.to_list() }
 	data.uns["simulation_results"] = results
 	data.write(os.path.join(saving_folder, code))
-	pd.DataFrame(results).to_csv(os.path.join(os.getcwd(), "data", "simulated_data", "simulations", "palantir", "results.csv"), 
-								index=False, columns=False, mode="a")	
+
+	results_path = os.path.join(os.getcwd(), "data", "simulated_data", "simulations", "palantir", "results.csv")
+	resources_path = os.path.join(os.getcwd(), "data", "simulated_data", "simulations", "palantir", "resources.csv")
+	flat_results = { k: json.dumps(v) if isinstance(v, (dict, list)) else v	for k,v in results.items() }
+	resources["code"] = code
+	pd.DataFrame([flat_results]).to_csv(results_path,
+								index=False, header= not os.path.exists(results_path), mode="a")	
+	pd.DataFrame([resources]).to_csv(resources_path,
+								index=False, header= not os.path.exists(resources_path), mode="a")	
 	
 	
 
@@ -249,52 +260,110 @@ if __name__=="__main__":
 						}
 
 	# INITIALIZATION
-	atlas = ATLAS(mudata = data,
-					method= "palantir",
-					fragment_path = None,
-					random_state = seed)
-
+	start_i_wall, start_i_cpu = time.perf_counter(), time.process_time()
+	init_mem_peak, atlas = memory_usage(
+							(ATLAS, (), 
+							{"mudata":  data,
+							"method": "palantir",
+							"fragment_path": None,
+							"random_state": seed}), 
+							retval = True,
+							max_usage= True)
+							
+	end_i_wall, end_i_cpu = time.perf_counter(), time.process_time()
+	init_wall, init_cpu = end_i_wall - start_i_wall, end_i_cpu - start_i_cpu
+	
 
 	# PREPROCESSING 
-	atlas.preprocessing(n_pcs_rna = n_pcs_rna,
-						n_pcs_act = n_pcs_activity,
-						knn_rna = knn_rna,
-						knn_act = knn_activity,
-						n_neighbors = wnn) 
+	start_p_wall, start_p_cpu = time.perf_counter(), time.process_time()
+	preprocessing_mem_peak, _ = memory_usage( 
+									(atlas.preprocessing, (), 
+									{"n_pcs_rna": n_pcs_rna,
+									"n_pcs_act": n_pcs_activity,
+									"knn_rna": knn_rna,
+									"knn_act": knn_activity,
+									"n_neighbors": wnn}),
+									retval= True, 
+									max_usage = True) 
+	end_p_wall, end_p_cpu = time.perf_counter(), time.process_time()
+	preprocessing_wall, preprocessing_cpu = end_p_wall - start_p_wall, end_p_cpu - start_p_cpu
 
 	# RUN WITH NO FIXED TERMINAL 
 	try: 
 		n_components, num_waypoints = 5, 250
-		atlas.run(early_cell = early_cell[0],
-				cluster_key = "rna:pop",
-				terminal_states = None,
-				n_components= n_components,
-				num_waypoints = num_waypoints)
+		start_r_wall, start_r_cpu = time.perf_counter(), time.process_time()
+		
+	
+		run_mem_peak, _ = memory_usage(
+						( atlas.run, (),
+						{"early_cell" : early_cell[0],
+						"cluster_key" : "rna:pop",
+						"terminal_states" : None,
+						"n_components" : n_components,
+						"num_waypoints" : num_waypoints} ),
+						retval = True, 
+						max_usage = True) 
+		end_r_wall, end_r_cpu = time.perf_counter(), time.process_time()
+		run_wall, run_cpu = end_r_wall - start_r_wall, end_r_cpu - start_r_cpu
 		failed = False
 	except:
 		failed = True
+		run_wall, run_cpu, run_mem_peak = None, None, None
 
 	ts_dict = atlas.get_data().uns.get("terminal_states", {})
+	resources = {"init_wall_time": init_wall,
+					"init_cpu_time": init_cpu,
+					"preprocessing_wall_time": preprocessing_wall,
+					"preprocessinf_cpu_time": preprocessing_cpu,
+					"run_wall_time": run_wall,
+					"run_cpu_time": run_cpu,
+					"init_mem_peak": init_mem_peak,
+					"run_mem_peak": run_mem_peak,
+					"preprocessing_mem_peak": preprocessing_mem_peak
+				}
 	results = _apply_metrics_and_visualize(atlas = atlas, tree = args.tree, rd= diff_cif_fraction, sigma = cif_sigma,
 					knn_rna = knn_rna, knn_activity = knn_activity, wnn = wnn,
 					failed = failed, fixed_terminal = False, terminal_clusters = TERM_DICT[tree],
 					ts_dict = ts_dict, true_probabilities = true_fates)
-	_save_simulation(atlas = atlas, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, knn_rna = knn_rna, knn_activity = knn_activity, wnn= wnn, fixed_terminal = False, saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary)
+	_save_simulation(atlas = atlas, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, 
+					knn_rna = knn_rna, knn_activity = knn_activity, wnn= wnn, fixed_terminal = False, 
+					saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary, resources=resources)
 
 	# RUN WITH FIXED TERMINAL
 	try: 
-		atlas.run(early_cell = early_cell[0], 
-				cluster_key = "rna:pop",
-				terminal_states = terminal_cells,
-				n_components = n_components,
-				num_waypoints = num_waypoints)
+		start_r_wall, start_r_cpu = time.perf_counter(), time.process_time()
+		
+		run_mem_peak, _ = memory_usage( 
+							(atlas.run, (),
+							{"early_cell" : early_cell[0], 
+							"cluster_key" : "rna:pop",
+							"terminal_states" : terminal_cells,
+							"n_components" : n_components,
+							"num_waypoints" : num_waypoints} ),
+							retval = True, 
+							max_usage = True)
+		end_r_wall, end_r_cpu = time.perf_counter(), time.process_time()
+		run_wall, run_cpu = end_r_wall - start_r_wall, end_r_cpu - start_r_cpu
 		failed = False
 	except:
 		failed = True
+		run_wall, run_cpu, run_mem_peak = None, None, None
 			
 	ts_dict = atlas.get_data().uns.get("terminal_states", {})
+	resources = {"init_wall_time": init_wall,
+					"init_cpu_time": init_cpu,
+					"preprocessing_wall_time": preprocessing_wall,
+					"preprocessinf_cpu_time": preprocessing_cpu,
+					"run_wall_time": run_wall,
+					"run_cpu_time": run_cpu,
+					"init_mem_peak": init_mem_peak,
+					"run_mem_peak": run_mem_peak,
+					"preprocessing_mem_peak": preprocessing_mem_peak
+				}
 	results = _apply_metrics_and_visualize(atlas = atlas, tree = args.tree, rd= diff_cif_fraction, sigma = cif_sigma,
 					knn_rna = knn_rna, knn_activity = knn_activity, wnn = wnn,
 					failed = failed, fixed_terminal = True, terminal_clusters = TERM_DICT[tree],
 					ts_dict = ts_dict, true_probabilities = true_fates)
-	_save_simulation(atlas = atlas, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, knn_rna = knn_rna, knn_activity = knn_activity, wnn= wnn, fixed_terminal = True, saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary)
+	_save_simulation(atlas = atlas, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, 
+						knn_rna = knn_rna, knn_activity = knn_activity, wnn= wnn, fixed_terminal = True, 
+						saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary, resources=resources)
