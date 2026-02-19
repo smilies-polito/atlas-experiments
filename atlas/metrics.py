@@ -89,7 +89,8 @@ def kendall_correlation(x:pd.Series, y: pd.Series) -> tuple:
 		warnings.warn("Sample size < 100. Kendall's tau may have high variance")
 	
 	if x.isna().any() or y.isna().any():
-		raise ValueError(f"NaNs are not a valid input")
+		warnings.warn(f"NaNs are not a valid input")
+		return np.nan, np.nan, None
 	
 	x = x.reindex(y.index)
 	res, pvalue = kendalltau(x.values, y.values, variant="b") 
@@ -122,7 +123,8 @@ def pearson_correlation(x: pd.Series, y: pd.Series, seed:int=42, n_resamples:int
 		raise ValueError(f"#instances do not match {len(y)} != {len(x)}")
 
 	if x.isna().any() or y.isna().any():
-		raise ValueError(f"NaNs are not a valid input")
+		warnings.warn(f"NaNs are not a valid input")
+		return np.nan, np.nan, None
 
 	x = x.reindex(y.index)
 	# Exact p-value with permutation and confidence interval via bootstrapping
@@ -173,7 +175,8 @@ def spearman_correlation(x: pd.Series, y: pd.Series, seed:int=42, n_resamples:in
 		raise ValueError(f"#instances do not match {len(y)} != {len(y)}")
 
 	if x.isna().any() or y.isna().any():
-		raise ValueError(f"NaNs are not a valid input")
+		warnings.warn(f"NaNs are not a valid input")
+		return np.nan, np.nan, None
 
 	x = x.reindex(y.index)
 	if len(x) < 500:

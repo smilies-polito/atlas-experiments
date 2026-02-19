@@ -3,7 +3,8 @@ import muon as mu
 import numpy as np
 import pandas as pd
 from muon import MuData
-from typing import Literal
+from anndata import AnnData
+from typing import Literal, Union
 from itertools import product
 
 POTENCY_DICT = {"three_branches": {"4_1": "committed",
@@ -53,11 +54,11 @@ def truth_like_fates(pseudotime: pd.Series,
 	return  W.divide(row_sum, axis=0)
 		
 
-def initial_macrostate(mudata:MuData, pseudotime_key: str, n_cells: int) -> list:
+def initial_macrostate(mudata:Union[AnnData, MuData], pseudotime_key: str, n_cells: int) -> list:
 	pseudotime = mudata.obs[pseudotime_key]
 	return pseudotime.nsmallest(n_cells).index.tolist()
 
-def terminal_macrostate(mudata: MuData,
+def terminal_macrostate(mudata: Union[AnnData, MuData],
 			pseudotime_key: str,
 			cluster_key: str,
 			terminal_state: str,

@@ -1,4 +1,8 @@
 import os
+import json
+import time
+import fcntl
+import tracemalloc
 import argparse
 import muon as mu
 import numpy as np
@@ -22,7 +26,8 @@ def _save_simulation(atlas:ATLAS,
 					fixed_terminal: bool, 
 					results: dict,
 					ground_truth: dict,
-					saving_folder: str):
+					saving_folder: str,
+					resources: dict):
 	'''
 		Save simulation results.
 	'''
@@ -43,11 +48,25 @@ def _save_simulation(atlas:ATLAS,
 	data.uns["true_states"] = ground_truth["true_states"]
 
 	if results["jsd"] is not None:
-		results["jsd"] = {"values": results["jsd"].to_numpy(),
+		results["jsd"] = {"values": results["jsd"].to_list(),
 							"index": results["jsd"].index.to_list() }
 	data.uns["simulation_results"] = results
 	data.write(os.path.join(saving_folder, code))
 
+	results_path = os.path.join(saving_folder, "results.csv")
+	resources_path = os.path.join(saving_folder, "resources.csv")
+	flat_results = { k: json.dumps(v) if isinstance(v, (dict, list)) else v	for k,v in results.items() }
+	resources["code"] = code
+
+	with open(results_path, "a") as f:
+		fcntl.flock(f, fcntl.LOCK_EX)
+		pd.DataFrame([flat_results]).to_csv(f, index=False, header=f.tell() == 0)
+		fcntl.flock(f, fcntl.LOCK_UN)
+
+	with open(resources_path, "a") as f:
+		fcntl.flock(f, fcntl.LOCK_EX)
+		pd.DataFrame([resources]).to_csv(f, index=False, header=f.tell() == 0)
+		fcntl.flock(f, fcntl.LOCK_UN)
 
 
 def _apply_metrics_and_visualize(atlas: ATLAS,
@@ -142,27 +161,30 @@ def _apply_metrics_and_visualize(atlas: ATLAS,
 	results["fate_index_pval"] = pval
 	results["terminal_silhouette_soft"] = terminal_state_silhouette(data.obsm["fate_probabilities"], soft_assignment=True)
 	results["terminal_silhouette_pse"] = terminal_state_silhouette(data.obsm["fate_probabilities"], soft_assignment=False, pseudotime=data.obs["rna:pseudotime"])
-	results["terminal_enrichment"] = terminal_pseudotime_enrichment_score(terminal_states = ts_dict, pseudotime = data.obs["pseudotime"])	
+	results["terminal_enrichment"] = terminal_pseudotime_enrichment_score(terminal_states = ts_dict, pseudotime = data.obs["rna:pseudotime"],rank=True )	
 	
 
 	# VISUALIZATION
 	atlas.plot_embedding(embedding_key = "X_umap",
 						observation = "kl_divergence",
-						save = f"_KLDIV_{code}.png",
+						save = f"_pseudokernel_KLDIV_{code}.png",
 						show= False)
 	atlas.plot_embedding(embedding_key = "X_umap",
 						observation = "shannon_entropy",
-						save = f"_SHENTR_{code}.png",
+						save = f"_pseudokernel_SHENTR_{code}.png",
 						show= False)
 	atlas.plot_fate_probabilities(embedding_key= "X_umap",
 									states = None,
-									save =  "_fates_{code}.png",
+									save =  f"_pseudokernel_fates_{code}.png",
 									show= False)
-	atlas.plot_tree(embedding_key = "umap",
-					save = f"_{code}.png",
-					color = "rna:pop", 
-					color_milestones = False,
-					show = False)
+	try:
+		atlas.plot_tree(embedding_key = "umap",
+						save = f"_pseudokernel_{code}.png",
+						color = "rna:pop", 
+						color_milestones = False,
+						show = False)
+	except (IndexError, KeyError, ValueError) as e:
+		print(f"WARNING: plot_tree failed for {code}: {e}")		
 	return results
 
 
@@ -235,6 +257,8 @@ if __name__=="__main__":
 						}
 
 	# INITIALIZATION
+	start_i_wall, start_i_cpu = time.perf_counter(), time.process_time()
+	tracemalloc.start()
 	atlas = ATLAS(mudata = data,
 					method= "pseudotime-kernel",
 					fragment_path = None,
@@ -242,52 +266,101 @@ if __name__=="__main__":
 					pseudotime_key = "rna:pseudotime",
 					connectivity_key = "wnn_connectivities",
 					cluster_key = "rna:pop")
+	_, init_mem_peak = tracemalloc.get_traced_memory()
+	tracemalloc.stop()
+	init_mem_peak = init_mem_peak / (1024 * 1024)  # bytes -> MiB
+	end_i_wall, end_i_cpu = time.perf_counter(), time.process_time()
+	init_wall, init_cpu = end_i_wall - start_i_wall, end_i_cpu - start_i_cpu
 
 	# PREPROCESSING
+	start_p_wall, start_p_cpu = time.perf_counter(), time.process_time()
+	tracemalloc.start()
 	atlas.preprocessing(n_pcs_rna = n_pcs_rna,
 						n_pcs_act = n_pcs_activity,
 						knn_rna = knn_rna,
 						knn_act = knn_activity,
 						n_neighbors = wnn) 
-
-	mu.pl.embedding(atlas.get_data(), 
-					basis="X_umap", 
-					color=["rna:pop", "rna:pseudotime"], 
-					show=False, 
-					save = f"{diff_cif_fraction}_{cif_sigma}_{knn_rna}:{knn_activity}:{wnn}.png" )
-
+	_, preprocessing_mem_peak = tracemalloc.get_traced_memory()
+	tracemalloc.stop()
+	preprocessing_mem_peak = preprocessing_mem_peak / (1024 * 1024)  # bytes -> MiB
+	end_p_wall, end_p_cpu = time.perf_counter(), time.process_time()
+	preprocessing_wall, preprocessing_cpu = end_p_wall - start_p_wall, end_p_cpu - start_p_cpu
 
 	# RUN WITH NO FIXED TERMINAL
 	try:
+		start_r_wall, start_r_cpu = time.perf_counter(), time.process_time()
+		tracemalloc.start()
 		atlas.run(connectivity_key = "wnn_connectivities",
 			threshold_scheme = "hard", 
 			n_states = None, 
 			allow_overlap = True)
+		_, run_mem_peak = tracemalloc.get_traced_memory()
+		tracemalloc.stop()
+		run_mem_peak = run_mem_peak / (1024 * 1024)  # bytes -> MiB
+		end_r_wall, end_r_cpu = time.perf_counter(), time.process_time()
+		run_wall, run_cpu = end_r_wall - start_r_wall, end_r_cpu - start_r_cpu
 		failed = False
 	except: 
+		if tracemalloc.is_tracing():
+			tracemalloc.stop()
 		failed = True
+		run_wall, run_cpu, run_mem_peak = None, None, None
 
 	ts_dict = atlas.get_data().uns.get("terminal_states", {})
+	resources = {"init_wall_time": init_wall,
+					"init_cpu_time": init_cpu,
+					"preprocessing_wall_time": preprocessing_wall,
+					"preprocessinf_cpu_time": preprocessing_cpu,
+					"run_wall_time": run_wall,
+					"run_cpu_time": run_cpu,
+					"init_mem_peak": init_mem_peak,
+					"run_mem_peak": run_mem_peak,
+					"preprocessing_mem_peak": preprocessing_mem_peak
+				}
 	results = _apply_metrics_and_visualize(atlas = atlas, tree = tree, rd= diff_cif_fraction, sigma = cif_sigma,
 					knn_rna = knn_rna, knn_activity = knn_activity, wnn = wnn,
 					failed = failed, fixed_terminal = False, terminal_clusters = TERM_DICT[tree],
 					ts_dict = ts_dict, true_probabilities = true_fates)
-	_save_simulation(atlas = atlas, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, knn_rna = knn_rna, knn_activity = knn_activity, wnn= wnn, fixed_terminal = False, saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary)
+	_save_simulation(atlas = atlas, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, 
+					knn_rna = knn_rna, knn_activity = knn_activity, wnn= wnn, fixed_terminal = False, 
+					saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary, resources = resources)
 
 
 	# RUN WITH FIXED TERMINAL
 	try: 
+		start_r_wall, start_r_cpu = time.perf_counter(), time.process_time()
+		tracemalloc.start()
 		atlas.run(connectivity_key = "wnn_connectivities",
 			threshold_scheme = "hard",
 			initial_states = early_cell, 
 			terminal_states = terminal_cells)
+		_, run_mem_peak = tracemalloc.get_traced_memory()
+		tracemalloc.stop()
+		run_mem_peak = run_mem_peak / (1024 * 1024)  # bytes -> MiB
+		end_r_wall, end_r_cpu = time.perf_counter(), time.process_time()
+		run_wall, run_cpu = end_r_wall - start_r_wall, end_r_cpu - start_r_cpu
 		failed = False
 	except:
+		if tracemalloc.is_tracing():
+			tracemalloc.stop()
 		failed = True
+		run_wall, run_cpu, run_mem_peak = None, None, None
 
 	ts_dict = atlas.get_data().uns.get("terminal_states", {})
+	resources = {"init_wall_time": init_wall,
+					"init_cpu_time": init_cpu,
+					"preprocessing_wall_time": preprocessing_wall,
+					"preprocessinf_cpu_time": preprocessing_cpu,
+					"run_wall_time": run_wall,
+					"run_cpu_time": run_cpu,
+					"init_mem_peak": init_mem_peak,
+					"run_mem_peak": run_mem_peak,
+					"preprocessing_mem_peak": preprocessing_mem_peak
+				}
 	results = _apply_metrics_and_visualize(atlas = atlas, tree = args.tree, rd= diff_cif_fraction, sigma = cif_sigma,
 					knn_rna = knn_rna, knn_activity = knn_activity, wnn = wnn,
 					failed = failed, fixed_terminal = True, terminal_clusters = TERM_DICT[tree],
 					ts_dict = ts_dict, true_probabilities = true_fates)
-	_save_simulation(atlas = atlas, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, knn_rna = knn_rna, knn_activity = knn_activity, wnn= wnn, fixed_terminal = True, saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary)
+	_save_simulation(atlas = atlas, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, 
+					knn_rna = knn_rna, knn_activity = knn_activity, wnn= wnn, fixed_terminal = True, 
+					saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary, resources=resources)

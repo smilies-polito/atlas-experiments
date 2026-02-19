@@ -24,14 +24,26 @@ wildcard_constraints:
     wnn      = r"\d+",
 
 # ---- Targets ----------------------------------------------------------------
-SIM_DIR = "data/simulated_data/simulations/palantir"
+PAL_DIR = "data/simulated_data/simulations/palantir"
+CR_DIR = "data/simulated_data/simulations/pseudotime_kernel"
+PAL_RNA_DIR = "data/simulated_data/simulations/palantir_rna"
 
 rule all:
     input:
+        #expand(
+        #    PAL_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+        #    tree=TREES, rd=RDS, sigma=SIGMAS,
+        #    knn_rna=KNN_RNAS, knn_act=KNN_ACTS, wnn=WNNS,
+        #),
         expand(
-            SIM_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+            CR_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}:{knn_act}:{wnn}.h5mu",
             tree=TREES, rd=RDS, sigma=SIGMAS,
             knn_rna=KNN_RNAS, knn_act=KNN_ACTS, wnn=WNNS,
+        ),
+        expand(
+            PAL_RNA_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}.h5ad",
+            tree=TREES, rd=RDS, sigma=SIGMAS,
+            knn_rna=KNN_RNAS,
         ),
 
 # ---- Per-combination job ----------------------------------------------------
@@ -41,8 +53,8 @@ rule run_palantir:
         spliced  = "data/simulated_data/{tree}/{rd}_{sigma}_spliced.tsv",
         metadata = "data/simulated_data/{tree}/{rd}_{sigma}_metadata.tsv",
     output:
-        h5mu_free  = SIM_DIR + "/{tree}_False_{rd}_{sigma}_{knn_rna}:{knn_act}:{wnn}.h5mu",
-        h5mu_fixed = SIM_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+        h5mu_free  = PAL_DIR + "/{tree}_False_{rd}_{sigma}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+        h5mu_fixed = PAL_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}:{knn_act}:{wnn}.h5mu",
     log:
         "logs/palantir/{tree}_{rd}_{sigma}_{knn_rna}_{knn_act}_{wnn}.log",
     shell:
@@ -53,4 +65,41 @@ rule run_palantir:
         "--knn_rna {wildcards.knn_rna} "
         "--knn_activity {wildcards.knn_act} "
         "--wnn {wildcards.wnn} "
+        "&> {log}"
+
+rule run_cellrank:
+    input:
+        activity = "data/simulated_data/{tree}/{rd}_{sigma}_activity.tsv",
+        spliced  = "data/simulated_data/{tree}/{rd}_{sigma}_spliced.tsv",
+        metadata = "data/simulated_data/{tree}/{rd}_{sigma}_metadata.tsv",
+    output:
+        h5mu_free  = CR_DIR + "/{tree}_False_{rd}_{sigma}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+        h5mu_fixed = CR_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+    log:
+        "logs/pseudotime_kernel/{tree}_{rd}_{sigma}_{knn_rna}_{knn_act}_{wnn}.log",
+    shell:
+        "python3 -m simulated_data.pseudotime_kernel_pipeline "
+        "--tree {wildcards.tree} "
+        "--rd {wildcards.rd} "
+        "--sigma {wildcards.sigma} "
+        "--knn_rna {wildcards.knn_rna} "
+        "--knn_activity {wildcards.knn_act} "
+        "--wnn {wildcards.wnn} "
+        "&> {log}"
+
+rule run_palantir_rna:
+    input:
+        spliced  = "data/simulated_data/{tree}/{rd}_{sigma}_spliced.tsv",
+        metadata = "data/simulated_data/{tree}/{rd}_{sigma}_metadata.tsv",
+    output:
+        h5mu_free  = PAL_RNA_DIR + "/{tree}_False_{rd}_{sigma}_{knn_rna}.h5ad",
+        h5mu_fixed = PAL_RNA_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}.h5ad",
+    log:
+        "logs/palantir_rna/{tree}_{rd}_{sigma}_{knn_rna}.log",
+    shell:
+        "python3 -m simulated_data.palantir_rna "
+        "--tree {wildcards.tree} "
+        "--rd {wildcards.rd} "
+        "--sigma {wildcards.sigma} "
+        "--knn_rna {wildcards.knn_rna} "
         "&> {log}"

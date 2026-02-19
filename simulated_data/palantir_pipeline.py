@@ -192,11 +192,14 @@ def _apply_metrics_and_visualize(atlas: ATLAS,
 									states = None,
 									save =  f"_fates_{code}.png",
 									show= False)
-	atlas.plot_tree(embedding_key = "umap",
-					save = f"_{code}.png",
-					color = "rna:pop", 
-					color_milestones = False,
-					show = False)
+	try:
+		atlas.plot_tree(embedding_key = "umap",
+						save = f"_{code}.png",
+						color = "rna:pop", 
+						color_milestones = False,
+						show = False)
+	except (IndexError, KeyError, ValueError) as e:
+		print(f"WARNING: plot_tree failed for {code}: {e}")					
 	return results
 	
 
