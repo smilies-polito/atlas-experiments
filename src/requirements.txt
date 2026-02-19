@@ -74,3 +74,6 @@ tqdm==4.67.1
 typing_extensions==4.12.2
 tzdata==2025.1
 umap-learn==0.5.7
+pulp==2.7.0
+snakemake==7.32.0
+
