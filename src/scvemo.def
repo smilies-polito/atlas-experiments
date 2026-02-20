@@ -18,11 +18,11 @@ From: ubuntu:22.04
 	python3-dev \
 	python3-pip \
 	make \
-	libopenmpi-dev \
 	build-essential \
 	gfortran \
 	curl \
 	wget \
+	ca-certificates \
 	&& rm -rf /var/lib/apt/lists/*
 
 	python3 -m pip install --upgrade pip
@@ -33,7 +33,7 @@ From: ubuntu:22.04
 	git clone -b release https://gitlab.com/petsc/petsc.git /petsc
 	cd /petsc
 	git checkout v3.23.6
-	./configure --with-cc=gcc --with-cxx=g++ --download-mpich --download-f2cblaslapack
+	./configure --with-mpi=0 --with-cc=gcc --with-cxx=g++ --with-fc=gfortran --download-f2cblaslapack
 	make all check
 	cd /
 	export PETSC_DIR=/petsc 
