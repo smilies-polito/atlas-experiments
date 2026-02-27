@@ -227,7 +227,7 @@ if __name__=="__main__":
 	n_pcs_rna = 20
 	
 	data_path = os.path.join(working_directory, "data", "simulated_data", tree)
-	saving_simulation_path = os.path.join(working_directory, "data", "simulated_data", "simulations", "palantir_rna")
+	saving_simulation_path = os.path.join(working_directory, "output", "simulations", "palantir_rna")
 	spliced = pd.read_csv(os.path.join(data_path, f"{diff_cif_fraction}_{cif_sigma}_spliced.tsv"), sep="\t", header=0, index_col=0)
 	metadata = pd.read_csv(os.path.join(data_path, f"{diff_cif_fraction}_{cif_sigma}_metadata.tsv"), sep="\t", header=0, index_col=0)
 

@@ -24,10 +24,10 @@ wildcard_constraints:
     wnn      = r"\d+",
 
 # ---- Targets ----------------------------------------------------------------
-PAL_DIR = "data/simulated_data/simulations/palantir"
-CR_DIR = "data/simulated_data/simulations/pseudotime_kernel"
-PAL_RNA_DIR = "data/simulated_data/simulations/palantir_rna"
-CR_DIR_RNA = "data/simulated_data/simulations/pseudotime_kernel_rna"
+PAL_DIR = "output/simulations/palantir"
+CR_DIR = "output/simulations/pseudotime_kernel"
+PAL_RNA_DIR = "output/simulations/palantir_rna"
+CR_DIR_RNA = "output/simulations/pseudotime_kernel_rna"
 
 rule all:
     input:
