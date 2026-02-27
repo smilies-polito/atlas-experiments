@@ -690,6 +690,11 @@ class PseudotimeKernelWrapper(Base):
 			threshold_scheme: Literal["soft", "hard"] = "hard", 
 			frac_to_keep: float = 0.3, 
 			b: float = 10.0, nu: float = 0.5, 
+            n_schur_components: int = 20,
+            initial_distribution: Optional[nd.array] = None, 
+            schur_decomposition_method: Literal["krylov", "brandts"] = "krylov",
+            sorting_strategy: Literal["LM", "LR"] = "LR",
+            eigengap_weight: float = 1.0,
 			n_states: Optional[Union[int, Sequence[int]]] = None,
 			n_cells: int= 30, 
 			allow_overlap: bool = False,
@@ -705,6 +710,7 @@ class PseudotimeKernelWrapper(Base):
 			n_terminal_states: Optional[int] = None, 
 			n_initial_states: int = 1,
 			preconditioner: Optional[str] = None,	
+            verbose: Optional[bool] = None
 			**kwargs):
 		'''
 		Computes transition matrix and then runs GPCCA. 
@@ -740,10 +746,23 @@ class PseudotimeKernelWrapper(Base):
 														b=b, nu = nu, n_jobs = n_jobs) 
 
 		self._G = cr.estimators.GPCCA(self.kernel)										
-		self._G.compute_schur()
+		self._G.compute_schur(n_components = n_schur_components, 
+                            initial_distribution = initial_distribution, 
+                            method = schur_decomposition_method,
+                            which = sorting_strategy, 
+                            alpha = eigengap_weight, 
+                            verbose = verbose)
+
 		if terminal_states is not None and initial_states is not None:
-			self._G.set_initial_states(states = initial_states) 
-			self._G.set_terminal_states(states = terminal_states)
+			self._G.set_initial_states(states = initial_states, 
+                                        n_cells=n_cells,
+                                        allow_overlap = allow_overlap, 
+                                        cluster_key = self.cluster_key) 
+			self._G.set_terminal_states(states = terminal_states, 
+                                        n_cells = n_cells,
+                                        allow_overlap=allow_overlap,
+                                        cluster_key = self.cluster_key
+                                        )
 		else:
 			self._G.compute_macrostates(n_states = n_states, cluster_key = self.cluster_key)
 			self._G.predict_terminal_states(method = states_method, 

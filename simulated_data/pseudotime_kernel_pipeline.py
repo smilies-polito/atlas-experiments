@@ -191,6 +191,7 @@ def _apply_metrics_and_visualize(atlas: ATLAS,
 
 if __name__=="__main__":
 	seed = 42
+	threads = 3
 	working_directory = os.getcwd() # set path to repository 
 	np.random.seed(seed)
 
@@ -293,6 +294,7 @@ if __name__=="__main__":
 		atlas.run(connectivity_key = "wnn_connectivities",
 			threshold_scheme = "hard", 
 			n_states = None, 
+			n_jobs = threads, 
 			allow_overlap = True)
 		_, run_mem_peak = tracemalloc.get_traced_memory()
 		tracemalloc.stop()
@@ -332,6 +334,7 @@ if __name__=="__main__":
 		tracemalloc.start()
 		atlas.run(connectivity_key = "wnn_connectivities",
 			threshold_scheme = "hard",
+			n_jobs = threads,
 			initial_states = early_cell, 
 			terminal_states = terminal_cells)
 		_, run_mem_peak = tracemalloc.get_traced_memory()

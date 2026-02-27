@@ -36,21 +36,21 @@ rule all:
             tree=TREES, rd=RDS, sigma=SIGMAS,
             knn_rna=KNN_RNAS,
 	),
-        #expand(
-        #    PAL_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}:{knn_act}:{wnn}.h5mu",
-        #    tree=TREES, rd=RDS, sigma=SIGMAS,
-        #    knn_rna=KNN_RNAS, knn_act=KNN_ACTS, wnn=WNNS,
-        #),
-        #expand(
-        #    CR_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}:{knn_act}:{wnn}.h5mu",
-        #    tree=TREES, rd=RDS, sigma=SIGMAS,
-        #    knn_rna=KNN_RNAS, knn_act=KNN_ACTS, wnn=WNNS,
-        #),
-        #expand(
-        #    PAL_RNA_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}.h5ad",
-        #    tree=TREES, rd=RDS, sigma=SIGMAS,
-        #    knn_rna=KNN_RNAS,
-        #),
+        expand(
+            PAL_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+            tree=TREES, rd=RDS, sigma=SIGMAS,
+            knn_rna=KNN_RNAS, knn_act=KNN_ACTS, wnn=WNNS,
+        ),
+        expand(
+            CR_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+            tree=TREES, rd=RDS, sigma=SIGMAS,
+            knn_rna=KNN_RNAS, knn_act=KNN_ACTS, wnn=WNNS,
+        ),
+        expand(
+            PAL_RNA_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}.h5ad",
+            tree=TREES, rd=RDS, sigma=SIGMAS,
+            knn_rna=KNN_RNAS,
+        ),
 
 # ---- Per-combination job ----------------------------------------------------
 rule run_palantir:
@@ -74,6 +74,7 @@ rule run_palantir:
         "&> {log}"
 
 rule run_cellrank:
+    threads: 1
     input:
         activity = "data/simulated_data/{tree}/{rd}_{sigma}_activity.tsv",
         spliced  = "data/simulated_data/{tree}/{rd}_{sigma}_spliced.tsv",
@@ -121,7 +122,7 @@ rule run_cellrank_rna:
     log:
         "logs/pseudotime_kernel_rna/{tree}_{rd}_{sigma}_{knn_rna}.log",
     shell:
-        "python3 -m simulated_data.pseudotime_kernel_rna "
+        "python3 -u -m simulated_data.pseudotime_kernel_rna "
         "--tree {wildcards.tree} "
         "--rd {wildcards.rd} "
         "--sigma {wildcards.sigma} "
