@@ -9,7 +9,7 @@ From: ubuntu:22.04
 	export PYTHONPATH=/scvemo:$PYTHONPATH
 
 %files 
-	src/requirements.txt /requirements.txt 
+	container/requirements.txt /requirements.txt 
 
 %post
 	apt-get update && apt-get install -y --no-install-recommends \
@@ -52,7 +52,3 @@ From: ubuntu:22.04
 	pip install --no-build-isolation petsc4py==3.23.6
 	pip install --no-build-isolation slepc4py==3.23.3
 
-
-#%runscript
-#	echo "Running SCVEMO container.."
-#	python3 /scvemo/src/prova.py "$@"
