@@ -15,15 +15,13 @@ if __name__=="__main__":
 	np.random.seed(seed)
 	
 	#1. TEST CONSTRUCTION WITHOUT FRAGMENT FILES AND ACTIVITY ALREADY PROVIDED
-	tree = "three_branches"
-	diff_cif_fraction, cif_sigma = 0.3, 0.3
 	knn_rna, knn_activity, wnn = 30, 30, 30
 	n_pcs_rna, n_pcs_activity = 20, 10
 	
-	data_path = os.path.join(working_directory, "data", "simulated_data", tree)
-	activity = pd.read_csv(os.path.join(data_path, f"{diff_cif_fraction}_{cif_sigma}_activity.tsv"), sep="\t", header=0, index_col=0)
-	spliced = pd.read_csv(os.path.join(data_path, f"{diff_cif_fraction}_{cif_sigma}_spliced.tsv"), sep="\t", header=0, index_col=0)
-	metadata = pd.read_csv(os.path.join(data_path, f"{diff_cif_fraction}_{cif_sigma}_metadata.tsv"), sep="\t", header=0, index_col=0)
+	data_path = os.path.join(working_directory, "tests", "test_data")
+	activity = pd.read_csv(os.path.join(data_path, f"activity.tsv"), sep="\t", header=0, index_col=0)
+	rna = pd.read_csv(os.path.join(data_path, f"rna.tsv"), sep="\t", header=0, index_col=0)
+	metadata = pd.read_csv(os.path.join(data_path, f"metadata.tsv"), sep="\t", header=0, index_col=0)
 
 	# create activity matrix
 	activity = AnnData(X=csr_matrix(activity.values), 
@@ -32,9 +30,9 @@ if __name__=="__main__":
 	sc.pp.normalize_total(activity)
 	sc.pp.pca(activity, random_state=seed, use_highly_variable=False)
 	# create rna matrix
-	rna = AnnData(X=csr_matrix(spliced.values.T), 
-			obs=pd.DataFrame(data=None, index=spliced.columns, columns=None), 
-			var=pd.DataFrame(data=None, index=spliced.index.values, columns=None))
+	rna = AnnData(X=csr_matrix(rna.values.T), 
+			obs=pd.DataFrame(data=None, index=rna.columns, columns=None), 
+			var=pd.DataFrame(data=None, index=rna.index.values, columns=None))
 	rna.obs = rna.obs.merge(metadata, how="left", left_index=True, right_index=True)
 	sc.pp.normalize_total(rna)
 	sc.pp.log1p(rna)

@@ -691,7 +691,7 @@ class PseudotimeKernelWrapper(Base):
 			frac_to_keep: float = 0.3, 
 			b: float = 10.0, nu: float = 0.5, 
             n_schur_components: int = 20,
-            initial_distribution: Optional[nd.array] = None, 
+            initial_distribution: Optional[np.array] = None, 
             schur_decomposition_method: Literal["krylov", "brandts"] = "krylov",
             sorting_strategy: Literal["LM", "LR"] = "LR",
             eigengap_weight: float = 1.0,
@@ -710,7 +710,7 @@ class PseudotimeKernelWrapper(Base):
 			n_terminal_states: Optional[int] = None, 
 			n_initial_states: int = 1,
 			preconditioner: Optional[str] = None,	
-            verbose: Optional[bool] = None
+            verbose: Optional[bool] = None,
 			**kwargs):
 		'''
 		Computes transition matrix and then runs GPCCA. 
