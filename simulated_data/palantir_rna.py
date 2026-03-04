@@ -81,21 +81,16 @@ def _save_simulation(data: AnnData,
 	data.uns["true_states"] = ground_truth["true_states"]
 	data.obsm["DM_EigenVectors"].columns = [str(c) for c in data.obsm["DM_EigenVectors"].columns]
 	data.obsm["DM_EigenVectors_multiscaled"].columns = [str(c) for c in data.obsm["DM_EigenVectors_multiscaled"].columns]
-
-	if results["jsd"] is not None:
-		results["jsd"] = {"values": results["jsd"].to_list(),
-							"index": results["jsd"].index.to_list() }
 	data.uns["simulation_results"] = results
 	data.write(os.path.join(saving_folder, code))
 
 	results_path = os.path.join(saving_folder, "results.csv")
 	resources_path = os.path.join(saving_folder, "resources.csv")
-	flat_results = { k: json.dumps(v) if isinstance(v, (dict, list)) else v	for k,v in results.items() }
 	resources["code"] = code
 
 	with open(results_path, "a") as f:
 		fcntl.flock(f, fcntl.LOCK_EX)
-		pd.DataFrame([flat_results]).to_csv(f, index=False, header=f.tell() == 0)
+		pd.DataFrame([results]).to_csv(f, index=False, header=f.tell() == 0)
 		fcntl.flock(f, fcntl.LOCK_UN)
 
 	with open(resources_path, "a") as f:
@@ -123,31 +118,33 @@ def _apply_metrics_and_visualize(data: AnnData,
 	results = {
 				"code" : code,
 				"failed": failed,
-				"n_inferred_terminal_states" : None,
 				"fixed_terminal" : fixed_terminal,
-				"spearman_stat_pseudotime": None,
-				"spearman_pval_pseudotime": None,
-				"kendall_stat_pseudotime": None,
-				"kendall_pval_pseudotime": None,
-				"jsd": None,
-				"tts": None,
-				"ttp": None,
-				"ttc": None,
-				"tsr": None,
-				"temporal_state_score": None,
-				"pearson_stat_KLD": None,
-				"pearson_pval_KLD": None,
-				"pearson_stat_SHE": None,
-				"pearson_pval_SHE": None,
-				"spearman_stat_KLD": None,
-				"spearman_pval_KLD": None,
-				"spearman_stat_SHE": None,
-				"spearman_pval_SHE": None,
-				"fate_index_stat": None,
-				"fate_index_pval": None,
-				"terminal_silhouette_soft": None,
-				"terminal_silhouette_pse": None,
-				"terminal_enrichment": None
+				"spearman_stat_pseudotime": np.nan,
+				"spearman_pval_pseudotime": np.nan,
+				"kendall_stat_pseudotime": np.nan,
+				"kendall_pval_pseudotime": np.nan,
+				"fate_index_pval": np.nan,
+				"fate_index_stat": np.nan,
+				"n_terminal_states" : np.nan,
+				"pearson_pval_KLD": np.nan,
+				"pearson_stat_KLD": np.nan,
+				"pearson_pval_SHE": np.nan,
+				"pearson_stat_SHE": np.nan,
+				"spearman_pval_KLD": np.nan,
+				"spearman_stat_KLD": np.nan,
+				"spearman_pval_SHE": np.nan,
+				"spearman_stat_SHE": np.nan,
+				"temporal_state_score": np.nan,
+				"terminal_enrichment": np.nan
+				"terminal_silhouette_pse": np.nan,
+				"terminal_silhouette_soft": np.nan,
+				"tsr": np.nan,
+				"ttc": np.nan,
+				"ttp": np.nan,
+				"tts": np.nan,
+				"jsd_totipotent": np.nan,
+				"jsd_multipotent": np.nan,
+				"jsd_committed": np.nan,
 			}
 
 	if failed:
@@ -174,7 +171,9 @@ def _apply_metrics_and_visualize(data: AnnData,
 			jsd = jsd.loc[data.obs["pop"].index]
 		jsdf = pd.DataFrame({"jsd": jsd, "cluster": data.obs["pop"]})
 		jsdf["potency"] = jsdf["cluster"].map(POTENCY_DICT[tree])
-		results["jsd"] = jsdf.groupby("potency")["jsd"].mean()
+		mean_jsd = jsdf.groupby("potency")["jsd"].mean()
+        for cat in ["multipotent", "totipotent", "committed"]:
+            results[f"jsd_{cat}"] = mean_jsd.get(cat, np.nan)
 
 	#SUPERVISED - TERMINAL STATE SCORE
 	tts, ttp, tsr, ttc, overall = terminal_state_score(data.obs["pseudotime"], data.obs["pop"], ts_dict, terminal_clusters)

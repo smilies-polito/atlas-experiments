@@ -64,7 +64,7 @@ rule run_palantir:
     log:
         "logs/palantir/{tree}_{rd}_{sigma}_{knn_rna}_{knn_act}_{wnn}.log",
     shell:
-        "python3 -m simulated_data.palantir_pipeline "
+        "python3 -m simulated_data.palantir "
         "--tree {wildcards.tree} "
         "--rd {wildcards.rd} "
         "--sigma {wildcards.sigma} "
@@ -85,7 +85,7 @@ rule run_cellrank:
     log:
         "logs/pseudotime_kernel/{tree}_{rd}_{sigma}_{knn_rna}_{knn_act}_{wnn}.log",
     shell:
-        "python3 -m simulated_data.pseudotime_kernel_pipeline "
+        "python3 -m simulated_data.pseudotime_kernel "
         "--tree {wildcards.tree} "
         "--rd {wildcards.rd} "
         "--sigma {wildcards.sigma} "
