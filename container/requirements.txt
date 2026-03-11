@@ -21,6 +21,7 @@ jaxopt==0.8.3
 Jinja2==3.0.3
 joblib==1.4.2
 kiwisolver==1.4.8
+kaleido==1.2.0
 legacy-api-wrap==1.4.1
 leidenalg==0.10.2
 louvain==0.8.2
