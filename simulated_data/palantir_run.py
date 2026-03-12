@@ -105,7 +105,7 @@ def _apply_metrics_and_visualize(atlas: ATLAS,
 				"spearman_pval_SHE": np.nan,
 				"spearman_stat_SHE": np.nan,
 				"temporal_state_score": np.nan,
-				"terminal_enrichment": np.nan
+				"terminal_enrichment": np.nan,
 				"terminal_silhouette_pse": np.nan,
 				"terminal_silhouette_soft": np.nan,
 				"tsr": np.nan,
