@@ -1,0 +1,166 @@
+import os
+import muon as mu
+import numpy as np 
+import pandas as pd
+import scanpy as sc
+import seaborn as sns
+import muon.atac as ac
+import matplotlib.pyplot as plt
+from muon import MuData
+from anndata import AnnData
+from scipy.stats import median_abs_deviation
+from atlas import ATLAS
+
+def _compute_outlier(adata: AnnData, 
+				metric: str,
+				nmads: int):
+	M = adata.obs[metric]
+	outlier = (
+						(M < np.median(M) - nmads * median_abs_deviation(M)) | (
+						 np.median(M) + nmads * median_abs_deviation(M) < M)
+				)
+	return outlier
+
+
+if __name__=="__main__":
+	seed = 42
+	working_dir = os.getcwd()
+	np.random.seed(seed)
+	n_pcs_rna, n_pcs_act = 15, 10
+	knn_rna, knn_act, wnn = 20,20,20
+
+	data_path = os.path.join(working_dir, "data", "embryonic_mouse_brain")
+	ffbcm_path = os.path.join(data_path, "filtered_feature_bc_matrix")
+	annotation_path = os.path.join(data_path, "cell_annotations.tsv")
+	fragment_file_path = os.path.join(data_path, "e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz")
+
+	valid_chr = [f"chr{i}" for i in range(1,23)] + ["chrX","chrY","chrM"]
+	gene_metadata = pd.read_csv(os.path.join(ffbcm_path, "features.tsv.gz"), sep="\t", header=None)
+	gene_metadata.columns = ["id", "symbol", "type", "Chromosome", "Start", "End"]
+	gene_metadata = gene_metadata[gene_metadata["type"] == "Gene Expression"]
+
+	data = sc.read_10x_mtx(ffbcm_path, 
+							var_names = "gene_symbols",
+							gex_only = False)
+
+	rna = data[:, data.var["feature_types"]=="Gene Expression"].copy()	
+	rna.var = pd.merge(rna.var, gene_metadata, left_on="gene_ids", right_on = "id", how="left").drop(["id", "type"], axis=1).set_index("symbol")
+	rna.var_names_make_unique()
+	features = rna[:, rna.var["Chromosome"].isin(valid_chr)].var[["Chromosome", "Start", "End"]]
+
+	atac = data[:, ~(data.var["feature_types"]=="Gene Expression")].copy()	
+	ac.tl.locate_fragments(atac, fragment_file_path)
+
+	# rna preprocessing
+	rna.var["mt"] = rna.var_names.str.startswith("mt-")
+	rna.var["ribo"] = rna.var_names.str.startswith(("rps", "rpl"))
+	sc.pp.calculate_qc_metrics(rna, qc_vars = ["mt", "ribo"], inplace=True, log1p = True)
+
+	sc.pl.violin(rna, 
+				["total_counts", "pct_counts_mt", "n_genes_by_counts"],
+				multi_panel = True)
+	sc.pl.scatter(rna, 
+					x = "total_counts",
+					y = "n_genes_by_counts",
+					color = "pct_counts_mt",
+					show = True)
+	rna.obs["outlier"] = ( _compute_outlier(rna, "log1p_total_counts", 5) |
+							_compute_outlier(rna, "log1p_n_genes_by_counts", 5) |
+							(rna.obs["pct_counts_mt"] > 10)
+						)
+	# activity 
+	sc.pp.calculate_qc_metrics(atac, percent_top=None, log1p=False, inplace= True)
+	ac.tl.nucleosome_signal(atac, n=1e6)
+	nuc_threshold = 2
+	atac.obs["nuc_filter"] = ["NUC_FAIL" if ns > nuc_threshold else "NUC_PASS" for ns in atac.obs["nucleosome_signal"] ]
+	sns.histplot(atac.obs, x="nucleosome_signal")
+
+	tss_enr = ac.tl.tss_enrichment(atac, features= features, random_state = seed)
+	fig, axs = plt.subplots(1, 2, figsize=(7, 3.5))
+	p1 = sns.histplot(atac.obs, x="tss_score", ax=axs[0])
+	p1.set_title("Full range")
+	p2 = sns.histplot(
+					atac.obs,
+					x="tss_score",
+					binrange=(0, atac.obs["tss_score"].quantile(0.995)),
+					ax=axs[1],
+		)
+	p2.set_title("Up to 99.5% percentile")
+
+	tss_threshold = 1.5
+	tss_enr.obs["tss_filter"] = ["TSS_FAIL" if score < tss_threshold else "TSS_PASS" for score in atac.obs["tss_score"] ]
+	atac.obs["tss_filter"] = ["TSS_FAIL" if score < tss_threshold else "TSS_PASS" for score in atac.obs["tss_score"] ]
+
+	ac.pl.tss_enrichment(tss_enr, color="tss_filter")
+	
+	sc.pl.scatter(atac, 
+					x = "total_counts",
+					y = "n_genes_by_counts",
+					color = "tss_score",
+					show = True)
+	plot_tss_max = 20
+	g = sns.jointplot(data=atac[(atac.obs["tss_score"] < plot_tss_max)].obs,
+						x="total_counts",
+						y="tss_score",
+						color="black",
+						marker=".",
+		)
+	# Density plot including lines
+	g.plot_joint(sns.kdeplot, fill=True, cmap="Blues", zorder=1, alpha=0.75)
+	g.plot_joint(sns.kdeplot, color="black", zorder=2, alpha=0.75)
+	plt.show()
+
+	atac.obs["outlier"] = ((atac.obs["tss_filter"] == "TSS_FAIL") |
+							(atac.obs["tss_score"] > 15) | (atac.obs["nuc_filter"] == "NUC_FAIL"))
+
+	# Filtering 
+	data = MuData({"rna":rna, "atac":atac})
+	mask = ~(data.obs["rna:outlier"] | data.obs["atac:outlier"])
+	data = data[mask, :].copy()
+	
+	annotations = pd.read_csv(annotation_path, sep="\t", header=0, index_col=0)
+	data.obs = data.obs.join(annotations)
+
+	non_developing_clusters = ["Cajal-Retzius", "Interneurons1", "Interneurons2", "Interneurons3", "Microglia", np.nan]
+	data = data[~data.obs["celltype"].isin(non_developing_clusters)].copy()
+	data.obs["celltype"] = data.obs["celltype"].astype("category")
+
+	# RNA-seq preprocessing
+	sc.pp.normalize_total(rna)
+	sc.pp.log1p(rna)
+	sc.pp.highly_variable_genes(rna, n_top_genes = 2000)
+	sc.pp.pca(rna, random_state=seed)
+	sc.pl.pca_variance_ratio(rna) 	
+
+	# Palantir 
+	atlas = ATLAS(mudata = data,
+				method = "palantir",
+				fragment_path = None, 
+				random_state = seed)
+
+	atlas.preprocessing(n_pcs_rna = n_pcs_rna, 
+						n_pcs_act = n_pcs_act,
+						knn_rna = knn_rna,
+						knn_act = knn_act,
+						n_neighbors = wnn,
+						features = features) 
+	
+	new_data = atlas.get_data()
+	print(new_data)
+	mu.tl.louvain(new_data)
+	sc.pl.pca_variance_ratio(new_data["activity"])
+	
+
+	print(new_data)
+	mu.pl.embedding(new_data, basis = "X_umap", color=["louvain", "celltype"])
+
+
+
+	
+		
+						
+	
+	 
+
+
+				
