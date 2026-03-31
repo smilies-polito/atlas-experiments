@@ -24,33 +24,33 @@ wildcard_constraints:
     wnn      = r"\d+",
 
 # ---- Targets ----------------------------------------------------------------
-PAL_DIR = "output/simulations/palantir"
-CR_DIR = "output/simulations/pseudotime_kernel"
+PAL_DIR = "output/simulations/palantir_new"
+CR_DIR = "output/simulations/pseudotime_kernel_new"
 PAL_RNA_DIR = "output/simulations/palantir_rna"
 CR_DIR_RNA = "output/simulations/pseudotime_kernel_rna"
 
 rule all:
     input:
-        expand(
-            CR_DIR_RNA + "/{tree}_True_{rd}_{sigma}_{knn_rna}.h5ad",
-            tree=TREES, rd=RDS, sigma=SIGMAS,
-            knn_rna=KNN_RNAS,
-	),
-        expand(
-            PAL_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}:{knn_act}:{wnn}.h5mu",
-            tree=TREES, rd=RDS, sigma=SIGMAS,
-            knn_rna=KNN_RNAS, knn_act=KNN_ACTS, wnn=WNNS,
-        ),
+ #       expand(
+  #          CR_DIR_RNA + "/{tree}_True_{rd}_{sigma}_{knn_rna}.h5ad",
+ #           tree=TREES, rd=RDS, sigma=SIGMAS,
+ #           knn_rna=KNN_RNAS,
+#	),
+#        expand(
+#            PAL_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+#            tree=TREES, rd=RDS, sigma=SIGMAS,
+#            knn_rna=KNN_RNAS, knn_act=KNN_ACTS, wnn=WNNS,
+#        ),
         expand(
             CR_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}:{knn_act}:{wnn}.h5mu",
             tree=TREES, rd=RDS, sigma=SIGMAS,
             knn_rna=KNN_RNAS, knn_act=KNN_ACTS, wnn=WNNS,
         ),
-        expand(
-            PAL_RNA_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}.h5ad",
-            tree=TREES, rd=RDS, sigma=SIGMAS,
-            knn_rna=KNN_RNAS,
-        ),
+#        expand(
+#            PAL_RNA_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}.h5ad",
+#            tree=TREES, rd=RDS, sigma=SIGMAS,
+#            knn_rna=KNN_RNAS,
+#        ),
 
 # ---- Per-combination job ----------------------------------------------------
 rule run_palantir:
@@ -64,7 +64,7 @@ rule run_palantir:
     log:
         "logs/palantir/{tree}_{rd}_{sigma}_{knn_rna}_{knn_act}_{wnn}.log",
     shell:
-        "python3 -m simulated_data.palantir_run "
+        "python3 -m simulated_data.new_palantir "
         "--tree {wildcards.tree} "
         "--rd {wildcards.rd} "
         "--sigma {wildcards.sigma} "
@@ -85,7 +85,7 @@ rule run_cellrank:
     log:
         "logs/pseudotime_kernel/{tree}_{rd}_{sigma}_{knn_rna}_{knn_act}_{wnn}.log",
     shell:
-        "python3 -m simulated_data.pseudotime_kernel_rna "
+        "python3 -m simulated_data.pseudotime_kernel_run "
         "--tree {wildcards.tree} "
         "--rd {wildcards.rd} "
         "--sigma {wildcards.sigma} "
