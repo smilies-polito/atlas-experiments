@@ -26,7 +26,7 @@ if __name__=="__main__":
     seed = 42
     working_dir = os.getcwd()
     np.random.seed(seed)
-    n_pcs_rna, n_pcs_act = 15, 10
+    n_pcs_rna, n_pcs_act = 20, 10
     knn_rna, knn_act, wnn = 20,20,20
 
     data_path = os.path.join(working_dir, "data", "embryonic_mouse_brain")
@@ -136,14 +136,13 @@ if __name__=="__main__":
 
     non_developing_clusters = ["Cajal-Retzius", "Interneurons1", "Interneurons2", "Interneurons3", "Microglia", np.nan]
     data = data[~data.obs["celltype"].isin(non_developing_clusters)].copy()
-    data.obs["celltype"] = data.obs["celltype"].astype("category")
 
     # RNA-seq preprocessing
-    sc.pp.normalize_total(rna)
-    sc.pp.log1p(rna)
-    sc.pp.highly_variable_genes(rna, n_top_genes = 2000)
-    sc.pp.pca(rna, random_state=seed)
-    sc.pl.pca_variance_ratio(rna)     
+    sc.pp.normalize_total(data["rna"])
+    sc.pp.log1p(data["rna"])
+    sc.pp.highly_variable_genes(data["rna"], n_top_genes = 2000)
+    sc.pp.pca(data["rna"], random_state=seed)
+    sc.pl.pca_variance_ratio(data["rna"])     
 
     new_data = atlas.pp.preprocessing(mudata = data,
                         n_pcs_rna = n_pcs_rna, 
