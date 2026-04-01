@@ -1,0 +1,57 @@
+Bootstrap: docker 
+From: ubuntu:24.04
+
+%environment
+	export PETSC_DIR=/petsc 
+	export PETSC_ARCH=arch-linux-c-debug 
+	export SLEPC_DIR=/slepc 
+	export PATH=/usr/local/bin:$PATH
+	export PYTHONPATH=/scvemo:$PYTHONPATH
+
+%files 
+	container/requirements.txt /requirements.txt 
+
+%post
+	apt-get update && apt-get install -y --no-install-recommends \
+	git \
+	python3 \
+	python3-dev \
+	python3-pip \
+	make \
+	build-essential \
+	gfortran \
+	curl \
+	wget \
+	ca-certificates \
+	cmake \
+	libigraph-dev \
+	&& rm -rf /var/lib/apt/lists/*
+
+	python3 -m pip install --break-system-packages "setuptools<69" wheel Cython
+
+	# Install petsc requirements for petsc4py
+	cd /
+	git clone -b release https://gitlab.com/petsc/petsc.git /petsc
+	cd /petsc
+	git checkout v3.23.6
+	./configure --with-mpi=0 --with-cc=gcc --with-cxx=g++ --with-fc=gfortran --download-f2cblaslapack
+	make all check
+	cd /
+	export PETSC_DIR=/petsc 
+	export PETSC_ARCH=arch-linux-c-debug
+
+	# Install slepc requirements for slepc4py
+	git clone -b release https://gitlab.com/slepc/slepc.git /slepc	
+	cd /slepc 
+	git checkout v3.23.3
+	./configure
+	make SLEPC_DIR=/slepc PETSC_DIR=/petsc PETSC_ARCH=arch-linux-c-debug
+	cd /
+	export SLEPC_DIR=/slepc
+
+	python3 -m pip install --break-system-packages -r /requirements.txt 
+	python3 -m pip install --break-system-packages --no-build-isolation petsc4py==3.23.6
+	python3 -m pip install --break-system-packages --no-build-isolation slepc4py==3.23.3
+	python3 -m pip install --break-system-packages --index-url https://test.pypi.org/simple/ --no-deps atlas-smilies
+
+
