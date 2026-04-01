@@ -2,7 +2,7 @@ import os
 import atlas 
 import numpy as np
 import muon as mu
-from atlas.tl import PalantirExtension 
+from atlas.tl import CellRankExtension
 
 if __name__=="__main__":
     seed = 42
@@ -10,24 +10,20 @@ if __name__=="__main__":
 
     working_dir = os.getcwd()
     output_dir = os.path.join(working_dir, "output", "embryonic_mouse_brain")
-    data_path = os.path.join(output_dir, "emb.h5mu")
+    data_path = os.path.join(output_dir, "emb_palantir.h5mu")
 
     mudata = mu.read_h5mu(data_path)
 
-    pex = PalantirExtension(mudata = mudata)
-    pex.compute_kernel()
-    pex.compute_diffusion_maps(seed = seed)
-    pex.compute_multiscale_space()
+    cex = CellRankExtension(mudata = mudata)
+    cex.compute_kernel(connectivity_key = "wnn_connectivities",
+                        time_key = "pseudotime",
+                        cluster_key = "celltype",
+                        n_jobs = -1)
+    cex.run(n_states = None, #automatically infer using minChi
+            use_petsc = True,
+            allow_overlap = True)
 
-    #select initial cell
-    initial = rng.choice(mudata[mudata.obs["celltype"]=="RG, Astro, OPC"].obs_names)
-    pex.run(early_cell = initial,
-            cluster_key = "celltype",
-            terminal_states = None,
-            n_jobs = -1,
-            random_state = seed)
-
-    mudata = pex.mudata
+    mudata = cex.mudata
 
     results = {}
     stat, pval, ci = atlas.tl.pearson_correlation(mudata = mudata,
@@ -84,34 +80,25 @@ if __name__=="__main__":
                                                                     time_key = "pseudotime")
     atlas.pl.plot_embedding(mudata = mudata,
                             embedding_key = "X_umap",
-                            observation = "pseudotime",
-                            save =  "_pseudotime.png")
-
-
-    atlas.pl.plot_embedding(mudata = mudata,
-                            embedding_key = "X_umap",
                             observation = "shannon_entropy",
-                            save = "_shannon_entropy.png")
+                            save = "_shannon_entropy_cellrank.png")
 
 
     atlas.pl.plot_embedding(mudata = mudata,
                             embedding_key = "X_umap",
                             observation = "kl_divergence",
-                            save = "_kl_divergence.png")
+                            save = "_kl_divergence_cellrank.png")
                         
     atlas.pl.plot_fate_probabilities(mudata = mudata,
                                         embedding_key = "X_umap",
                                         fate_probability_key = "fate_probabilities",
-                                        save = "_fate_probs.png")
-    atlas.pl.plot_tree(mudata = mudata,
-                        embedding = "umap",
-                        fate_probability_key = "fate_probabilities",
-                        time_key = "pseudotime",
-                        random_state = seed,
-                        save = "_tree.png")
+                                        save = "_fate_probs_cellrank.png")
+#    atlas.pl.plot_tree(mudata = mudata,
+#                        embedding = "umap",
+#                        fate_probability_key = "fate_probabilities",
+#                        time_key = "pseudotime",
+#                        random_state = seed,
+#                        save = "_tree_cellrank.png")
 
     print(results)
-    mudata.obsm["DM_EigenVectors"].columns = [str(c) for c in mudata.obsm["DM_EigenVectors"].columns]
-    mudata.obsm["DM_EigenVectors_multiscaled"].columns = [str(c) for c in mudata.obsm["DM_EigenVectors_multiscaled"].columns]
-    mudata.write(os.path.join(output_dir, "emb_palantir.h5mu"))
 

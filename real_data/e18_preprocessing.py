@@ -158,6 +158,8 @@ if __name__=="__main__":
     mu.pl.embedding(new_data, basis = "X_umap", color=["louvain", "celltype"], save ="EMB_cluster.png")
     new_data.write(os.path.join(output_path, "emb.h5mu"))
 
+    
+
 
     
         
