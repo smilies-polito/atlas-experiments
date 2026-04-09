@@ -14,6 +14,12 @@ KNN_RNAS   = [10,30,50,70]
 KNN_ACTS   = [10,30,50,70]
 WNNS       = [10,30,50,70]
 
+E18_PCS_RNA = [20]
+E18_PCS_ACT = [10]
+E18_KNN_RNA = [30]
+E18_KNN_ACT = [30]
+E18_WNN = [30]
+
 # ---- Wildcard constraints (prevent greedy matching across delimiters) -------
 wildcard_constraints:
     tree     = "[a-z_]+",
@@ -21,6 +27,8 @@ wildcard_constraints:
     sigma    = r"[\d.]+",
     knn_rna  = r"\d+",
     knn_act  = r"\d+",
+    n_pcs_rna  = r"\d+",
+    n_pcs_act  = r"\d+",
     wnn      = r"\d+",
 
 # ---- Targets ----------------------------------------------------------------
@@ -28,24 +36,30 @@ PAL_DIR = "output/simulations/palantir"
 CR_DIR = "output/simulations/pseudotime_kernel"
 PAL_RNA_DIR = "output/simulations/palantir_rna"
 CR_DIR_RNA = "output/simulations/pseudotime_kernel_rna"
+E18_DIR = "output/embryonic_mouse_brain" 
 
 rule all:
     input:
+     expand( E18_DIR + "/{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_hard.h5mu",
+        n_pcs_rna = E18_PCS_RNA, n_pcs_act = E18_PCS_ACT, 
+        knn_rna = E18_KNN_RNA, knn_act = E18_KNN_ACT,
+        wnn = E18_WNN,
+    )
 #    expand(
   #          CR_DIR_RNA + "/{tree}_True_{rd}_{sigma}_{knn_rna}.h5ad",
  #           tree=TREES, rd=RDS, sigma=SIGMAS,
  #           knn_rna=KNN_RNAS,
 #    ),
-        expand(
-            PAL_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}:{knn_act}:{wnn}.h5mu",
-            tree=TREES, rd=RDS, sigma=SIGMAS,
-            knn_rna=KNN_RNAS, knn_act=KNN_ACTS, wnn=WNNS,
-        ),
-        expand(
-            CR_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}:{knn_act}:{wnn}.h5mu",
-            tree=TREES, rd=RDS, sigma=SIGMAS,
-            knn_rna=KNN_RNAS, knn_act=KNN_ACTS, wnn=WNNS,
-        ),
+#        expand(
+ #           PAL_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+#            tree=TREES, rd=RDS, sigma=SIGMAS,
+#            knn_rna=KNN_RNAS, knn_act=KNN_ACTS, wnn=WNNS,
+#        ),
+#        expand(
+#            CR_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+#            tree=TREES, rd=RDS, sigma=SIGMAS,
+#            knn_rna=KNN_RNAS, knn_act=KNN_ACTS, wnn=WNNS,
+#        ),
 #        expand(
 #            PAL_RNA_DIR + "/{tree}_True_{rd}_{sigma}_{knn_rna}.h5ad",
 #            tree=TREES, rd=RDS, sigma=SIGMAS,
@@ -53,6 +67,38 @@ rule all:
 #        ),
 
 # ---- Per-combination job ----------------------------------------------------
+rule run_preprocessing_e18:
+    input:
+        matrix = "data/embryonic_mouse_brain/filtered_feature_bc_matrix",
+        annotations = "data/embryonic_mouse_brain/cell_annotations.tsv",
+        fragment = "data/embryonic_mouse_brain/e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz",
+    output:
+         features =  E18_DIR + "/features.tsv",
+         data =  E18_DIR + "/emb.h5mu",
+    log:
+        "logs/e18_mouse_brain/preprocessing.log",
+    shell:
+        "python3 -m real_data.e18_preprocessing "
+        "&> {log}"
+
+rule run_e18:
+    threads: 3
+    input:
+        data = "output/embryonic_mouse_brain/emb.h5mu",
+        features = "output/embryonic_mouse_brain/features.tsv",
+    output:
+         hard =  E18_DIR + "/{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_hard.h5mu",
+    log:
+        "logs/e18_mouse_brain/{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_hard.log",
+    shell:
+        "python3 -m real_data.e18_run "
+        "--pcs_rna {wildcards.n_pcs_rna} "
+        "--pcs_act {wildcards.n_pcs_act} "
+        "--knn_rna {wildcards.knn_rna} "
+        "--knn_activity {wildcards.knn_act} "
+        "--wnn {wildcards.wnn} "
+        "&> {log}"
+
 rule run_palantir:
     input:
         activity = "data/simulated_data/{tree}/{rd}_{sigma}_activity.tsv",

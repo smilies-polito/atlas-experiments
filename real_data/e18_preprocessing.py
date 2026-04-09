@@ -32,6 +32,7 @@ if __name__=="__main__":
     data_path = os.path.join(working_dir, "data", "embryonic_mouse_brain")
     output_path = os.path.join(working_dir, "output", "embryonic_mouse_brain")
     ffbcm_path = os.path.join(data_path, "filtered_feature_bc_matrix")
+    feature_path = os.path.join(output_path, "features.tsv")
     annotation_path = os.path.join(data_path, "cell_annotations.tsv")
     fragment_file_path = os.path.join(data_path, "e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz")
 
@@ -48,6 +49,7 @@ if __name__=="__main__":
     rna.var = pd.merge(rna.var, gene_metadata, left_on="gene_ids", right_on = "id", how="left").drop(["id", "type"], axis=1).set_index("symbol")
     rna.var_names_make_unique()
     features = rna[:, rna.var["Chromosome"].isin(valid_chr)].var[["Chromosome", "Start", "End"]]
+    features.to_csv(feature_path, sep="\t", index = False)
 
     atac = data[:, ~(data.var["feature_types"]=="Gene Expression")].copy()    
     ac.tl.locate_fragments(atac, fragment_file_path)
@@ -144,21 +146,9 @@ if __name__=="__main__":
     sc.pp.pca(data["rna"], random_state=seed)
     sc.pl.pca_variance_ratio(data["rna"])     
 
-    new_data = atlas.pp.preprocessing(mudata = data,
-                        n_pcs_rna = n_pcs_rna, 
-                        n_pcs_act = n_pcs_act,
-                        knn_rna = knn_rna,
-                        knn_act = knn_act,
-                        n_neighbors = wnn,
-                        features = features)
-    
-    mu.tl.louvain(new_data)
-    sc.pl.pca_variance_ratio(new_data["activity"], save= "EMB_activity_pca.png")
+    data.write(os.path.join(output_path, "emb.h5mu"))
 
-    mu.pl.embedding(new_data, basis = "X_umap", color=["louvain", "celltype"], save ="EMB_cluster.png")
-    new_data.write(os.path.join(output_path, "emb.h5mu"))
 
-    
 
 
     

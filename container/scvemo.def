@@ -1,5 +1,5 @@
 Bootstrap: docker 
-From: ubuntu:22.04
+From: ubuntu:24.04
 
 %environment
 	export PETSC_DIR=/petsc 
@@ -23,10 +23,11 @@ From: ubuntu:22.04
 	curl \
 	wget \
 	ca-certificates \
+	cmake \
+	libigraph-dev \
 	&& rm -rf /var/lib/apt/lists/*
 
-	python3 -m pip install --upgrade pip
-	python3 -m pip install "setuptools<69" wheel Cython
+	python3 -m pip install --break-system-packages "setuptools<69" wheel Cython
 
 	# Install petsc requirements for petsc4py
 	cd /
@@ -48,7 +49,10 @@ From: ubuntu:22.04
 	cd /
 	export SLEPC_DIR=/slepc
 
-	pip install -r /requirements.txt 
-	pip install --no-build-isolation petsc4py==3.23.6
-	pip install --no-build-isolation slepc4py==3.23.3
+	python3 -m pip install --break-system-packages -r /requirements.txt 
+	python3 -m pip install --break-system-packages --no-build-isolation petsc4py==3.23.6
+	python3 -m pip install --break-system-packages --no-build-isolation slepc4py==3.23.3
+	python3 -m pip install --break-system-packages --index-url https://test.pypi.org/simple/ --no-deps atlas-smilies
+
+
 
