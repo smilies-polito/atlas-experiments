@@ -16,9 +16,12 @@ WNNS       = [10,30,50,70]
 
 E18_PCS_RNA = [20]
 E18_PCS_ACT = [10]
-E18_KNN_RNA = [30]
-E18_KNN_ACT = [30]
-E18_WNN = [30]
+#E18_KNN_RNA = [30, 20, 10, 50, 70]
+E18_KNN_RNA = [20]
+#E18_KNN_ACT = [30, 20, 10, 50, 70]
+E18_KNN_ACT = [50]
+#E18_WNN = [30, 20, 10, 50, 70]
+E18_WNN = [20]
 
 # ---- Wildcard constraints (prevent greedy matching across delimiters) -------
 wildcard_constraints:
@@ -37,6 +40,7 @@ CR_DIR = "output/simulations/pseudotime_kernel"
 PAL_RNA_DIR = "output/simulations/palantir_rna"
 CR_DIR_RNA = "output/simulations/pseudotime_kernel_rna"
 E18_DIR = "output/embryonic_mouse_brain" 
+SKIN_DIR = "output/mouse_skin" 
 
 rule all:
     input:
@@ -44,7 +48,7 @@ rule all:
         n_pcs_rna = E18_PCS_RNA, n_pcs_act = E18_PCS_ACT, 
         knn_rna = E18_KNN_RNA, knn_act = E18_KNN_ACT,
         wnn = E18_WNN,
-    )
+    ),
 #    expand(
   #          CR_DIR_RNA + "/{tree}_True_{rd}_{sigma}_{knn_rna}.h5ad",
  #           tree=TREES, rd=RDS, sigma=SIGMAS,
@@ -67,6 +71,22 @@ rule all:
 #        ),
 
 # ---- Per-combination job ----------------------------------------------------
+rule run_preprocessing_skin:
+    input:
+        atac = "data/mouse_skin/GSM4156597_skin.late.anagen.counts.txt",
+        rna = "data/mouse_skin/GSM4156608_skin.late.anagen.rna.counts.txt",
+        annotations = "data/mouse_skin/GSM4156597_skin_celltype.txt",
+        peaks = "data/mouse_skin/GSM4156597_skin.late.anagen.peaks.bed",
+        barcodes = "data/mouse_skin/GSM4156597_skin.late.anagen.barcodes.txt",
+        fragment = "data/mouse_skin/GSM4156597_skin.late.anagen.atac.sorted.fragments.bed.gz"
+    output:
+         features =  SKIN_DIR + "/features.tsv",
+         data =  SKIN_DIR + "/skin.h5mu",
+    log:
+        "logs/mouse_skin/preprocessing.log",
+    shell:
+        "python3 -m real_data.skin_preprocessing "
+
 rule run_preprocessing_e18:
     input:
         matrix = "data/embryonic_mouse_brain/filtered_feature_bc_matrix",

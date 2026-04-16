@@ -8,6 +8,7 @@ import seaborn as sns
 import muon.atac as ac
 import matplotlib.pyplot as plt
 from muon import MuData
+from .utils import _compute_outlier
 from anndata import AnnData
 from scipy.io import mmread
 from pybiomart import Dataset
@@ -27,16 +28,6 @@ def _to_ucsc(chromosome: str) -> str:
         return "chrM"
     else:
         return f"chr{chromosome}"
-
-def _compute_outlier(adata: AnnData, 
-                metric: str,
-                nmads: int):
-    M = adata.obs[metric]
-    outlier = (
-                        (M < np.median(M) - nmads * median_abs_deviation(M)) | (
-                         np.median(M) + nmads * median_abs_deviation(M) < M)
-                )
-    return outlier
 
 
 if __name__=="__main__":

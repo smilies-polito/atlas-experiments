@@ -13,15 +13,16 @@ from .utils import _compute_results, _get_plots, _assign_state_colors, _invert_a
 if __name__ == "__main__":
     seed = 42
     np.random.seed(seed) 
-    n_states = 8
     
-    output_path = os.path.join("output", "mouse_skin")
+    output_path = os.path.join("output", "embryonic_mouse_brain")
     multi_path = os.path.join(output_path, "20:10_15:15:None_hard.h5mu")
+    n_states = 6
 
     data = mu.read_h5mu(multi_path)
 
+
     # Select initial cell for Palantir computation to be the same aused in ATLAS
-    early_cell = data.uns["palantir_initial_states"]["TAC-1"][0]
+    early_cell = data.uns["palantir_initial_states"]["RG, Astro, OPC"][0]
 
     rna = data["rna"]
     rna.obs["celltype"] = data.obs["celltype"].copy().reindex(rna.obs.index)
@@ -55,24 +56,22 @@ if __name__ == "__main__":
     compute_entropy(data = data, fate_prob_key="rna_fates_palantir")
 
     # Identify terminal states
-    terminal_states = []
+    terminal_rna = []
     for k, v in data.uns["terminal_states"].items():
-        terminal_states.extend(v)
+        terminal_rna.extend(v)
     for k, v in data.uns["initial_states"].items():
-        terminal_states.extend(v)
+        terminal_rna.extend(v)
 
-    data.obs["rna_palantir_terminal"] = data.obs_names.isin(terminal_states)
-    mu.pl.embedding(data, basis="X_umap", color=["rna_palantir_terminal"], save = "_skin_rna_terminal_palantir.png")
+    data.obs["is_TI"] = (data.obs_names.isin(terminal_rna))
+    mu.pl.embedding(data, basis="X_umap", color=["is_TI"], save = "e18_palantir_selected_rna.png")
 
     # Compute metrics
-    palantir_metrics = _compute_results(mudata = data,
+    metrics = _compute_results(mudata = data,
                         code = "rna",
                         seed = seed, 
                         time_key = "rna_pseudotime",
                         fate_key = "rna_fates_palantir")
-    print(palantir_metrics)
-    avg_pseudotime = data.obs[["celltype", "rna_pseudotime"]].groupby("celltype").mean()
-    print(avg_pseudotime)
+    print(metrics)
     
     # Plots
     _get_plots(mudata = data,
@@ -82,6 +81,10 @@ if __name__ == "__main__":
             fate_key = "rna_fates_palantir",
             seed = seed,
             ti_strategy = "palantir")
+
+    avg_pseudotime = data.obs[["celltype", "rna_pseudotime"]].groupby("celltype").mean()
+    print(avg_pseudotime)
+
 
     # CELLRANK 
     rna.obs["celltype"] = rna.obs["celltype"].astype("category")
@@ -103,22 +106,33 @@ if __name__ == "__main__":
     _assign_state_colors(data)
     compute_entropy(data = data, fate_prob_key="rna_fates_cellrank")
 
-    terminal_states = []
+    terminal_rna = []
     for k, v in data.uns["terminal_states"].items():
-        terminal_states.extend(v)
+        terminal_rna.extend(v)
     for k, v in data.uns["initial_states"].items():
-        terminal_states.extend(v)
+        terminal_rna.extend(v)
 
-    data.obs["rna_pseudotimeK_terminal"] = data.obs_names.isin(terminal_states)
-    mu.pl.embedding(data, basis="X_umap", color=["rna_pseudotimeK_terminal"], save = "_skin_pseudotimeK_rna_states.png")
+    data.obs["is_TI"] = (data.obs_names.isin(terminal_rna))
+    mu.pl.embedding(data, basis="X_umap", color=["is_TI"], save = "e18_pseudotimeK_selected_rna.png")
+
+    d = data.uns["terminal_states"]
+    print(d)
+    cell_to_label = {cell: label for label, cells in d.items() for cell in cells}
+    data.obs["is_TI"] = data.obs_names.map(cell_to_label)
+    macrostate_composition_T = data.obs[["celltype", "is_TI"]].groupby(["celltype", "is_TI"]).size().to_frame(name="count")
+
+    d = data.uns["initial_states"]
+    cell_to_label = {cell: label for label, cells in d.items() for cell in cells}
+    data.obs["is_TI"] = data.obs_names.map(cell_to_label)
+    macrostate_composition_I = data.obs[["celltype", "is_TI"]].groupby(["celltype", "is_TI"]).size()
+    print(macrostate_composition_I)
 
     # Compute metrics
-    pseudotimeK_metrics = _compute_results(mudata = data,
+    metrics = _compute_results(mudata = data,
                         code = "rna",
                         seed = seed, 
                         time_key = "rna_pseudotime",
                         fate_key = "rna_fates_cellrank")
-    print(pseudotimeK_metrics)
     
     # Plots
     _get_plots(mudata = data,
@@ -129,19 +143,12 @@ if __name__ == "__main__":
             seed = seed,
             ti_strategy = "pseudotime-kernel")
     
-
-    dt = data.uns["terminal_states"]
-    cell_to_label = {cell: label for label, cells in dt.items() for cell in cells}
-    data.obs["terminal_composition"] = data.obs_names.map(cell_to_label)
-    macrostate_composition_T = data.obs[["celltype", "terminal_composition"]].groupby(["celltype", "terminal_composition"]).size().to_frame()
+    print(metrics)
+    macrostate_composition_T.to_csv(os.path.join(output_path, "macrostate_rna.tsv"), sep="\t", header = True, index = True)
 
 
-    dt = data.uns["initial_states"]
-    cell_to_label = {cell: label for label, cells in dt.items() for cell in cells}
-    data.obs["initial_composition"] = data.obs_names.map(cell_to_label)
-    macrostate_composition_I = data.obs[["celltype", "initial_composition"]].groupby(["celltype", "initial_composition"]).size().to_frame()
-    print(macrostate_composition_I)
-    print(macrostate_composition_T)
+
+
 
 
 

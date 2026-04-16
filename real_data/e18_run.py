@@ -14,171 +14,141 @@ from atlas.tl import PalantirExtension, CellRankExtension
 
 if __name__=="__main__":
     seed = 42
-    threads = 3
     rng = np.random.default_rng(seed)
     np.random.seed(seed)
 
     #args 
-    parser = argparse.ArgumentParser() 
-    parser.add_argument("--pcs_rna", type=int)
-    parser.add_argument("--pcs_act", type=int)
-    parser.add_argument("--knn_rna", type=int)
-    parser.add_argument("--knn_activity", type=int)
-    parser.add_argument("--wnn", type=int)
-    args = parser.parse_args()
-    knn_rna, knn_act, wnn = args.knn_rna, args.knn_activity, args.wnn
-    n_pcs_rna, n_pcs_act= args.pcs_rna, args.pcs_act
+    knn_rna, knn_act, wnn = 15, 15, None
+    n_pcs_rna, n_pcs_act= 20, 10
     code = f"{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_hard"
+    n_states = 6
 
     working_dir = os.getcwd()
     output_dir = os.path.join(working_dir, "output", "embryonic_mouse_brain")
-    results_path = os.path.join(output_dir, "results.csv")
     data_path = os.path.join(output_dir, "emb.h5mu")
     features_path = os.path.join(output_dir, "features.tsv")
 
     mudata = mu.read_h5mu(data_path)
-    print(mudata)
+
     # select palantir initial cell
     initial = rng.choice(mudata[mudata.obs["celltype"]=="RG, Astro, OPC"].obs_names)
-    features = pd.read_csv(features_path, sep = "\t", header=0, index_col=False)
+    features = pd.read_csv(features_path, sep = "\t", header=0, index_col=0)
 
-    start_I_wall, start_I_cpu = time.perf_counter(), time.process_time()
-    tracemalloc.start()
-    mudata = atlas.pp.preprocessing(mudata = mudata,
+    new_data = atlas.pp.preprocessing(mudata = mudata,
                 n_pcs_rna = n_pcs_rna, 
                 n_pcs_act = n_pcs_act,
                 knn_rna = knn_rna,
                 knn_act = knn_act,
                 n_neighbors = wnn,
                 features = features)
-    _, preprocessing_mem_peak = tracemalloc.get_traced_memory()
-    preprocessing_mem_peak = preprocessing_mem_peak / (1024 * 1024)  # bytes -> MiB
-    end_I_wall, end_I_cpu = time.perf_counter(), time.process_time()
-    preprocessig_wall, preprocessing_cpu = end_I_wall - start_I_wall, end_I_cpu - start_I_cpu
-    
-    mu.tl.louvain(mudata)
-    mu.pl.embedding(new_data, basis = "X_umap", color=["louvain", "celltype"], save ="{code}_cluster.png")
 
-    print(mudata)
-    exit()
+    mu.tl.louvain(new_data)
+    mu.pl.embedding(new_data, basis = "X_umap", color=["louvain", "celltype"], save =f"{code}_cluster.png")
+
 
     # TRAJECTORY INFERENCE USING PALANTIR
-    try:
-        start_P_wall, start_P_cpu = time.perf_counter(), time.process_time()
-        tracemalloc.start()
-        pex = PalantirExtension(mudata = mudata)
-        pex.compute_kernel()
-        pex.compute_diffusion_maps(seed = seed)
-        pex.compute_multiscale_space()
+    pex = PalantirExtension(mudata = new_data)
+    pex.compute_kernel()
+    pex.compute_diffusion_maps(seed = seed)
+    pex.compute_multiscale_space()
 
-        pex.run(early_cell = initial,
-                    cluster_key = "celltype",
-                    pseudotime_key = "pseudotime",
-                    fate_prob_key = "palantir_probabilities",
-                    terminal_states = None,
-                    n_jobs = threads,
-                    random_state = seed)
+    pex.run(early_cell = initial,
+                cluster_key = "celltype",
+                pseudotime_key = "pseudotime",
+                fate_prob_key = "palantir_probabilities",
+                terminal_states = None,
+                n_jobs = -1,
+                random_state = seed)
 
-        _, palantir_mem_peak = tracemalloc.get_traced_memory()
-        palantir_mem_peak = palantir_mem_peak / (1024 * 1024)  # bytes -> MiB
-        end_P_wall, end_P_cpu = time.perf_counter(), time.process_time()
-        palantir_wall, palantir_cpu = end_P_wall - start_P_wall, end_P_cpu - start_P_cpu
+    palantir_metrics = _compute_results(mudata = new_data,
+                                    code = code,
+                                    seed = seed,
+                                    time_key = "pseudotime",
+                                    fate_key = "palantir_probabilities")
+    print(palantir_metrics)
+    terminal_states = []
+    for t, v in new_data.uns["terminal_states"].items():
+        terminal_states.extend(v)
+    for t, v in new_data.uns["initial_states"].items():
+        terminal_states.extend(v)
 
-        palantir_metrics = _compute_results(mudata = mudata,
-                                        code = code,
-                                        seed = seed,
-                                        time_key = "pseudotime",
-                                        fate_key = "palantir_probabilities")
-        with open(results_path, "a") as f:
-            fcntl.flock(f, fcntl.LOCK_EX)
-            pd.DataFrame([palantir_metrics]).to_csv(f, index=False, header=f.tell() == 0)
-            fcntl.flock(f, fcntl.LOCK_UN)
+    new_data.obs["is_TI"] = new_data.obs_names.isin(terminal_states)
+    mu.pl.embedding(new_data, basis="X_umap", color = ["is_TI"], save = "e18_palantir_selected_states.png")
  
-        _get_plots(mudata = mudata,
-                code = code,
-                time_key = "pseudotime",
-                fate_key = "palantir_probabilities",
-                seed = seed,
-                ti_stategy = "palantir")
+    _get_plots(mudata = new_data,
+            code = code,
+            time_key = "pseudotime",
+            fate_key = "palantir_probabilities",
+            seed = seed,
+            ti_strategy = "palantir")
 
-        # rename not to overwrite + adjust colnames for saving purposes 
-        mudata.obs["palantir_SHE"] = mudata.obs["shannon_entropy"]
-        mudata.obs["palantir_KL"] = mudata.obs["kl_divergence"]
-        mudata.uns["palantir_terminal_states"] = mudata.uns["terminal_states"]
-        mudata.uns["palantir_initial_states"] = mudata.uns["initial_states"]
-        mudata.uns["palantir_fate_colors"] = mudata.uns["fate_state_colors"] 
-        mudata.obsm["DM_EigenVectors"].columns = [str(c) for c in mudata.obsm["DM_EigenVectors"].columns]
-        mudata.obsm["DM_EigenVectors_multiscaled"].columns = [str(c) for c in mudata.obsm["DM_EigenVectors_multiscaled"].columns]
+    # rename not to overwrite + adjust colnames for saving purposes 
+    new_data.obs["palantir_SHE"] = new_data.obs["shannon_entropy"]
+    new_data.obs["palantir_KL"] = new_data.obs["kl_divergence"]
+    new_data.uns["palantir_terminal_states"] = new_data.uns["terminal_states"]
+    new_data.uns["palantir_initial_states"] = new_data.uns["initial_states"]
+    new_data.uns["palantir_fate_colors"] = new_data.uns["fate_state_colors"] 
+    new_data.obsm["DM_EigenVectors"].columns = [str(c) for c in new_data.obsm["DM_EigenVectors"].columns]
+    new_data.obsm["DM_EigenVectors_multiscaled"].columns = [str(c) for c in new_data.obsm["DM_EigenVectors_multiscaled"].columns]
 
-    except Exception as e:
-        if tracemalloc.is_tracing():
-            tracemalloc.stop()
-        palantir_wall, palantir_cpu, palantir_mem_peak = np.nan, np.nan, np.nan
-        print(e)
-        
+    cex = CellRankExtension(mudata=new_data)
+    cex.compute_kernel(connectivity_key = "wnn_connectivities",
+                    time_key = "pseudotime",
+                    cluster_key = "celltype",
+                    n_jobs = -1)
+    cex.run(n_states = n_states,
+        use_petsc = True,
+        allow_overlap = False,
+        n_jobs = -1)
 
-    try:
-        start_C_wall, start_C_cpu = time.perf_counter(), time.process_time()
-        tracemalloc.start()
-        cex = CellRankExtension(mudata=mudata)
-        cex.compute_kernel(connectivity_key = "wnn_connectivities",
-                        time_key = "pseudotime",
-                        cluster_key = "celltype",
-                        n_jobs = threads)
-        cex.run(n_states = None, #automatically infer using minChi
-            use_petsc = True,
-            allow_overlap = True,
-            n_jobs = threads)
+    pseudotimeK_metrics = _compute_results(mudata = new_data,
+                                    code = code,
+                                    seed = seed,
+                                    time_key = "pseudotime",
+                                    fate_key = "fate_probabilities")
+    print(new_data.uns["terminal_states"])
+    print(pseudotimeK_metrics)
+    terminal_states = []
+    for t, v in new_data.uns["terminal_states"].items():
+        terminal_states.extend(v)
+    for t, v in new_data.uns["initial_states"].items():
+        terminal_states.extend(v)
 
-        _, cellrank_mem_peak = tracemalloc.get_traced_memory()
-        cellrank_mem_peak = cellrank_mem_peak / (1024 * 1024)  # bytes -> MiB
-        end_C_wall, end_C_cpu = time.perf_counter(), time.process_time()
-        cellrank_wall, cellrank_cpu = end_C_wall - start_C_wall, end_C_cpu - start_C_cpu
+    new_data.obsm["is_TI"] = new_data.obs_names.isin(terminal_states)
+    mu.pl.embedding(new_data, basis="X_umap", color = ["is_TI"], save = "e18_pseudotimeK_selected_states.png")
 
-        mudata = cex.mudata
-        pseudotimeK_metrics = _compute_results(mudata = mudata,
-                                        code = code,
-                                        seed = seed,
-                                        time_key = "pseudotime",
-                                        fate_key = "fate_probabilities")
-        with open(results_path, "a") as f:
-            fcntl.flock(f, fcntl.LOCK_EX)
-            pd.DataFrame([pseudotimeK_metrics]).to_csv(f, index=False, header=f.tell() == 0)
-            fcntl.flock(f, fcntl.LOCK_UN)
+    dt = new_data.uns["terminal_states"]
+    cell_to_label = {cell: label for label, cells in dt.items() for cell in cells}
+    new_data.obs["is_TI"] = new_data.obs_names.map(cell_to_label)
+    macrostate_composition_T = new_data.obs[["celltype", "is_TI"]].groupby(["celltype", "is_TI"]).size()
+    print(macrostate_composition_T)
 
-        _get_plots(mudata = mudata,
-                code = code,
-                time_key = "pseudotime",
-                fate_key = "fate_probabilities",
-                seed = seed,
-                ti_stategy = "pseudotimeK")
+    dt = new_data.uns["initial_states"]
+    cell_to_label = {cell: label for label, cells in dt.items() for cell in cells}
+    new_data.obs["is_TI"] = new_data.obs_names.map(cell_to_label)
+    macrostate_composition_I = new_data.obs[["celltype", "is_TI"]].groupby(["celltype", "is_TI"]).size()
+    print(macrostate_composition_I)
 
+    _get_plots(mudata = new_data,
+            code = code,
+            time_key = "pseudotime",
+            fate_key = "fate_probabilities",
+            seed = seed,
+            ti_strategy = "pseudotimeK")
 
-    except Exception as e:
-        if tracemalloc.is_tracing():
-            tracemalloc.stop()
-        cellrank_wall, cellrank_cpu, cellrank_mem_peak = np.nan, np.nan, np.nan
-        print(e)
+    avg_pseudotime = new_data.obs[["celltype", "pseudotime"]].groupby("celltype").mean()
+    print(avg_pseudotime)
 
 
+    new_data.obs["pseudotimeK_SHE"] = new_data.obs["shannon_entropy"]
+    new_data.obs["pseudotimeK_KL"] = new_data.obs["kl_divergence"]
+    new_data.uns["pseudotimeK_terminal_states"] = new_data.uns["terminal_states"]
+    new_data.uns["pseudotimeK_initial_states"] = new_data.uns["initial_states"]
+    if "intermediate_states" in new_data.uns:
+        new_data.uns["pseudotimeK_intermediate_states"] = new_data.uns["intermediate_states"]
+    new_data.uns["pseudotimeK_fate_colors"] = new_data.uns["fate_state_colors"] 
+    new_data.obsm["pseudotimeK_fate_probabilities"] =new_data.obsm["fate_probabilities"]
 
-    resources = {"code": code,
-                "preprocessing_peak": preprocessing_mem_peak,
-                "preprocessing_wall": preprocessing_wall,
-                "preprocessing_cpu": preprocessing_cpu,
-                "palantir_peak": palantir_mem_peak,
-                "palantir_wall": palantir_wall,
-                "palantir_cpu": palantir_cpu,
-                "pseudotime_peak": cellrank_mem_peak,
-                "pseudotime_wall": cellrank_wall,
-                "pseudotime_cpu": cellrank_cpu,
-    } 
 
-    with open(resource_path, "a") as f:
-        fcntl.flock(f, fcntl.LOCK_EX)
-        pd.DataFrame([resources]).to_csv(f, index=False, header=f.tell() == 0)
-        fcntl.flock(f, fcntl.LOCK_UN)
-
-    
-    mudata.write(os.path.join(output_dir, f"{code}.h5mu"))
+    new_data.write(os.path.join(output_dir, f"{code}.h5mu"))
 

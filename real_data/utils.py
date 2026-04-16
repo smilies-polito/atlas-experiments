@@ -1,5 +1,97 @@
 import atlas
+import scipy
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import to_hex
 from muon import MuData
+from anndata import AnnData
+
+
+def _compute_outlier(adata: AnnData, 
+                metric: str,
+                nmads: int):
+    M = adata.obs[metric]
+    outlier = (
+                        (M < np.median(M) - nmads * median_abs_deviation(M)) | (
+                         np.median(M) + nmads * median_abs_deviation(M) < M)
+                )
+    return outlier
+
+
+def compute_entropy(data: MuData, fate_prob_key:str="palantir_fate_probabilities"):
+    """Function mimicking ATLAS entropy computation"""
+    def _minmax(x:np.ndarray) -> np.ndarray:
+        if np.max(x) == np.min(x):
+            return np.zeros_like(x)
+        return (x- np.min(x)) / (np.max(x) - np.min(x))
+
+    probs = data.obsm.get(fate_prob_key, None)
+    if probs is None:
+        raise ValueError("Compute fate probabilities before running entropy")
+
+    if not isinstance(probs, pd.DataFrame):
+        raise ValueError("Fate probabilities not a DataFrame")
+
+    if (probs.shape[1] == 0
+        or np.any(probs.sum(axis=1) == 0)
+        or np.any(probs.sum(axis=0) == 0)):
+        warnings.warn("No terminal states or cells with no developmental probability or state without assignment")
+        data.obs["shannon_entropy"] = np.nan
+        data.obs["kl_divergence"] = np.nan
+        return
+    shannon_entropy = scipy.stats.entropy(probs, axis=1)
+    average_distribution = np.mean(probs, axis=0)
+    kl_divergence = np.nan_to_num(scipy.stats.entropy(probs, average_distribution, axis=1, base=2),
+                            nan=1.0,
+                            copy=False)
+    shannon_entropy, kl_divergence = _minmax(shannon_entropy), _minmax(kl_divergence)
+    data.obs["shannon_entropy"] = pd.Series(shannon_entropy, index = data.obs.index)
+    data.obs["kl_divergence"] = pd.Series(kl_divergence, index = data.obs.index)
+
+def  _create_ts_dict(data:AnnData, fate_prob_key:str, cluster_key: str) -> dict:
+    """Function creating terminal and initial states dicts from fate probabilities"""
+    if fate_prob_key not in data.obsm or data.obsm[fate_prob_key] is None or data.obsm[fate_prob_key].shape[1] == 0:
+        return {}
+    terminal_cells = data.obsm[fate_prob_key].columns
+    clusters = {}
+    for cell in terminal_cells: 
+        cluster = data.obs.loc[cell, cluster_key]
+        if cluster not in clusters:
+            clusters[cluster] = []
+        clusters[cluster].append(cell)
+    return clusters
+
+def _invert_assignment(assignment):
+    """Utility function for creating terminal/initial states from CellRank output"""
+    if not isinstance(assignment.dtype, pd.CategoricalDtype):
+        assignment = assignment.astype("category")
+
+    inverted_assignment= { state: assignment.index[assignment==state].tolist()
+                                for state in assignment.cat.categories}
+    return inverted_assignment
+
+def _assign_state_colors(mudata: MuData, cmap: str = "tab20"):
+    """Function that assigns colors to the terminal/initial states"""
+    all_states = set()
+    if "fate_state_colors" not in mudata.uns:
+        mudata.uns["fate_state_colors"] = {}
+    color_map = mudata.uns["fate_state_colors"]
+
+    for key in ["terminal_states", "initial_states", "intermediate_states"]:
+        states = mudata.uns.get(key, None)
+        if isinstance(states, dict):
+            all_states.update(states.keys())
+
+    new_states = [s for s in all_states if s not in color_map]
+    if not new_states:
+        return
+
+    base_colors = plt.get_cmap(cmap).colors
+    for state in sorted(new_states):
+        idx = len(color_map)
+        color = base_colors[idx % len(base_colors)]
+        color_map[state] = to_hex(color)
 
 
 def _compute_results(mudata: MuData,

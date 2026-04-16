@@ -7,19 +7,8 @@ import scanpy as sc
 import seaborn as sns
 import muon.atac as ac
 import matplotlib.pyplot as plt
+from .utils import _compute_outlier
 from muon import MuData
-from anndata import AnnData
-from scipy.stats import median_abs_deviation
-
-def _compute_outlier(adata: AnnData, 
-                metric: str,
-                nmads: int):
-    M = adata.obs[metric]
-    outlier = (
-                        (M < np.median(M) - nmads * median_abs_deviation(M)) | (
-                         np.median(M) + nmads * median_abs_deviation(M) < M)
-                )
-    return outlier
 
 
 if __name__=="__main__":
@@ -49,7 +38,7 @@ if __name__=="__main__":
     rna.var = pd.merge(rna.var, gene_metadata, left_on="gene_ids", right_on = "id", how="left").drop(["id", "type"], axis=1).set_index("symbol")
     rna.var_names_make_unique()
     features = rna[:, rna.var["Chromosome"].isin(valid_chr)].var[["Chromosome", "Start", "End"]]
-    features.to_csv(feature_path, sep="\t", index = False)
+    features.to_csv(feature_path, sep="\t", index =True)
 
     atac = data[:, ~(data.var["feature_types"]=="Gene Expression")].copy()    
     ac.tl.locate_fragments(atac, fragment_file_path)
