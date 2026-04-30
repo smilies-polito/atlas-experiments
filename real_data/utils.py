@@ -2,10 +2,12 @@ import atlas
 import scipy
 import pandas as pd
 import numpy as np
+import warnings
 import matplotlib.pyplot as plt
 from matplotlib.colors import to_hex
 from muon import MuData
 from anndata import AnnData
+from scipy.stats import median_abs_deviation
 
 
 def _compute_outlier(adata: AnnData, 
@@ -243,13 +245,17 @@ def _get_plots(mudata: MuData,
     save = f"_tree_{code}_{ti_strategy}.png"
     try: 
         atlas.pl.plot_tree(mudata = mudata,
-                            embedding = embedding_key,
+                            embedding_key = embedding_key,
                             fate_probability_key = fate_key,
                             time_key = time_key,
                             random_state = seed,
                             save = save)
     except Exception as e:
         print(ti_strategy, code, e)
+
+
+
+
 
 
 

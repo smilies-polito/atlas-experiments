@@ -16,7 +16,7 @@ if __name__=="__main__":
     working_dir = os.getcwd()
     np.random.seed(seed)
     n_pcs_rna, n_pcs_act = 20, 10
-    knn_rna, knn_act, wnn = 20,20,20
+    knn_rna, knn_act, wnn = 15, 15, None
 
     data_path = os.path.join(working_dir, "data", "embryonic_mouse_brain")
     output_path = os.path.join(working_dir, "output", "embryonic_mouse_brain")

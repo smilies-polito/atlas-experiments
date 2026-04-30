@@ -17,11 +17,16 @@ if __name__=="__main__":
     rng = np.random.default_rng(seed)
     np.random.seed(seed)
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--n_states", type=int, default=6)
+    args = parser.parse_args()
+    n_states = args.n_states
+    allow_overlap = True if n_states == 6 else False
+
     #args 
     knn_rna, knn_act, wnn = 15, 15, None
     n_pcs_rna, n_pcs_act= 20, 10
     code = f"{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_hard"
-    n_states = 6
 
     working_dir = os.getcwd()
     output_dir = os.path.join(working_dir, "output", "embryonic_mouse_brain")
@@ -45,7 +50,6 @@ if __name__=="__main__":
     mu.tl.louvain(new_data)
     mu.pl.embedding(new_data, basis = "X_umap", color=["louvain", "celltype"], save =f"{code}_cluster.png")
 
-
     # TRAJECTORY INFERENCE USING PALANTIR
     pex = PalantirExtension(mudata = new_data)
     pex.compute_kernel()
@@ -59,6 +63,8 @@ if __name__=="__main__":
                 terminal_states = None,
                 n_jobs = -1,
                 random_state = seed)
+    avg_pseudotime = new_data.obs[["pseudotime", "celltype"]].groupby("celltype").mean()
+    print(avg_pseudotime)
 
     palantir_metrics = _compute_results(mudata = new_data,
                                     code = code,
@@ -68,8 +74,6 @@ if __name__=="__main__":
     print(palantir_metrics)
     terminal_states = []
     for t, v in new_data.uns["terminal_states"].items():
-        terminal_states.extend(v)
-    for t, v in new_data.uns["initial_states"].items():
         terminal_states.extend(v)
 
     new_data.obs["is_TI"] = new_data.obs_names.isin(terminal_states)
@@ -98,7 +102,7 @@ if __name__=="__main__":
                     n_jobs = -1)
     cex.run(n_states = n_states,
         use_petsc = True,
-        allow_overlap = False,
+        allow_overlap = allow_overlap,
         n_jobs = -1)
 
     pseudotimeK_metrics = _compute_results(mudata = new_data,
@@ -106,28 +110,7 @@ if __name__=="__main__":
                                     seed = seed,
                                     time_key = "pseudotime",
                                     fate_key = "fate_probabilities")
-    print(new_data.uns["terminal_states"])
     print(pseudotimeK_metrics)
-    terminal_states = []
-    for t, v in new_data.uns["terminal_states"].items():
-        terminal_states.extend(v)
-    for t, v in new_data.uns["initial_states"].items():
-        terminal_states.extend(v)
-
-    new_data.obsm["is_TI"] = new_data.obs_names.isin(terminal_states)
-    mu.pl.embedding(new_data, basis="X_umap", color = ["is_TI"], save = "e18_pseudotimeK_selected_states.png")
-
-    dt = new_data.uns["terminal_states"]
-    cell_to_label = {cell: label for label, cells in dt.items() for cell in cells}
-    new_data.obs["is_TI"] = new_data.obs_names.map(cell_to_label)
-    macrostate_composition_T = new_data.obs[["celltype", "is_TI"]].groupby(["celltype", "is_TI"]).size()
-    print(macrostate_composition_T)
-
-    dt = new_data.uns["initial_states"]
-    cell_to_label = {cell: label for label, cells in dt.items() for cell in cells}
-    new_data.obs["is_TI"] = new_data.obs_names.map(cell_to_label)
-    macrostate_composition_I = new_data.obs[["celltype", "is_TI"]].groupby(["celltype", "is_TI"]).size()
-    print(macrostate_composition_I)
 
     _get_plots(mudata = new_data,
             code = code,
@@ -136,9 +119,19 @@ if __name__=="__main__":
             seed = seed,
             ti_strategy = "pseudotimeK")
 
-    avg_pseudotime = new_data.obs[["celltype", "pseudotime"]].groupby("celltype").mean()
-    print(avg_pseudotime)
+    avg_pseudotime = { k: new_data.obs.loc[cells, "pseudotime"].mean() for k, cells in new_data.uns["terminal_states"].items()}
+    print("terminal", avg_pseudotime)
+    avg_pseudotime = { k: new_data.obs.loc[cells, "pseudotime"].mean() for k, cells in new_data.uns["intermediate_states"].items()}
+    print("intermediate", avg_pseudotime)
+    avg_pseudotime = { k: new_data.obs.loc[cells, "pseudotime"].mean() for k, cells in new_data.uns["initial_states"].items()}
+    print("initial", avg_pseudotime)
 
+    new_data.obs["inferred"] = "other"
+    for k,v in new_data.uns["initial_states"].items():
+        new_data.obs.loc[v, "inferred"] = "initial"
+    for k,v in new_data.uns["intermediate_states"].items():
+        new_data.obs.loc[v, "inferred"] = "intermediate"
+    mu.pl.embedding(new_data, basis="X_umap", color = ["inferred"], palette = {"initial":"red", "intermediate": "blue", "other":"grey"}, save = "e18_pseudotimeK_selected_states.png")
 
     new_data.obs["pseudotimeK_SHE"] = new_data.obs["shannon_entropy"]
     new_data.obs["pseudotimeK_KL"] = new_data.obs["kl_divergence"]
@@ -150,5 +143,5 @@ if __name__=="__main__":
     new_data.obsm["pseudotimeK_fate_probabilities"] =new_data.obsm["fate_probabilities"]
 
 
-    new_data.write(os.path.join(output_dir, f"{code}.h5mu"))
+    new_data.write(os.path.join(output_dir, f"{code}_{n_states}states.h5mu"))
 
