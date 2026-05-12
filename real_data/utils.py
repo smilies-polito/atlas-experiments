@@ -1,13 +1,16 @@
+import os
 import atlas
 import scipy
 import pandas as pd
 import numpy as np
 import warnings
 import matplotlib.pyplot as plt
-from matplotlib.colors import to_hex
+import matplotlib.patches as patches
 from muon import MuData
 from anndata import AnnData
+from matplotlib.colors import to_hex
 from scipy.stats import median_abs_deviation
+from matplotlib.colors import LinearSegmentedColormap
 
 
 def _compute_outlier(adata: AnnData, 
@@ -254,6 +257,104 @@ def _get_plots(mudata: MuData,
         print(ti_strategy, code, e)
 
 
+def _compute_enrichment(pseudotime: pd.Series, 
+                        cells: list,
+                        rank: bool = True) -> float:
+    m = pseudotime.rank(method="average")
+    if len(m) > 1:
+        m = (m - 1) / (len(m) - 1)
+    else:
+        m = pd.Series(0.0, index=pseudotime.index)
+
+    m_global = m.median()
+    return m.loc[cells].median() - m_global
+
+
+def _plot_anova_results(data: pd.DataFrame,
+                        alpha: float = 0.05,
+                        cmap:str = "BuGn",
+                        algorithm: str = "palantir",
+                        save:bool = True):
+    all_terms = list(data["term"].unique())
+    main = [t for t in all_terms if ":" not in t]
+    inter = [t for t in all_terms if ":" in t]
+    terms = main + inter
+    metrics = list(data["metric"].unique())
+
+    n_main = sum(1 for t in terms if ":" not in t)
+
+    term_labels = {t : t.replace("C(", "").replace(")", "").replace(":", " x ") 
+                        for t in terms
+                    }
+    val_mat = (
+            data.pivot(index="metric", columns = "term", values = "eta2").
+            reindex(index=metrics, columns=terms)
+    )
+
+    p_mat = (
+            data.pivot(index="metric", columns = "term", values = "p_value").
+            reindex(index=metrics, columns=terms)
+    )
+
+    n_rows, n_cols = val_mat.shape
+    figsize = (1.1 * n_cols + 3.5, 0.45 * n_rows + 1.5)
+    fig, ax = plt.subplots(figsize=figsize)
+
+    vmin, vmax = 0,1
+    im = ax.imshow(val_mat.values, cmap=cmap, vmin=0, vmax=vmax, aspect="auto")
+
+    ax.set_xticks(np.arange(n_cols))
+    ax.set_xticklabels([term_labels[t] for t in terms], rotation=30, ha="right")
+    ax.set_yticks(np.arange(n_rows))
+    ax.set_yticklabels(metrics)
+
+    if 0 < n_main < n_cols:
+         ax.axvline(n_main - 0.5, color="#666", linewidth=1.2)
+         ax.annotate("Direct effects",
+            xy=((n_main - 1) / 2, -0.5),
+            xytext=(0, 28), textcoords="offset points",
+            xycoords=("data", "data"),
+            ha="center", va="bottom", fontsize=10, color="#555",
+             )
+         ax.annotate("Interactions effects",
+            xy=(n_main + (n_cols - n_main -1) / 2, -0.5),
+            xytext=(0, 28), textcoords="offset points",
+            xycoords=("data", "data"),
+            ha="center", va="bottom", fontsize=10, color="#555",
+             )
+    
+    for i in range(n_rows):
+        for j in range(n_cols):
+            v = val_mat.values[i,j]
+            if np.isnan(v):
+                continue
+            color = "white" if v/vmax > 0.5 else "#26215C"
+            ax.text(j, i, format(v, ".2f"), ha="center", va="center",
+                        fontsize=9, color=color)
+
+            p = p_mat.values[i,j]
+            if not np.isnan(p) and p<alpha:
+                rect = patches.Rectangle(
+                        (j-0.5, i-0.5), 1, 1,
+                        linewidth = 1.8, edgecolor="#26215C", facecolor="none"
+                        )
+                ax.add_patch(rect)
+
+    ax.set_xlabel("")
+    ax.set_ylabel("")
+    ax.tick_params(top = False, bottom=False, left = False, right = False)
+    for spine in ax.spines.values():
+            spine.set_visible(False)
+    cbar = fig.colorbar(im, ax=ax, fraction=0.025, pad=0.02)
+    cbar_label = "η²" 
+    cbar.set_label(cbar_label, fontsize=10)
+    cbar.outline.set_visible(False)
+    fig.tight_layout()
+     
+    if save:
+        plt.savefig(os.path.join(os.getcwd(), "figures", f"{algorithm}_eta2.png"))
+    else:
+        plt.show()
 
 
 

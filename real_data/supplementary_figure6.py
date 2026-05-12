@@ -1,5 +1,6 @@
 import os
 import atlas
+import argparse
 import pandas as pd
 import numpy as np 
 import muon as mu
@@ -13,12 +14,23 @@ from .utils import _compute_results, _get_plots, _assign_state_colors, _invert_a
 if __name__ == "__main__":
     seed = 42
     np.random.seed(seed) 
-    n_states = 8
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--n_states", type=int, default=4)
+    args = parser.parse_args()
+    n_states = args.n_states
+    allow_overlap = True
     
-    output_path = os.path.join("output", "mouse_skin")
-    multi_path = os.path.join(output_path, "20:10_15:15:None_hard.h5mu")
+    output_path = os.path.join("output", "mouse_hair")
+    multi_path = os.path.join(output_path, f"20:10_15:15:None_hard_{n_states}states.h5mu")
 
     data = mu.read_h5mu(multi_path)
+
+    # Reset states slots from ATLAS run
+    reset_states = ["initial_states", "intermediate_states", "terminal_states"]
+    for state in reset_states:
+        if state in data.uns.keys():
+            data.uns[state] = {}
 
     # Select initial cell for Palantir computation to be the same aused in ATLAS
     early_cell = data.uns["palantir_initial_states"]["TAC-1"][0]
@@ -52,27 +64,32 @@ if __name__ == "__main__":
     data.obsm["rna_fates_palantir"] = rna.obsm["rna_fates_palantir"]
     data.obs["rna_pseudotime"] = rna.obs["rna_pseudotime"].copy().reindex(data.obs.index)
 
+    print(data.obs[["celltype", "rna_pseudotime"]].groupby("celltype").mean())
+
     compute_entropy(data = data, fate_prob_key="rna_fates_palantir")
 
     # Identify terminal states
-    terminal_states = []
+    terminal_rna = []
     for k, v in data.uns["terminal_states"].items():
-        terminal_states.extend(v)
-    for k, v in data.uns["initial_states"].items():
-        terminal_states.extend(v)
+        terminal_rna.extend(v)
 
-    data.obs["rna_palantir_terminal"] = data.obs_names.isin(terminal_states)
-    mu.pl.embedding(data, basis="X_umap", color=["rna_palantir_terminal"], save = "_skin_rna_terminal_palantir.png")
+    data.obs["is_TI_rna"] = data.obs_names.isin(terminal_rna)
+    mu.pl.embedding(data, basis="X_umap", color=["is_TI_rna"], save = "_MH_rna_terminal_palantir.png")
 
     # Compute metrics
-    palantir_metrics = _compute_results(mudata = data,
+    metrics = _compute_results(mudata = data,
                         code = "rna",
                         seed = seed, 
                         time_key = "rna_pseudotime",
                         fate_key = "rna_fates_palantir")
-    print(palantir_metrics)
-    avg_pseudotime = data.obs[["celltype", "rna_pseudotime"]].groupby("celltype").mean()
+    print(metrics)
+
+    avg_pseudotime = data.obs.loc[terminal_rna, "rna_pseudotime"]
     print(avg_pseudotime)
+
+    data.uns["rna_palantir_initial"] = data.uns["initial_states"]
+    data.uns["rna_palantir_terminal"] = data.uns["terminal_states"]
+    data.uns["rna_palantir_colors"] = data.uns["fate_state_colors"]
     
     # Plots
     _get_plots(mudata = data,
@@ -92,8 +109,8 @@ if __name__ == "__main__":
     g = cellrank.estimators.GPCCA(kernel)
     g.compute_schur()
     g.compute_macrostates(n_states=n_states, cluster_key = "celltype")
-    g.predict_terminal_states(allow_overlap=True)
-    g.predict_initial_states(allow_overlap=True)
+    g.predict_terminal_states(allow_overlap=allow_overlap)
+    g.predict_initial_states(allow_overlap=allow_overlap)
     g.compute_fate_probabilities(use_petsc=True, n_jobs=-1)
     data.obsm["rna_fates_cellrank"] = pd.DataFrame(g.fate_probabilities.X,
                                                     index = rna.obs_names,
@@ -103,22 +120,33 @@ if __name__ == "__main__":
     _assign_state_colors(data)
     compute_entropy(data = data, fate_prob_key="rna_fates_cellrank")
 
-    terminal_states = []
-    for k, v in data.uns["terminal_states"].items():
-        terminal_states.extend(v)
-    for k, v in data.uns["initial_states"].items():
-        terminal_states.extend(v)
+    terminal = data.uns["terminal_states"]
+    avg = {k: data.obs.loc[cell, "rna_pseudotime"].mean() for k, cell in terminal.items()}
+    print("terminal", avg)
+    initial = data.uns["initial_states"]
+    avg = {k: data.obs.loc[cell, "rna_pseudotime"].mean() for k, cell in initial.items()}
+    print("initial", avg)
+    intermediate = data.uns["intermediate_states"]
+    if len(intermediate)>0:
+        avg = {k: data.obs.loc[cell, "rna_pseudotime"].mean() for k, cell in intermediate.items()}
+        print("intermediate", avg)
+    else:
+        print("NO INTERMEDIATE CELLS DETECTED")
 
-    data.obs["rna_pseudotimeK_terminal"] = data.obs_names.isin(terminal_states)
-    mu.pl.embedding(data, basis="X_umap", color=["rna_pseudotimeK_terminal"], save = "_skin_pseudotimeK_rna_states.png")
+    data.obs["is_TI_rna"] = "other"
+    for k, cells in initial.items():
+        data.obs.loc[cells, "is_TI_rna"] = "initial"
+    for k, cells in intermediate.items():
+        data.obs.loc[cells, "is_TI_rna"] = "intermediate"
+    mu.pl.embedding(data, basis="X_umap", color=["is_TI_rna"], palette={"initial":"red", "intermediate":"blue", "other":"grey"}, save = "_MH_pseudotimeK_rna_states.png")
 
     # Compute metrics
-    pseudotimeK_metrics = _compute_results(mudata = data,
+    metrics = _compute_results(mudata = data,
                         code = "rna",
                         seed = seed, 
                         time_key = "rna_pseudotime",
                         fate_key = "rna_fates_cellrank")
-    print(pseudotimeK_metrics)
+    print(metrics)
     
     # Plots
     _get_plots(mudata = data,
@@ -129,22 +157,9 @@ if __name__ == "__main__":
             seed = seed,
             ti_strategy = "pseudotime-kernel")
     
-
-    dt = data.uns["terminal_states"]
-    cell_to_label = {cell: label for label, cells in dt.items() for cell in cells}
-    data.obs["terminal_composition"] = data.obs_names.map(cell_to_label)
-    macrostate_composition_T = data.obs[["celltype", "terminal_composition"]].groupby(["celltype", "terminal_composition"]).size().to_frame()
-
-
-    dt = data.uns["initial_states"]
-    cell_to_label = {cell: label for label, cells in dt.items() for cell in cells}
-    data.obs["initial_composition"] = data.obs_names.map(cell_to_label)
-    macrostate_composition_I = data.obs[["celltype", "initial_composition"]].groupby(["celltype", "initial_composition"]).size().to_frame()
-    print(macrostate_composition_I)
-    print(macrostate_composition_T)
-
-
-
+    data["rna"].obsm["DM_EigenVectors"].columns = [str(c) for c in data["rna"].obsm["DM_EigenVectors"].columns]
+    data["rna"].obsm["DM_EigenVectors_multiscaled"].columns = [str(c) for c in data["rna"].obsm["DM_EigenVectors_multiscaled"].columns]
+    data.write_h5mu(os.path.join(output_path, f"rna_{n_states}.h5mu"))
 
 
 

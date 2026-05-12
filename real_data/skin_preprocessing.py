@@ -35,8 +35,8 @@ if __name__=="__main__":
     working_dir = os.getcwd()
     np.random.seed(seed)
 
-    data_path = os.path.join(working_dir, "data", "mouse_skin")
-    output_path = os.path.join(working_dir, "output", "mouse_skin")
+    data_path = os.path.join(working_dir, "data", "mouse_hair")
+    output_path = os.path.join(working_dir, "output", "mouse_hair")
     rna_matrix = os.path.join(data_path, "GSM4156608_skin.late.anagen.rna.counts.txt")
     atac_matrix = os.path.join(data_path, "GSM4156597_skin.late.anagen.counts.txt")
     barcodes = os.path.join(data_path, "GSM4156597_skin.late.anagen.barcodes.txt") 
@@ -120,13 +120,13 @@ if __name__=="__main__":
 
     sc.pl.violin(rna, 
                 ["total_counts", "pct_counts_mt", "n_genes_by_counts"],
-                multi_panel = True, save = "SKIN_rna_violin.png")
+                multi_panel = True, save = "MH_rna_violin.png")
     sc.pl.scatter(rna, 
                     x = "total_counts",
                     y = "n_genes_by_counts",
                     color = "pct_counts_mt",
                     show = True,
-                    save = "SKIN_rna_QC.png")
+                    save = "MH_rna_QC.png")
     rna.obs["outlier"] = ( _compute_outlier(rna, "log1p_total_counts", 5) |
                             _compute_outlier(rna, "log1p_n_genes_by_counts", 5) |
                             (rna.obs["pct_counts_mt"] > 10)
@@ -138,7 +138,7 @@ if __name__=="__main__":
     atac.obs["nuc_filter"] = ["NUC_FAIL" if ns > nuc_threshold else "NUC_PASS" for ns in atac.obs["nucleosome_signal"] ]
     fig, axs = plt.subplots(figsize=(7, 3.5))
     sns.histplot(atac.obs, x="nucleosome_signal", ax=axs)
-    plt.savefig(os.path.join(os.getcwd(), "figures", "SKIN_nuc.png"))
+    plt.savefig(os.path.join(os.getcwd(), "figures", "MH_nuc.png"))
     plt.close()
 
     atac.obs["outlier"] = atac.obs["nuc_filter"] == "NUC_FAIL"
@@ -165,10 +165,10 @@ if __name__=="__main__":
     sc.pp.highly_variable_genes(data["rna"], n_top_genes = 2000)
     sc.pp.pca(data["rna"], random_state=seed)
     sc.pp.pca(data["activity"], random_state=seed)
-    sc.pl.pca_variance_ratio(data["rna"], save = "SKIN_rna_pca.png")     
-    sc.pl.pca_variance_ratio(data["activity"], save = "SKIN_activity_pca.png")     
+    sc.pl.pca_variance_ratio(data["rna"], save = "MH_rna_pca.png")     
+    sc.pl.pca_variance_ratio(data["activity"], save = "MH_activity_pca.png")     
 
-    data.write(os.path.join(output_path, "skin.h5mu"))
+    data.write(os.path.join(output_path, "hair.h5mu"))
 
 
 

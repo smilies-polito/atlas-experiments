@@ -2,6 +2,7 @@ import os
 import json
 import time
 import atlas 
+import argparse 
 import numpy as np
 import pandas as pd
 import muon as mu
@@ -14,16 +15,19 @@ if __name__=="__main__":
     rng = np.random.default_rng(seed)
     np.random.seed(seed)
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--n_states", type=int, default=4)
+    args=parser.parse_args()
+    n_states = args.n_states
+    allow_overlap = True if n_states == 4 else False
+
     knn_rna, knn_act, wnn = 15, 15, None
     n_pcs_rna, n_pcs_act= 20, 10
     code = f"{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_hard"
-    n_states = 8
 
     working_dir = os.getcwd()
-    output_dir = os.path.join(working_dir, "output", "mouse_skin")
-    results_path = os.path.join(output_dir, "results.csv")
-    resource_path = os.path.join(output_dir, "resources.csv")
-    data_path = os.path.join(output_dir, "skin.h5mu")
+    output_dir = os.path.join(working_dir, "output", "mouse_hair")
+    data_path = os.path.join(output_dir, "hair.h5mu")
 
     mudata = mu.read_h5mu(data_path)
     # select palantir initial cell
@@ -38,7 +42,7 @@ if __name__=="__main__":
                 features = None)
     
     mu.tl.louvain(new_data)
-    mu.pl.embedding(new_data, basis = "X_umap", color=["louvain", "celltype"], save =f"_skin_{code}_cluster.png")
+    mu.pl.embedding(new_data, basis = "X_umap", color=["louvain", "celltype"], save =f"_MH_{code}_cluster.png")
 
 
     pex = PalantirExtension(mudata = new_data)
@@ -53,6 +57,8 @@ if __name__=="__main__":
                 terminal_states = None,
                 n_jobs = -1,
                 random_state = seed)
+    avg_pseudotime = new_data.obs[["pseudotime", "celltype"]].groupby("celltype").mean()
+    print(avg_pseudotime)
 
     palantir_metrics = _compute_results(mudata = new_data,
                                     code = code,
@@ -71,13 +77,8 @@ if __name__=="__main__":
     terminal_states = []
     for t,v in new_data.uns["terminal_states"].items():
         terminal_states.extend(v)
-    for t,v in new_data.uns["initial_states"].items():
-        terminal_states.extend(v)
-    new_data.obs["is_state_palantir"] = new_data.obs_names.isin(terminal_states)
-    mu.pl.embedding(new_data, basis="X_umap", color=["is_state_palantir"], save = "skin_palantir_selected_states.png")
-
-    avg_pseudotime = new_data.obs[["celltype", "pseudotime"]].groupby("celltype").mean()
-    print(avg_pseudotime)
+    new_data.obs["is_TI"] = new_data.obs_names.isin(terminal_states)
+    mu.pl.embedding(new_data, basis="X_umap", color=["is_TI"], save = "MH_palantir_selected_states.png")
 
     # rename not to overwrite + adjust colnames for saving purposes 
     new_data.obs["palantir_SHE"] = new_data.obs["shannon_entropy"]
@@ -96,7 +97,7 @@ if __name__=="__main__":
                     n_jobs = -1)
     cex.run(n_states = n_states, 
         use_petsc = True,
-        allow_overlap = False,
+        allow_overlap = allow_overlap,
         n_jobs = -1)
 
     pseudotimeK_metrics = _compute_results(mudata = new_data,
@@ -104,6 +105,7 @@ if __name__=="__main__":
                                     seed = seed,
                                     time_key = "pseudotime",
                                     fate_key = "fate_probabilities")
+    print(pseudotimeK_metrics)
 
     _get_plots(mudata = new_data,
             code = code,
@@ -111,26 +113,19 @@ if __name__=="__main__":
             fate_key = "fate_probabilities",
             seed = seed,
             ti_strategy = "pseudotimeK")
+    avg_pseudotime = {k: new_data.obs.loc[cells, "pseudotime"].mean() for k, cells in new_data.uns["terminal_states"].items()}
+    print("terminal",avg_pseudotime)
+    avg_pseudotime = {k: new_data.obs.loc[cells, "pseudotime"].mean() for k, cells in new_data.uns["intermediate_states"].items()}
+    print("intermediate",avg_pseudotime)
+    avg_pseudotime = {k: new_data.obs.loc[cells, "pseudotime"].mean() for k, cells in new_data.uns["initial_states"].items()}
+    print("initial",avg_pseudotime)
 
-    print(pseudotimeK_metrics)
-    terminal_states = []
-    for t,v in new_data.uns["terminal_states"].items():
-        terminal_states.extend(v)
-    for t,v in new_data.uns["initial_states"].items():
-        terminal_states.extend(v)
-    new_data.obs["is_state_pseudotimeK"] = new_data.obs_names.isin(terminal_states)
-    mu.pl.embedding(new_data, basis="X_umap", color=["is_state_pseudotimeK"], save="skin_pseudotimeK_selected_states")
-
-    dt = new_data.uns["terminal_states"]
-    cell_to_label = {cell: label for label, cells in dt.items() for cell in cells}
-    new_data.obs["terminal_composition"] = new_data.obs_names.map(cell_to_label)
-    macrostate_composition_T = new_data.obs[["celltype", "terminal_composition"]].groupby(["celltype", "terminal_composition"]).size().to_frame()
-
-    dt = new_data.uns["initial_states"]
-    cell_to_label = {cell: label for label, cells in dt.items() for cell in cells}
-    new_data.obs["initial_composition"] = new_data.obs_names.map(cell_to_label)
-    macrostate_composition_I = new_data.obs[["celltype", "initial_composition"]].groupby(["celltype", "initial_composition"]).size().to_frame()
-
+    new_data.obs["inferred"] = "other"
+    for k, v in new_data.uns["initial_states"].items():
+        new_data.obs.loc[v, "inferred"] = "initial"
+    for k, v in new_data.uns["intermediate_states"].items():
+        new_data.obs.loc[v, "inferred"] = "intermediate"
+    mu.pl.embedding(new_data, basis="X_umap", color = "inferred", palette={"initial":"red", "intermediate":"blue", "other":"grey"}, save = "MH_pseudotime_selected_states.png")
 
     new_data.obs["pseudotimeK_SHE"] = new_data.obs["shannon_entropy"]
     new_data.obs["pseudotimeK_KL"] = new_data.obs["kl_divergence"]
@@ -142,7 +137,4 @@ if __name__=="__main__":
     new_data.uns["pseudotimeK_fate_colors"] = new_data.uns["fate_state_colors"]
     new_data.obsm["pseudotimeK_fate_probabilities"] = new_data.obsm["fate_probabilities"]
     
-    print(macrostate_composition_I)
-    print(macrostate_composition_T)
-
-    new_data.write(os.path.join(output_dir, f"{code}.h5mu"))
+    new_data.write(os.path.join(output_dir, f"{code}_{n_states}states.h5mu"))
