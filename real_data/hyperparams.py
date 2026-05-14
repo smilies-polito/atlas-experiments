@@ -150,6 +150,7 @@ if __name__=="__main__":
 
     if failed: 
         pseudotimeK = _placeholder
+        pseudotimeK["macrostates"] = n_states
     else:
         pseudotimeK = _compute_results(mudata = new_data,
                                     code = code,

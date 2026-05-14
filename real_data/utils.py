@@ -270,38 +270,23 @@ def _compute_enrichment(pseudotime: pd.Series,
     return m.loc[cells].median() - m_global
 
 
-def _plot_anova_results(data: pd.DataFrame,
-                        alpha: float = 0.05,
-                        cmap:str = "BuGn",
-                        algorithm: str = "palantir",
-                        save:bool = True):
-    all_terms = list(data["term"].unique())
-    main = [t for t in all_terms if ":" not in t]
-    inter = [t for t in all_terms if ":" in t]
-    terms = main + inter
-    metrics = list(data["metric"].unique())
-
-    n_main = sum(1 for t in terms if ":" not in t)
-
-    term_labels = {t : t.replace("C(", "").replace(")", "").replace(":", " x ") 
-                        for t in terms
-                    }
-    val_mat = (
-            data.pivot(index="metric", columns = "term", values = "eta2").
-            reindex(index=metrics, columns=terms)
-    )
-
-    p_mat = (
-            data.pivot(index="metric", columns = "term", values = "p_value").
-            reindex(index=metrics, columns=terms)
-    )
-
-    n_rows, n_cols = val_mat.shape
+def _draw_panel(mat,
+                pval,
+                term_labels,
+                terms,
+                metrics,
+                n_main,
+                cbar_label: str = "eta2",
+                alpha: float = 0.05,
+                cmap: str = "BuGn",
+                algorithm: str= "palantir",
+                save: bool = True):
+    n_rows, n_cols = mat.shape
     figsize = (1.1 * n_cols + 3.5, 0.45 * n_rows + 1.5)
     fig, ax = plt.subplots(figsize=figsize)
-
     vmin, vmax = 0,1
-    im = ax.imshow(val_mat.values, cmap=cmap, vmin=0, vmax=vmax, aspect="auto")
+
+    im = ax.imshow(mat.values, cmap=cmap, vmin=0, vmax=vmax, aspect="auto")
 
     ax.set_xticks(np.arange(n_cols))
     ax.set_xticklabels([term_labels[t] for t in terms], rotation=30, ha="right")
@@ -322,17 +307,17 @@ def _plot_anova_results(data: pd.DataFrame,
             xycoords=("data", "data"),
             ha="center", va="bottom", fontsize=10, color="#555",
              )
-    
+
     for i in range(n_rows):
         for j in range(n_cols):
-            v = val_mat.values[i,j]
+            v = mat.values[i,j]
             if np.isnan(v):
                 continue
             color = "white" if v/vmax > 0.5 else "#26215C"
             ax.text(j, i, format(v, ".2f"), ha="center", va="center",
                         fontsize=9, color=color)
 
-            p = p_mat.values[i,j]
+            p = pval.values[i,j]
             if not np.isnan(p) and p<alpha:
                 rect = patches.Rectangle(
                         (j-0.5, i-0.5), 1, 1,
@@ -346,16 +331,63 @@ def _plot_anova_results(data: pd.DataFrame,
     for spine in ax.spines.values():
             spine.set_visible(False)
     cbar = fig.colorbar(im, ax=ax, fraction=0.025, pad=0.02)
-    cbar_label = "η²" 
     cbar.set_label(cbar_label, fontsize=10)
+
     cbar.outline.set_visible(False)
     fig.tight_layout()
      
     if save:
-        plt.savefig(os.path.join(os.getcwd(), "figures", f"{algorithm}_eta2.png"))
+        plt.savefig(os.path.join(os.getcwd(), "figures", f"{algorithm}_{cbar_label}.png"))
     else:
         plt.show()
 
+
+
+def _plot_anova_results(data: pd.DataFrame,
+                        alpha: float = 0.05,
+                        cmap:str = "BuGn",
+                        algorithm: str = "palantir",
+                        save:bool = True):
+    all_terms = list(data["term"].unique())
+    main = [t for t in all_terms if ":" not in t]
+    inter = [t for t in all_terms if ":" in t]
+    terms = main + inter
+    metrics = list(data["metric"].unique())
+
+    n_main = sum(1 for t in terms if ":" not in t)
+
+    term_labels = {t : t.replace("C(", "").replace(")", "").replace(":", " x ") 
+                        for t in terms
+                    }
+    eta_mat = (
+            data.pivot(index="metric", columns = "term", values = "eta2").
+            reindex(index=metrics, columns=terms)
+    )
+
+    omega_mat = (
+            data.pivot(index="metric", columns = "term", values = "omega2").
+            reindex(index=metrics, columns=terms)
+    )
+
+    p_mat = (
+            data.pivot(index="metric", columns = "term", values = "p_value").
+            reindex(index=metrics, columns=terms)
+    )
+
+    
+    _draw_panel(eta_mat, p_mat, term_labels, terms, metrics, n_main,
+                cbar_label= "eta2",
+                cmap = cmap,
+                alpha = alpha, 
+                algorithm = algorithm,
+                save = save)
+
+    _draw_panel(omega_mat, p_mat, term_labels, terms, metrics, n_main,
+                cbar_label= "omega2",
+                cmap = cmap,
+                alpha = alpha, 
+                algorithm = algorithm,
+                save = save)
 
 
 
