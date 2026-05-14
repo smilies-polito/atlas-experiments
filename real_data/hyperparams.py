@@ -41,7 +41,8 @@ _placeholder = {"code": None,
                 "intermediate_enrichment": None,
                 "initial_enrichment": None,
                 "strategy": None,
-                "failed": True
+                "failed": True,
+                "macrostates": None,
            }
 
 
@@ -65,9 +66,9 @@ if __name__=="__main__":
     n_states = args.states
 
     working_dir = os.getcwd()
-    output_dir = os.path.join(working_dir, "output", "mouse_skin")
+    output_dir = os.path.join(working_dir, "output", "mouse_hair")
     results_path = os.path.join(output_dir, "results.csv")
-    data_path = os.path.join(output_dir, "skin.h5mu")
+    data_path = os.path.join(output_dir, "hair.h5mu")
 
     mudata = mu.read_h5mu(data_path)
     # select palantir initial cell
@@ -114,6 +115,7 @@ if __name__=="__main__":
         palantirM["initial_enrichment"] = np.nan
         palantirM["strategy"] = "palantir"
         palantirM["failed"] = failed
+        palantirM["macrostates"] = np.nan
 
     with open(results_path, "a") as f:
         fcntl.flock(f, fcntl.LOCK_EX)
@@ -173,6 +175,8 @@ if __name__=="__main__":
             intermediate_enrichment = np.nan
         pseudotimeK["intermediate_enrichment"] = intermediate_enrichment
         pseudotimeK["strategy"] = "pseudotime-kernel"
+        pseudotimeK["failed"] = failed
+        pseudotimeK["macrostates"] = n_states
 
     with open(results_path, "a") as f:
         fcntl.flock(f, fcntl.LOCK_EX)
