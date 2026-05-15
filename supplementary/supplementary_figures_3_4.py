@@ -1,4 +1,5 @@
 import os
+import argparse
 import seaborn as sns
 import numpy as np
 import pandas as pd
@@ -69,7 +70,11 @@ SHORT_METRIC_RENOM = {"spearman_stat_pseudotime": "Spearman pseudo.",
 
 
 if __name__== "__main__":
-	algorithm = "palantir"
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--algorithm", type=str, default="palantir")
+    args = parser.parse_args()
+    algorithm = args.algorithm
+
 	output_path = os.path.join(os.getcwd(), "output", "simulations", algorithm)
 	path = os.path.join(output_path, "results.csv")
 	atlas = pd.read_csv(path)

@@ -1,9 +1,16 @@
 import os
 import atlas
+import argparse
 import numpy as np
 import muon as mu
 from typing import Literal
 from muon import MuData
+
+def _infer_organism(path:str):
+    if "mouse_brain" in path:
+        return "embryonic_mouse_brain"
+    else:
+        return "mouse_skin"
 
 def plot_regulation(mudata: MuData,
                         regs: dict,
@@ -48,12 +55,14 @@ if __name__=="__main__":
     seed = 42
     np.random.seed(seed)
 
-    organism = "mouse_skin"
-    strategy = "pseudotime-kernel"
-    output_dir = os.path.join("output", organism)
-    data_path = os.path.join(output_dir, "20:10_15:15:None_hard.h5mu")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--strategy", type=str, default = "palantir")
+    parser.add_argument("--h5mu", type=str)
+    args = parser.parse_args()
+    strategy, data_path = args.strategy, args.h5mu
+
     mudata = mu.read_h5mu(data_path) 
     
-    regs = REGULATION[organism]
+    regs = REGULATION[_infer_organism(data_path)]
 
     plot_regulation(mudata = mudata, regs = regs, strategy = strategy)

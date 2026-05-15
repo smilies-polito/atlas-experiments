@@ -1,0 +1,276 @@
+# =============================================================================
+# Snakemake pipeline – Palantir simulations over all parameter combinations
+#
+# Run from the scvemo/ directory:
+#   snakemake -n            # dry run
+#   snakemake --cores all   # fully parallel (CSV writes are file-locked)
+# =============================================================================
+
+DATA_DIR = "data"
+OUTPUT_DIR = "output"
+LOG_DIR = "logs"
+
+SIM_OUTPUT = f"{OUTPUT_DIR}/simulations"
+SIM_DATA = f"{DATA_DIR}/simulations"
+HUMAN_BRAIN_OUTPUT = f"{OUTPUT_DIR}/human_brain"
+HUMAN_BRAIN_DATA = f"{DATA_DIR}/human_brain"
+E18_BRAIN_OUTPUT = f"{OUTPUT_DIR}/embryonic_mouse_brain"
+E18_BRAIN_DATA = f"{DATA_DIR}/embryonic_mouse_brain"
+MOUSE_HAIR_OUTPUT = f"{OUTPUT_DIR}/mouse_hair"
+MOUSE_HAIR_DATA = f"{DATA_DIR}/mouse_hair"
+
+# WILDCARDS
+HB_REMOVED = {"brain": 0, "brainR": 1}
+HB_STATES = [5, 10]
+E18_STATES = [6, 12]
+MH_STATES = [4, 8]
+
+REAL_KNN_RNA = [10, 30, 50, 70]
+REAL_KNN_ACT = [10, 30, 50, 70]
+REAL_WNN = [10, 30, 50, 70]
+REAL_STATES = [4,5,6,7,8,9,10,11,12]
+
+ALGORITHM = ["pseudotime_kernel", "palantir"]
+
+# RULE ALL
+rule all:
+	input:
+		expand(f"{HUMAN_BRAIN_OUTPUT}/{{prefix}}.h5mu", 
+			prefix = HB_REMOVED.keys(),
+		),
+		E18_BRAIN_OUTPUT + "/features.tsv",
+		E18_BRAIN_OUTPUT + "/emb.h5mu",
+		MOUSE_HAIR_OUTPUT + "/features.tsv",
+		MOUSE_HAIR_OUTPUT + "/hair.h5mu",
+		expand( E18_BRAIN_OUTPUT + "/20:10_15:15:None_hard_{states}states.h5mu",
+			states = E18_STATES,
+		), 
+		expand( E18_BRAIN_OUTPUT + "/rna_{states}.h5mu",	
+			states = E18_STATES,
+		),
+		E18_BRAIN_OUTPUT + "/.supplementary_8.done",
+		expand( MOUSE_HAIR_OUTPUT + "/20:10_15:15:None_hard_{states}states.h5mu",
+			states = MH_STATES,
+		), 
+		expand( MOUSE_HAIR_OUTPUT + "/rna_{states}.h5mu",	
+			states = MH_STATES,
+		),
+		expand( HUMAN_BRAIN_OUTPUT + "/{prefix}_{states}.h5mu",
+			states = HB_STATES,
+			prefix = HB_REMOVED.keys(),
+		), 
+		expand( HUMAN_BRAIN_OUTPUT + "/rna_{prefix}_{states}.h5mu",
+			states = HB_STATES,
+			prefix = HB_REMOVED.keys(),
+		), 
+		MOUSE_HAIR_OUTPUT + "/.lineages.done",
+		expand( MOUSE_HAIR_OUTPUT + "/hyper_done/rna{real_rna}_act{real_act}_wnn{real_wnn}_states{real_states}.done",
+			real_rna = REAL_KNN_RNA,
+			real_act = REAL_KNN_ACT,
+			real_wnn = REAL_WNN,
+			real_states = REAL_STATES,
+		),
+#		expand( SIM_OUTPUT + "/ATLAS_{algorithm}_performance.done",
+#			algorithm = ALGORITHM
+#		),
+#		expand( SIM_OUTPUT + "/{algorithm}_benchmark.done",
+#			algorithm = ALGORITHM
+#		),
+
+
+
+# BRAIN PREPROCESSING ok
+# E18 MOUSE BRAIN PREPROCESSING ok 
+# MOUSE HAIR PREPROCESSING ok
+# MOUSE HAIR ATLAS ok
+# MOUSE HAIR RNA ok 
+# BRAIN ATLAS ok
+# BRAIN RNA ok
+# BRAIN genes 
+# E18 RNA ok
+# E18 ATLAS ok
+# E18 genes ok 
+# HYPERPARAMS results generation ok 
+# Supplementary Figures 3 and 4
+# Supplementary Tables 3 and 4
+rule brain_preprocessing:
+	input:
+		clusters = HUMAN_BRAIN_DATA + "/GSE162170_multiome_cluster_names.txt",
+		metadata = HUMAN_BRAIN_DATA + "/GSE162170_multiome_cell_metadata.txt",
+		rna = HUMAN_BRAIN_DATA + "/GSE162170_multiome_rna_counts.tsv.gz",
+		activity = HUMAN_BRAIN_DATA + "/GSE162170_multiome_atac_gene_activities.tsv.gz",
+		outlier = HUMAN_BRAIN_OUTPUT + "/to_remove.tsv",
+	output:
+		h5mu = HUMAN_BRAIN_OUTPUT + "/{prefix}.h5mu",
+	params: 
+		removed = lambda wildcards: HB_REMOVED[wildcards.prefix],
+	log: 
+		LOG_DIR + "/HB_preprocessing_{prefix}.log",
+	shell:
+		"python3 -m real_data.brain_preprocessing --removed {params.removed} &> {log}"
+
+rule e18_preprocessing:
+	input:
+		filtered_feature_bc = E18_BRAIN_DATA + "/filtered_feature_bc_matrix",
+		annotations = E18_BRAIN_DATA + "/cell_annotations.tsv",
+		fragment_file = E18_BRAIN_DATA + "/e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz",
+	output:
+		feature_path = E18_BRAIN_OUTPUT + "/features.tsv",
+		h5mu = E18_BRAIN_OUTPUT + "/emb.h5mu",
+	log:
+		LOG_DIR + "/E18_preprocessing.log",
+	shell:
+		"python3 -m real_data.e18_preprocessing &> {log}"
+
+rule hair_preprocessing:
+	input:
+		rna = MOUSE_HAIR_DATA + "/GSM4156608_skin.late.anagen.rna.counts.txt",
+		atac = MOUSE_HAIR_DATA + "/GSM4156597_skin.late.anagen.counts.txt",
+		barcodes = MOUSE_HAIR_DATA + "/GSM4156597_skin.late.anagen.barcodes.txt",
+		peaks = MOUSE_HAIR_DATA + "/GSM4156597_skin.late.anagen.peaks.bed",
+		annotations = MOUSE_HAIR_DATA + "/GSM4156597_skin_celltype.txt",
+		fragment_file = MOUSE_HAIR_DATA + "/GSM4156597_skin.late.anagen.atac.sorted.fragments.bed.gz",
+	output:
+		feature_path = MOUSE_HAIR_OUTPUT + "/features.tsv",
+		h5mu = MOUSE_HAIR_OUTPUT + "/hair.h5mu",
+	log:
+		LOG_DIR + "/MH_preprocessing.log",
+	shell:
+		"python3 -m real_data.mouse_hair_preprocessing &> {log}"
+
+rule supplementary_6:
+	input: 
+		data = E18_BRAIN_OUTPUT + "/emb.h5mu",
+		feature_path = E18_BRAIN_OUTPUT + "/features.tsv",
+	output:
+		res = E18_BRAIN_OUTPUT + "/20:10_15:15:None_hard_{states}states.h5mu",
+	log:
+		LOG_DIR + "/E18_atlas_{states}states.log",
+	shell: 
+		"python3 -m real_data.supplementary_6 --n_states {wildcards.states} &> {log}"
+
+rule supplementary_7:
+	input:
+		data = E18_BRAIN_OUTPUT + "/20:10_15:15:None_hard_{states}states.h5mu",
+	output:
+		h5mu = E18_BRAIN_OUTPUT + "/rna_{states}.h5mu",	
+	log:
+		LOG_DIR + "/E18_rna_{states}states.log",
+	shell:
+		"python3 -m real_data.supplementary_7 --n_states {wildcards.states} &> {log}"
+
+rule supplementary_8:
+	input: 
+		data = E18_BRAIN_OUTPUT + "/20:10_15:15:None_hard_6states.h5mu",
+	output:
+		sentinel = touch(E18_BRAIN_OUTPUT + "/.supplementary_8.done"),
+	log:
+		LOG_DIR + "/E18_genes.log",
+	shell:
+		"python3 -m real_data.supplementary_8 >& {log}"
+	
+rule figure1:
+	input: 
+		data = MOUSE_HAIR_OUTPUT + "/hair.h5mu",
+	output:
+		res = MOUSE_HAIR_OUTPUT + "/20:10_15:15:None_hard_{states}states.h5mu",
+	log:
+		LOG_DIR + "/MH_atlas_{states}states.log",
+	shell: 
+		"python3 -m real_data.figure1 --n_states {wildcards.states} &> {log}"
+
+rule supplementary_5:
+	input:
+		data = MOUSE_HAIR_OUTPUT + "/20:10_15:15:None_hard_{states}states.h5mu",
+	output:
+		h5mu = MOUSE_HAIR_OUTPUT + "/rna_{states}.h5mu",	
+	log:
+		LOG_DIR + "/MH_rna_{states}states.log",
+	shell:
+		"python3 -m real_data.supplementary_5 --n_states {wildcards.states} &> {log}"
+
+rule supplementary_10_12:
+	input:
+		data = HUMAN_BRAIN_OUTPUT + "/{prefix}.h5mu",
+	output: 
+		h5mu = HUMAN_BRAIN_OUTPUT + "/{prefix}_{states}.h5mu",
+	log:
+		LOG_DIR + "/HB_atlas_{prefix}_{states}.log",
+	params: 
+		removed = lambda wildcards: HB_REMOVED[wildcards.prefix],
+	shell: 
+		"python3 -m real_data.supplementary_10_12 --n_states {wildcards.states} --removed {params.removed} &> {log}"
+
+rule supplementary_11_13:
+	input:
+		data = HUMAN_BRAIN_OUTPUT + "/{prefix}_{states}.h5mu",
+	output: 
+		h5mu = HUMAN_BRAIN_OUTPUT + "/rna_{prefix}_{states}.h5mu",
+	log:
+		LOG_DIR + "/HB_rna_{prefix}_{states}.log",
+	params: 
+		removed = lambda wildcards: HB_REMOVED[wildcards.prefix],
+	shell: 
+		"python3 -m real_data.supplementary_11_13 --n_states {wildcards.states} --removed {params.removed} &> {log}"
+
+rule supplementary_9:
+	input:
+		data = HUMAN_BRAIN_OUTPUT + "/brain.h5mu",
+	output:
+		sentinel = touch(HUMAN_BRAIN_OUTPUT + "/.supplementary_9.done"),
+	log:
+		LOG_DIR + "/HM_genes.log",
+	shell:
+		"python3 -m real_data.supplementary_9 >& {log}"
+
+rule lineages:
+	input:
+		data = MOUSE_HAIR_OUTPUT + "/20:10_15:15:None_hard_8states.h5mu",
+	output: 
+		sentinel = touch(MOUSE_HAIR_OUTPUT + "/.lineages.done"),
+	params:
+		strategy = "pseudotime-kernel",
+	log:
+		LOG_DIR + "/HB_lineages.log",
+	shell:
+		"python3 -m real_data.lineages --strategy {params.strategy} --h5mu {input.data} &> {log}"
+
+rule hyper_parameters:
+	input:
+		data = MOUSE_HAIR_OUTPUT + "/hair.h5mu",
+	output:
+		sentinel = touch(MOUSE_HAIR_OUTPUT, "/hyper_done/rna{real_rna}_act{real_act}_wnn{wnn}_states{real_states}.done")
+	log:
+		LOG_DIR + "/hyper_done/rna{real_rna}_act{real_act}_wnn{wnn}_states{real_states}.log"
+	shell:
+		"python3 -m real_data.hyperparams "
+		"--rna {wildcards.real_rna} ",
+		"--act {wildcards.real_act} ",
+		"--wnn {wildcards.wnn} ",
+		"--states {wildcards.real_states} ",
+		"&> {log}"
+	
+#rule supplementary_3_4:
+#	input:
+#		results = SIM_OUTPUT + "/{algorithm}/results.csv",
+#	output:
+#		sentinel = touch(SIM_OUTPUT + "/ATLAS_{algorithm}_performance.done"),
+#	log: 
+#		LOG_DIR + "/ATLAS_{algorithm}_performance.log",
+#	shell:
+#		"python3 -m supplementary.supplementary_figures_3_4 --algorithm {wildcards.algorithm} &> {log}"
+	
+		
+#rule table_3_4:
+#	input:
+#		results = SIM_OUTPUT + "/{algorithm}/results.csv",
+#		results = SIM_OUTPUT + "/{algorithm}_rna/results.csv",
+#	output:
+#		sentinel = touch(SIM_OUTPUT + "/{algorithm}_benchmark.done"),
+#	log: 
+#		LOG_DIR + "/{algorithm}_benchmark.log",
+#	shell:
+#		"python3 -m supplementary.supplementary_tables_3_4 --algorithm {wildcards.algorithm} &> {log}"
+	
+	
+

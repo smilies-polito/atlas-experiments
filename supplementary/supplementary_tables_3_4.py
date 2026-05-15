@@ -1,4 +1,5 @@
 import os
+import argparse
 import numpy as np 
 import pandas as pd					
 import matplotlib.pyplot as plt
@@ -138,11 +139,16 @@ def compare_algorithms(A, R, rng,
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--algorithm", type=str, default="palantir")
+    args= parser.parse_args()
+    algorithm = args.algorithm 
+
 	rng = np.random.default_rng(42)
 
 	data_path = os.path.join(os.getcwd(), "output", "simulations")	
-	rna = pd.read_csv(os.path.join(data_path, "pseudotime_kernel_rna", "results.csv"), sep=",", header = 0, index_col = None)
-	atlas = pd.read_csv(os.path.join(data_path, "pseudotime_kernel", "results.csv"), sep=",", header = 0, index_col = None)
+	rna = pd.read_csv(os.path.join(data_path, f"{algorithm}_rna", "results.csv"), sep=",", header = 0, index_col = None)
+	atlas = pd.read_csv(os.path.join(data_path, f"{algorithm}", "results.csv"), sep=",", header = 0, index_col = None)
 	
 	# parse atlas params
 	main_split = atlas["code"].str.split("_", expand=True)
