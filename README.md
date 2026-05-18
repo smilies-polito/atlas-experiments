@@ -100,16 +100,16 @@ scvemo/
 │   ├── brain_processing.py            # Preprocessing for Human Fetal Brain
 │   ├── e18_preprocessing.py           # Preprocessing for Fresh Embryonic E18 Mouse Brain
 │   ├── figure1_hf_atlas.py            # ATLAS on SHARE-seq Mouse Hair Follicle
-│   ├── hyperparams.py                 # ATLAS on SHARE-seq Mouse Hair Follicle, multiple parameters configurations
 │   ├── figure1_hf_lineages.py         # Multimodal visualisation present in Figure 1
+│   ├── hyperparams.py                 # ATLAS on SHARE-seq Mouse Hair Follicle, multiple parameters configurations
 │   ├── mouse_hair_preprocessing.py    # Preprocessing for SHARE-seq Mouse Hair Follicle
+│   ├── supplementary1012_hb_atlas.py  # ATLAS on the Human Fetal Brain
 │   ├── supplementary1113_hb_rna.py    # scRNA-seq only run on the Human Fetal Brain
+│   ├── supplementary5_mh_rna.py       # scRNA-seq only run on the SHARE-seq Mouse Hair 
 │   ├── supplementary6_e18_atlas.py    # ATLAS on E18 Mouse Brain data
 │   ├── supplementary7_e18_rna.py      # scRNA-seq only run on the E18 Mouse Brain data
 │   ├── supplementary8_e18_gex.py      # Gene Expression UMAP for selected genes in the E18 Mouse Brain
 │   ├── supplementary9_hb_gex.py       # Gene Expression UMAP for selected genes in the Human Brain Data
-│   ├── supplementary1012_hb_atlas.py  # ATLAS on the Human Fetal Brain
-│   ├── supplementary5_mh_rna.py       # scRNA-seq only run on the SHARE-seq Mouse Hair 
 │   └── utils.py      
 ├── simulated_data/                    # Folder with code for synthetic data experiments
 │   ├── # TO DO
