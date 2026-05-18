@@ -1,3 +1,8 @@
+########################################################################
+# This code applies ATLAS multi-omic visualisation on the TI from      #
+# the SHARE-seq Mouse Hair Data                                        # 
+# Plots can be visualized in Figure 1                                  #
+########################################################################
 import os
 import atlas
 import argparse

@@ -1,11 +1,12 @@
 # ATLAS - Advanced Trajectory Learning from multi-omics At Single-cell resolution
 This repository contains the code associated to the original paper from ATLAS- Advanced Trajectory Learning from multi-omics At Single-cell resolution.
 
-ATLAS is Python package for multi-omic trajectory inference from paired single-cell RNA-seq and ATAC-seq data. Since chromatin accessibility reflects regulatory potential and often precedes transcriptional changes, integrating it with RNA expression provides a more complete view of cellular dynamics than transcriptomics alone. ATLAS extends established Trajectory Inference (TI) frameworks to jointly leverage multi-omics data, allowing chromatin accessibility to directly inform pseudotime ordering and fate probabilities.
+ATLAS is Python package for multi-omic Trajectory Inference (TI) from paired single-cell RNA-seq and ATAC-seq data. Since chromatin accessibility reflects regulatory potential and often precedes transcriptional changes, integrating it with RNA expression provides a more complete view of cellular dynamics than transcriptomics alone. ATLAS extends established TI frameworks to jointly leverage multi-omics data, allowing chromatin accessibility to directly inform pseudotime ordering and fate probabilities.
+
+ATLAS is scverse-compatible and currently under review for inclusion in the [scverse](https://scverse.org/) ecosystem. ATLAS source code can be found [here]().
 
 ![ATLAS workflow](imgs/workflow.svg)
 
-ATLAS is scverse-compatible and currently under review for inclusion in the scverse ecosystem. ATLAS source code can be found [here]().
 
 ## Release Notes 
 v1.0:
@@ -20,14 +21,15 @@ v1.0:
 - Weiler, P., Lange, M., Klein, M. et al. CellRank 2: unified fate mapping in multiview single-cell data. Nat Methods 21, 1196–1205 (2024). https://doi.org/10.1038/s41592-024-02303-9
 - Setty, M., Kiseliovas, V., Levine, J. et al. Characterization of cell fate probabilities in single-cell data with Palantir. Nat Biotechnol 37, 451–460 (2019). https://doi.org/10.1038/s41587-019-0068- Li, H., Zhang, Z., Squires, M. et al. scMultiSim: simulation of single-cell multi-omics and spatial data guided by gene regulatory networks and cell–cell interactions. Nat Methods 22, 982–993 (2025). https://doi.org/10.1038/s41592-025-02651-0
 
-### DataSets
+### Datasets
 - Fresh Embryonic E18 Mouse Brain (5k), Single Cell Multiome ATAC + Gene Expression Dataset by Cell Ranger ARC 2.0.0, 10x Genomics, (2021, May 3).
--  Sai Ma et al. Chromatin Potential Identified by Shared Single-Cell Profiling of RNA and Chromatin. Cell, 183(4):1103–1116.e20, November 2020.
+- Sai Ma et al. Chromatin Potential Identified by Shared Single-Cell Profiling of RNA and Chromatin. Cell, 183(4):1103–1116.e20, November 2020.
 - Alexandro E. Trevino et al. Chromatin and gene-regulatory dynamics of the developing human cerebral cortex at single-cell resolution. Cell, 184(19):5053–5069.e23, September 2021.
 
 ### Experimental Setup 
 
 Follow these steps to setup for reproducing the experiments. 
+
 1. Install `apptainer` (simulations were perfomed using version 1.4.5)
 2. Clone the repository in your home folder via `git clone URL`
 3. Move to the repository folder and build the `singularity` container with:
@@ -73,3 +75,53 @@ where `x` denotes the specific simulation or benchmarking experiment.
 Figures are saved in `scvemo/figures` as performed in [scanpy](https://scanpy.readthedocs.io/) and [muon](https://muon.scverse.org/). 
 
 ### Run Experiments
+
+
+### Repository Structure
+
+The complete repository structure can be found here: 
+```
+scvemo/
+├── container/ 
+│   ├── requirements.txt               # repository requirements 
+│   └── container.def                  # singularity container definition file
+├── data/
+│   ├── embryonic_mouse_brain/         # Fresh Embryonic E18 Mouse Brain data
+│   │   └── cell_annotations.tsv 
+│   ├── human_brain/                   # Human Fetal Brain Data
+│   │   └── to_remove.tsv
+│   ├── mouse_hair/                    # SHARE-seq Mouse Hair Follicle data
+│   ├── simulated_data/   
+│   │   ├── five_branches/             # Tsv files related to sinthetic data 5-branches developmental tree
+│   │   └── three_branches/            # Tsv files related to sinthetic data 3-branches developmental tree
+├── imgs/ 
+│   ├── workflow.svg     
+├── real_data/                         # Folder with code for real dataset experiments
+│   ├── brain_processing.py            # Preprocessing for Human Fetal Brain
+│   ├── e18_preprocessing.py           # Preprocessing for Fresh Embryonic E18 Mouse Brain
+│   ├── figure1_hf_atlas.py            # ATLAS on SHARE-seq Mouse Hair Follicle
+│   ├── hyperparams.py                 # ATLAS on SHARE-seq Mouse Hair Follicle, multiple parameters configurations
+│   ├── figure1_hf_lineages.py         # Multimodal visualisation present in Figure 1
+│   ├── mouse_hair_preprocessing.py    # Preprocessing for SHARE-seq Mouse Hair Follicle
+│   ├── supplementary1113_hb_rna.py    # scRNA-seq only run on the Human Fetal Brain
+│   ├── supplementary6_e18_atlas.py    # ATLAS on E18 Mouse Brain data
+│   ├── supplementary7_e18_rna.py      # scRNA-seq only run on the E18 Mouse Brain data
+│   ├── supplementary8_e18_gex.py      # Gene Expression UMAP for selected genes in the E18 Mouse Brain
+│   ├── supplementary9_hb_gex.py       # Gene Expression UMAP for selected genes in the Human Brain Data
+│   ├── supplementary1012_hb_atlas.py  # ATLAS on the Human Fetal Brain
+│   ├── supplementary5_mh_rna.py       # scRNA-seq only run on the SHARE-seq Mouse Hair 
+│   └── utils.py      
+├── simulated_data/                    # Folder with code for synthetic data experiments
+│   ├── # TO DO
+│   ├── # TO DO
+│   └──  to do       
+├── supplementary/                     # Folder with code for additional visualisations 
+│   ├── supplementary34_box_radar_plots.py 
+│   └── supplementary34_tables.py
+├── .gitignore  
+├── README.md  
+└── SnakeFile
+
+```
+
+

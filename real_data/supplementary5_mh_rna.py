@@ -1,3 +1,10 @@
+########################################################################
+# This code applies TI strategies on the SHARE-seq Mouse Hair data     #
+# It presents scRNA-seq only based results                             # 
+# Plots can be visualized in Supp. Figure 5                            #
+########################################################################
+
+
 import os
 import atlas
 import argparse
@@ -16,23 +23,24 @@ if __name__ == "__main__":
     np.random.seed(seed) 
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--n_states", type=int, default=6)
+    parser.add_argument("--n_states", type=int, default=4)
     args = parser.parse_args()
     n_states = args.n_states
     allow_overlap = True
     
-    output_path = os.path.join("output", "embryonic_mouse_brain")
+    output_path = os.path.join("output", "mouse_hair")
     multi_path = os.path.join(output_path, f"20:10_15:15:None_hard_{n_states}states.h5mu")
 
     data = mu.read_h5mu(multi_path)
+
     # Reset states slots from ATLAS run
     reset_states = ["initial_states", "intermediate_states", "terminal_states"]
     for state in reset_states:
         if state in data.uns.keys():
-            data.uns[state] = None
+            data.uns[state] = {}
 
     # Select initial cell for Palantir computation to be the same aused in ATLAS
-    early_cell = data.uns["palantir_initial_states"]["RG, Astro, OPC"][0]
+    early_cell = data.uns["palantir_initial_states"]["TAC-1"][0]
 
     rna = data["rna"]
     rna.obs["celltype"] = data.obs["celltype"].copy().reindex(rna.obs.index)
@@ -63,6 +71,8 @@ if __name__ == "__main__":
     data.obsm["rna_fates_palantir"] = rna.obsm["rna_fates_palantir"]
     data.obs["rna_pseudotime"] = rna.obs["rna_pseudotime"].copy().reindex(data.obs.index)
 
+    print(data.obs[["celltype", "rna_pseudotime"]].groupby("celltype").mean())
+
     compute_entropy(data = data, fate_prob_key="rna_fates_palantir")
 
     # Identify terminal states
@@ -70,13 +80,8 @@ if __name__ == "__main__":
     for k, v in data.uns["terminal_states"].items():
         terminal_rna.extend(v)
 
-    data.obs["is_TI_rna"] = (data.obs_names.isin(terminal_rna))
-    mu.pl.embedding(data, basis="X_umap", color=["is_TI_rna"], save = "e18_palantir_selected_rna.png")
-
-    avg = data.obs[["celltype", "rna_pseudotime"]].groupby("celltype").mean()
-    print(avg)
-
-    print(data.obs.loc[terminal_rna, "rna_pseudotime"])
+    data.obs["is_TI_rna"] = data.obs_names.isin(terminal_rna)
+    mu.pl.embedding(data, basis="X_umap", color=["is_TI_rna"], save = "_MH_rna_terminal_palantir.png")
 
     # Compute metrics
     metrics = _compute_results(mudata = data,
@@ -85,6 +90,13 @@ if __name__ == "__main__":
                         time_key = "rna_pseudotime",
                         fate_key = "rna_fates_palantir")
     print(metrics)
+
+    avg_pseudotime = data.obs.loc[terminal_rna, "rna_pseudotime"]
+    print(avg_pseudotime)
+
+    data.uns["rna_palantir_initial"] = data.uns["initial_states"]
+    data.uns["rna_palantir_terminal"] = data.uns["terminal_states"]
+    data.uns["rna_palantir_colors"] = data.uns["fate_state_colors"]
     
     # Plots
     _get_plots(mudata = data,
@@ -122,7 +134,6 @@ if __name__ == "__main__":
     avg = {k: data.obs.loc[cell, "rna_pseudotime"].mean() for k, cell in initial.items()}
     print("initial", avg)
     intermediate = data.uns["intermediate_states"]
-    intermediate = {} if intermediate is None else intermediate
     if len(intermediate)>0:
         avg = {k: data.obs.loc[cell, "rna_pseudotime"].mean() for k, cell in intermediate.items()}
         print("intermediate", avg)
@@ -134,6 +145,7 @@ if __name__ == "__main__":
         data.obs.loc[cells, "is_TI_rna"] = "initial"
     for k, cells in intermediate.items():
         data.obs.loc[cells, "is_TI_rna"] = "intermediate"
+    mu.pl.embedding(data, basis="X_umap", color=["is_TI_rna"], palette={"initial":"red", "intermediate":"blue", "other":"grey"}, save = "_MH_pseudotimeK_rna_states.png")
 
     # Compute metrics
     metrics = _compute_results(mudata = data,
@@ -151,19 +163,10 @@ if __name__ == "__main__":
             fate_key = "rna_fates_cellrank",
             seed = seed,
             ti_strategy = "pseudotime-kernel")
-
+    
     data["rna"].obsm["DM_EigenVectors"].columns = [str(c) for c in data["rna"].obsm["DM_EigenVectors"].columns]
     data["rna"].obsm["DM_EigenVectors_multiscaled"].columns = [str(c) for c in data["rna"].obsm["DM_EigenVectors_multiscaled"].columns]
-
     data.write_h5mu(os.path.join(output_path, f"rna_{n_states}.h5mu"))
-    
-
-
-
-
-
-
-
 
 
 

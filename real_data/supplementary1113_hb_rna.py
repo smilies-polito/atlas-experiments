@@ -1,3 +1,9 @@
+########################################################################
+# This code applies TI strategies on the Human Fetal Brain data.       #
+# It presents scRNA-seq only based results                             # 
+# Plots can be visualized in Supp. Figure 11 Supp Figure 13            #
+########################################################################
+
 import os
 import atlas
 import argparse

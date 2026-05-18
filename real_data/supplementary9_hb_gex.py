@@ -1,3 +1,7 @@
+########################################################################
+# This code visualized gene expression on the Human Fatel Brain data   #
+# Plots can be visualized in Supp Figure 9                             #
+########################################################################
 import os
 import muon as mu
 import scanpy as sc 
