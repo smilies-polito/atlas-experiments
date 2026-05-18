@@ -3,7 +3,7 @@ This repository contains the code associated to the original paper from ATLAS- A
 
 ATLAS is Python package for multi-omic trajectory inference from paired single-cell RNA-seq and ATAC-seq data. Since chromatin accessibility reflects regulatory potential and often precedes transcriptional changes, integrating it with RNA expression provides a more complete view of cellular dynamics than transcriptomics alone. ATLAS extends established Trajectory Inference (TI) frameworks to jointly leverage multi-omics data, allowing chromatin accessibility to directly inform pseudotime ordering and fate probabilities.
 
-![ATLAS workflow](imgs/workflov.svg)
+![ATLAS workflow](imgs/workflow.svg)
 
 ATLAS is scverse-compatible and currently under review for inclusion in the scverse ecosystem. ATLAS source code can be found [here]().
 
