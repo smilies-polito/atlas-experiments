@@ -95,7 +95,16 @@ scvemo/
 │   │   ├── five_branches/             # Tsv files related to sinthetic data 5-branches developmental tree
 │   │   └── three_branches/            # Tsv files related to sinthetic data 3-branches developmental tree
 ├── imgs/ 
-│   ├── workflow.svg     
+│   └── workflow.svg      
+├── output/               
+│   ├── embryonic_mouse_brain/         # Results and support data for Fresh Embryonic E18 Mouse Brain
+│   ├── human_brain/                   # Results and support data for Human Fetal Brain
+│   ├── mouse_hair/                    # Results and support data for SHARE-seq Mouse Hair
+│   ├── simulations/                   # Results and support data for Synthetic Data
+│   │   ├── palantir/                  # Results and support data for ATLAS (Palantir-based TI) on synthetic data
+│   │   ├── palantir_rna/              # Results and support data for Palantir on synthetic data (scRNA-seq only)
+│   │   ├── pseudotime_kernel/         # Results and support data for ATLAS (CellRank-based TI) on synthetic data
+│   │   └── pseudotime_kernel_rna/     # Results and support data for CellRank on synthetic data (scRNA-seq only)
 ├── real_data/                         # Folder with code for real dataset experiments
 │   ├── brain_processing.py            # Preprocessing for Human Fetal Brain
 │   ├── e18_preprocessing.py           # Preprocessing for Fresh Embryonic E18 Mouse Brain
