@@ -147,7 +147,7 @@ rule supplementary_6:
 	log:
 		LOG_DIR + "/E18_atlas_{states}states.log",
 	shell: 
-		"python3 -m real_data.supplementary_6 --n_states {wildcards.states} &> {log}"
+		"python3 -m real_data.supplementary6_e18_atlas --n_states {wildcards.states} &> {log}"
 
 rule supplementary_7:
 	input:
@@ -157,7 +157,7 @@ rule supplementary_7:
 	log:
 		LOG_DIR + "/E18_rna_{states}states.log",
 	shell:
-		"python3 -m real_data.supplementary_7 --n_states {wildcards.states} &> {log}"
+		"python3 -m real_data.supplementary7_e18_rna --n_states {wildcards.states} &> {log}"
 
 rule supplementary_8:
 	input: 
@@ -167,7 +167,7 @@ rule supplementary_8:
 	log:
 		LOG_DIR + "/E18_genes.log",
 	shell:
-		"python3 -m real_data.supplementary_8 >& {log}"
+		"python3 -m real_data.supplementary8_e18_gex >& {log}"
 	
 rule figure1:
 	input: 
@@ -177,7 +177,7 @@ rule figure1:
 	log:
 		LOG_DIR + "/MH_atlas_{states}states.log",
 	shell: 
-		"python3 -m real_data.figure1 --n_states {wildcards.states} &> {log}"
+		"python3 -m real_data.figure1_hf_atlas --n_states {wildcards.states} &> {log}"
 
 rule supplementary_5:
 	input:
@@ -187,7 +187,7 @@ rule supplementary_5:
 	log:
 		LOG_DIR + "/MH_rna_{states}states.log",
 	shell:
-		"python3 -m real_data.supplementary_5 --n_states {wildcards.states} &> {log}"
+		"python3 -m real_data.supplementary5_mh_rna --n_states {wildcards.states} &> {log}"
 
 rule supplementary_10_12:
 	input:
@@ -199,7 +199,7 @@ rule supplementary_10_12:
 	params: 
 		removed = lambda wildcards: HB_REMOVED[wildcards.prefix],
 	shell: 
-		"python3 -m real_data.supplementary_10_12 --n_states {wildcards.states} --removed {params.removed} &> {log}"
+		"python3 -m real_data.supplementary1012_hb_atlas --n_states {wildcards.states} --removed {params.removed} &> {log}"
 
 rule supplementary_11_13:
 	input:
@@ -211,7 +211,7 @@ rule supplementary_11_13:
 	params: 
 		removed = lambda wildcards: HB_REMOVED[wildcards.prefix],
 	shell: 
-		"python3 -m real_data.supplementary_11_13 --n_states {wildcards.states} --removed {params.removed} &> {log}"
+		"python3 -m real_data.supplementary1113_hb_rna --n_states {wildcards.states} --removed {params.removed} &> {log}"
 
 rule supplementary_9:
 	input:
@@ -221,7 +221,7 @@ rule supplementary_9:
 	log:
 		LOG_DIR + "/HM_genes.log",
 	shell:
-		"python3 -m real_data.supplementary_9 >& {log}"
+		"python3 -m real_data.supplementary9_hb_gex >& {log}"
 
 rule lineages:
 	input:
@@ -233,7 +233,7 @@ rule lineages:
 	log:
 		LOG_DIR + "/HB_lineages.log",
 	shell:
-		"python3 -m real_data.lineages --strategy {params.strategy} --h5mu {input.data} &> {log}"
+		"python3 -m real_data.figure1_hf_lineages --strategy {params.strategy} --h5mu {input.data} &> {log}"
 
 rule hyper_parameters:
 	input:

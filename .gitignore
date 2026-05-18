@@ -1,0 +1,9 @@
+container/container.sif
+
+logs/
+
+.snakemake/
+
+__pycache__/
+*.py[cod]
+*$py.class

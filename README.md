@@ -94,6 +94,7 @@ scvemo/
 │   ├── simulated_data/   
 │   │   ├── five_branches/             # Tsv files related to sinthetic data 5-branches developmental tree
 │   │   └── three_branches/            # Tsv files related to sinthetic data 3-branches developmental tree
+├── figures/
 ├── imgs/ 
 │   └── workflow.svg      
 ├── output/               
