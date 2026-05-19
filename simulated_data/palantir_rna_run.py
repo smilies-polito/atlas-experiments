@@ -14,9 +14,7 @@ import scipy
 from muon import MuData
 from anndata import AnnData
 from scipy.sparse import csr_matrix
-from .utils import initial_macrostate, terminal_macrostate, truth_like_fates, TERM_DICT, POTENCY_DICT
-from atlas import pearson_correlation, spearman_correlation, kendall_correlation, fate_concentration_index, terminal_state_silhouette, terminal_pseudotime_enrichment_score, js_distance, terminal_state_score
-
+from .utils import initial_macrostate, terminal_macrostate, truth_like_fates, TERM_DICT, POTENCY_DICT, _save_simulation_rna, _apply_metrics
 
 def compute_entropy(data: AnnData, fate_prob_key:str="palantir_fate_probabilities"):
 	def _minmax(x:np.ndarray) -> np.ndarray:
@@ -60,151 +58,6 @@ def  _create_ts_dict(data:AnnData, fate_prob_key:str, cluster_key: str) -> dict:
 			clusters[cluster] = []
 		clusters[cluster].append(cell)
 	return clusters
-
-
-def _save_simulation(data: AnnData, 
-					tree: str,
-					rd: float, 	
-					sigma: float,
-					knn_rna: int, 
-					fixed_terminal: bool, 
-					results: dict,
-					ground_truth: dict,
-					saving_folder: str,
-					resources: dict):
-	'''
-		Save simulation results.
-	'''
-	code = f"{tree}_{fixed_terminal}_{rd}_{sigma}_{knn_rna}.h5ad"
-	data.X = None
-	data.obsm["true_fates"] = ground_truth["fate_probabilities"]
-	data.uns["true_states"] = ground_truth["true_states"]
-	data.obsm["DM_EigenVectors"].columns = [str(c) for c in data.obsm["DM_EigenVectors"].columns]
-	data.obsm["DM_EigenVectors_multiscaled"].columns = [str(c) for c in data.obsm["DM_EigenVectors_multiscaled"].columns]
-	data.uns["simulation_results"] = results
-	data.write(os.path.join(saving_folder, code))
-
-	results_path = os.path.join(saving_folder, "results.csv")
-	resources_path = os.path.join(saving_folder, "resources.csv")
-	resources["code"] = code
-
-	with open(results_path, "a") as f:
-		fcntl.flock(f, fcntl.LOCK_EX)
-		pd.DataFrame([results]).to_csv(f, index=False, header=f.tell() == 0)
-		fcntl.flock(f, fcntl.LOCK_UN)
-
-	with open(resources_path, "a") as f:
-		fcntl.flock(f, fcntl.LOCK_EX)
-		pd.DataFrame([resources]).to_csv(f, index=False, header=f.tell() == 0)
-		fcntl.flock(f, fcntl.LOCK_UN)
-	
-	
-
-def _apply_metrics_and_visualize(data: AnnData,
-								tree: str,
-								rd: float, 
-								sigma: float,
-								knn_rna: int, 
-								ts_dict: dict,
-								terminal_clusters: list,
-								true_probabilities: pd.DataFrame,
-								failed: bool = False,
-								fixed_terminal: bool = False,
-								):
-	'''
-		Compute metrics.
-	'''
-	code = f"{tree}_{fixed_terminal}_{rd}_{sigma}_{knn_rna}"
-	results = {
-				"code" : code,
-				"failed": failed,
-				"fixed_terminal" : fixed_terminal,
-				"spearman_stat_pseudotime": np.nan,
-				"spearman_pval_pseudotime": np.nan,
-				"kendall_stat_pseudotime": np.nan,
-				"kendall_pval_pseudotime": np.nan,
-				"fate_index_pval": np.nan,
-				"fate_index_stat": np.nan,
-				"n_terminal_states" : np.nan,
-				"pearson_pval_KLD": np.nan,
-				"pearson_stat_KLD": np.nan,
-				"pearson_pval_SHE": np.nan,
-				"pearson_stat_SHE": np.nan,
-				"spearman_pval_KLD": np.nan,
-				"spearman_stat_KLD": np.nan,
-				"spearman_pval_SHE": np.nan,
-				"spearman_stat_SHE": np.nan,
-				"temporal_state_score": np.nan,
-				"terminal_enrichment": np.nan,
-				"terminal_silhouette_pse": np.nan,
-				"terminal_silhouette_soft": np.nan,
-				"tsr": np.nan,
-				"ttc": np.nan,
-				"ttp": np.nan,
-				"tts": np.nan,
-				"jsd_totipotent": np.nan,
-				"jsd_multipotent": np.nan,
-				"jsd_committed": np.nan,
-			}
-
-	if failed:
-		return results
-					
-	results["n_terminal_states"] = data.obsm["palantir_fate_probabilities"].shape[1]
-
-	# SUPERVISED - correlation true and inferred pseudotime
-	stat, pval, _ = spearman_correlation(data.obs["pseudotime"], data.obs["palantir_pseudotime"], seed = 42)	
-	results["spearman_stat_pseudotime"] = stat
-	results["spearman_pval_pseudotime"] = pval
-	stat, pval =  kendall_correlation(data.obs["pseudotime"], data.obs["palantir_pseudotime"])
-	results["kendall_stat_pseudotime"] = stat
-	results["kendall_pval_pseudotime"] = pval
-
-	# no fate probabilities	
-	if results["n_terminal_states"] <= 0:
-		return results	
-
-	#SUPERVISED - JSD
-	if fixed_terminal:
-		jsd = js_distance(data.obsm["palantir_fate_probabilities"], true_probabilities)
-		if not jsd.index.equals(data.obs["pop"].index):
-			jsd = jsd.loc[data.obs["pop"].index]
-		jsdf = pd.DataFrame({"jsd": jsd, "cluster": data.obs["pop"]})
-		jsdf["potency"] = jsdf["cluster"].map(POTENCY_DICT[tree])
-		mean_jsd = jsdf.groupby("potency")["jsd"].mean()
-        for cat in ["multipotent", "totipotent", "committed"]:
-            results[f"jsd_{cat}"] = mean_jsd.get(cat, np.nan)
-
-	#SUPERVISED - TERMINAL STATE SCORE
-	tts, ttp, tsr, ttc, overall = terminal_state_score(data.obs["pseudotime"], data.obs["pop"], ts_dict, terminal_clusters)
-	results["tts"] = tts
-	results["ttp"] = ttp
-	results["tsr"] = tsr
-	results["ttc"] = ttc
-	results["temporal_state_score"] = overall
-
-	#UNSUPERVISED
-	stat, pval, _ = spearman_correlation(data.obs["palantir_pseudotime"], data.obs["kl_divergence"], seed = 42)	
-	results["spearman_stat_KLD"] = stat
-	results["spearman_pval_KLD"] = pval
-	stat, pval, _ = spearman_correlation(data.obs["palantir_pseudotime"], data.obs["shannon_entropy"], seed = 42)	
-	results["spearman_stat_SHE"] = stat
-	results["spearman_pval_SHE"] = pval
-	stat, pval, _ = pearson_correlation(data.obs["palantir_pseudotime"], data.obs["kl_divergence"], seed = 42)	
-	results["pearson_stat_KLD"] = stat
-	results["pearson_pval_KLD"] = pval
-	stat, pval, _ = pearson_correlation(data.obs["palantir_pseudotime"], data.obs["shannon_entropy"], seed = 42)	
-	results["pearson_stat_SHE"] = stat
-	results["pearson_pval_SHE"] = pval
-	stat, pval, _, __ = fate_concentration_index(data.obsm["palantir_fate_probabilities"], data.obs["palantir_pseudotime"], seed = 42)
-	results["fate_index_stat"] = stat
-	results["fate_index_pval"] = pval
-	results["terminal_silhouette_soft"] = terminal_state_silhouette(data.obsm["palantir_fate_probabilities"], soft_assignment=True)
-	results["terminal_silhouette_pse"] = terminal_state_silhouette(data.obsm["palantir_fate_probabilities"], soft_assignment=False, pseudotime=data.obs["palantir_pseudotime"])
-	results["terminal_enrichment"] = terminal_pseudotime_enrichment_score(terminal_states=ts_dict, pseudotime = data.obs["palantir_pseudotime"], rank=True)
-
-	return results
-	
 
 
 if __name__=="__main__":
@@ -255,7 +108,6 @@ if __name__=="__main__":
 	true_fates = truth_like_fates(pseudotime = data.obs["pseudotime"],
 									membership = data.obs["pop"],
 									tree = args.tree)
-	print(true_fates.head(2))
 
 	truth_dictionary = { "fate_probabilities" :true_fates, 
 						"true_states": {"initial" : early_cell,	
@@ -264,8 +116,6 @@ if __name__=="__main__":
 	# RUN WITH NO FIXED TERMINAL 
 	try: 
 		n_components, num_waypoints = 5, 250
-		start_r_wall, start_r_cpu = time.perf_counter(), time.process_time()
-		tracemalloc.start()
 		kernel = palantir.utils.compute_kernel(data, knn=knn_rna)
 		diffusion_maps = palantir.utils.diffusion_maps_from_kernel(kernel = kernel, n_components=n_components, seed = seed)
 		data.obsp["DM_Similarity"] = diffusion_maps["T"]
@@ -286,36 +136,20 @@ if __name__=="__main__":
 		data.obsm["palantir_fate_probabilities"].columns = clusters
 		data.obsm["palantir_fate_probabilities"] = data.obsm["palantir_fate_probabilities"].groupby(level=0, axis=1).sum()
 		compute_entropy(data = data, fate_prob_key="palantir_fate_probabilities")
-		_, run_mem_peak = tracemalloc.get_traced_memory()
-		tracemalloc.stop()
-		run_mem_peak = run_mem_peak / (1024 * 1024)  # bytes -> MiB
-		end_r_wall, end_r_cpu = time.perf_counter(), time.process_time()
-		run_wall, run_cpu = end_r_wall - start_r_wall, end_r_cpu - start_r_cpu
 		failed = False
-	except:
-		if tracemalloc.is_tracing():
-			tracemalloc.stop()
+	except Exception as e:
+		print(e)
 		failed = True
-		run_wall, run_cpu, run_mem_peak = None, None, None
 
-	resources = {	"run_wall_time": run_wall,
-					"run_cpu_time": run_cpu,
-					"run_mem_peak": run_mem_peak,
-				}
 	ts_dict = data.uns.get("terminal_states", {})
-	results = _apply_metrics_and_visualize(data = data, tree = args.tree, rd= diff_cif_fraction, sigma = cif_sigma,
-					knn_rna = knn_rna,
-					failed = failed, fixed_terminal = False, terminal_clusters = TERM_DICT[tree],
-					ts_dict = ts_dict, true_probabilities = true_fates)
-	_save_simulation(data = data, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, 
+	results = _apply_metrics(mudata = data, tree = args.tree, rd= diff_cif_fraction, sigma = cif_sigma, knn_rna = knn_rna, pseudotime_key="rna:palantir_pseudotime", true_pseudotime_key = "rna:pseudotime", cluster_key = "rna:pop", failed = failed, fixed_terminal = False, terminal_clusters = TERM_DICT[tree],  ts_dict = ts_dict, true_probabilities = true_fates, fate_key = "palantir_fate_probabilities", kl_div_key = "rna:kl_divergence", entropy_key="rna:shannon_entropy")
+	_save_simulation_rna(data = data, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, 
 					knn_rna = knn_rna, fixed_terminal = False, 
-					saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary, resources=resources)
+					saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary)
 
 	# RUN WITH FIXED TERMINAL
 	try: 
 		n_components, num_waypoints = 5, 250
-		start_r_wall, start_r_cpu = time.perf_counter(), time.process_time()
-		tracemalloc.start()
 		kernel = palantir.utils.compute_kernel(data, knn=knn_rna)
 		diffusion_maps = palantir.utils.diffusion_maps_from_kernel(kernel = kernel, n_components=n_components, seed = seed)
 		data.obsp["DM_Similarity"] = diffusion_maps["T"]
@@ -336,28 +170,11 @@ if __name__=="__main__":
 		data.obsm["palantir_fate_probabilities"].columns = clusters
 		data.obsm["palantir_fate_probabilities"] = data.obsm["palantir_fate_probabilities"].groupby(level=0, axis=1).sum()
 		compute_entropy(data = data, fate_prob_key="palantir_fate_probabilities")
-		_, run_mem_peak = tracemalloc.get_traced_memory()
-		tracemalloc.stop()
-		run_mem_peak = run_mem_peak / (1024 * 1024)  # bytes -> MiB
-		end_r_wall, end_r_cpu = time.perf_counter(), time.process_time()
-		run_wall, run_cpu = end_r_wall - start_r_wall, end_r_cpu - start_r_cpu
 		failed = False
-	except:
-		if tracemalloc.is_tracing():
-			tracemalloc.stop()
+	except Exception as e:
+		print(e)
 		failed = True
-		run_wall, run_cpu, run_mem_peak = None, None, None
 			
-	resources = {   "run_wall_time": run_wall,
-					"run_cpu_time": run_cpu,
-					"run_mem_peak": run_mem_peak,
-				}
-
 	ts_dict = data.uns.get("terminal_states", {})
-	results = _apply_metrics_and_visualize(data = data, tree = args.tree, rd= diff_cif_fraction, sigma = cif_sigma,
-					knn_rna = knn_rna,
-					failed = failed, fixed_terminal = True, terminal_clusters = TERM_DICT[tree],
-					ts_dict = ts_dict, true_probabilities = true_fates)
-	_save_simulation(data = data, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, 
-					knn_rna = knn_rna, fixed_terminal = True, 
-					saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary, resources=resources)
+	results = _apply_metrics(mudata = data, tree = args.tree, rd= diff_cif_fraction, sigma = cif_sigma, knn_rna = knn_rna, failed = failed, fixed_terminal = True, terminal_clusters = TERM_DICT[tree], true_pseudotime_key="rna:pseudotime", fate_key = "palantir_fate_probabilities", pseudotime_key = "rna:palantir_pseudotime", cluster_key= "rna:pop", ts_dict = ts_dict, true_probabilities = true_fates, kl_div_key = "rna:kl_divergence", entropy_key= "rna:shannon_entropy")
+	_save_simulation_rna(data = data, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, knn_rna = knn_rna, fixed_terminal = True, saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary)

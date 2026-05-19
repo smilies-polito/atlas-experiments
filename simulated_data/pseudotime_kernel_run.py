@@ -1,9 +1,6 @@
 import os
 import json
-import time
-import fcntl
 import atlas
-import tracemalloc
 import argparse
 import muon as mu
 import numpy as np
@@ -13,221 +10,8 @@ from muon import MuData
 from anndata import AnnData
 from atlas.tl import CellRankExtension
 from scipy.sparse import csr_matrix
-from .utils import initial_macrostate, terminal_macrostate, truth_like_fates, TERM_DICT, POTENCY_DICT
+from .utils import initial_macrostate, terminal_macrostate, truth_like_fates, TERM_DICT, POTENCY_DICT, _save_simulation, _apply_metrics
 from .supervised_metrics import terminal_state_score, js_distance, kendall_correlation
-
-
-
-def _save_simulation(mudata: MuData,
-                    tree: str,
-                    rd: float,     
-                    sigma: float,
-                    knn_rna: int, 
-                    knn_activity: int,
-                    wnn: int,
-                    fixed_terminal: bool, 
-                    results: dict,
-                    ground_truth: dict,
-                    saving_folder: str,
-                    resources: dict):
-    '''
-        Save simulation results.
-    '''
-    code = f"{tree}_{fixed_terminal}_{rd}_{sigma}_{knn_rna}:{knn_activity}:{wnn}"
-    del mudata.mod["activity"].obsm
-    del mudata.mod["activity"].obsp
-    del mudata.mod["activity"].uns
-    del mudata.mod["activity"].varm
-    mudata.mod["activity"].X = None
-    del mudata.mod["rna"].obsm
-    del mudata.mod["rna"].obsp
-    del mudata.mod["rna"].uns
-    del mudata.mod["rna"].varm
-    mudata.mod["activity"].X = None
-
-    mudata.obsm["true_fates"] = ground_truth["fate_probabilities"]
-    mudata.uns["true_states"] = ground_truth["true_states"]
-    mudata.uns["simulation_results"] = results
-    mudata.write(os.path.join(saving_folder, f"{code}.h5mu"))
-
-    results_path = os.path.join(saving_folder, "results.csv")
-    resources_path = os.path.join(saving_folder, "resources.csv")
-
-    resources["code"] = code
-
-    with open(results_path, "a") as f:
-        fcntl.flock(f, fcntl.LOCK_EX)
-        pd.DataFrame([results]).to_csv(f, index=False, header=f.tell() == 0)
-        fcntl.flock(f, fcntl.LOCK_UN)
-
-    with open(resources_path, "a") as f:
-        fcntl.flock(f, fcntl.LOCK_EX)
-        pd.DataFrame([resources]).to_csv(f, index=False, header=f.tell() == 0)
-        fcntl.flock(f, fcntl.LOCK_UN)
-
-
-def _apply_metrics_and_visualize(mudata: MuData,
-                                tree: str,
-                                rd: float, 
-                                sigma: float,
-                                knn_rna: int, 
-                                knn_activity: int,
-                                wnn: int,
-                                ts_dict: dict,
-                                terminal_clusters: list,
-                                true_probabilities: pd.DataFrame,
-                                failed: bool = False,
-                                fixed_terminal: bool = False,
-                                ):
-    '''
-        Compute metrics.
-    '''
-    code = f"{tree}_{fixed_terminal}_{rd}_{sigma}_{knn_rna}:{knn_activity}:{wnn}"
-    results = {
-                "code" : code,
-                "failed": failed,
-                "fixed_terminal" : fixed_terminal,
-                "spearman_stat_pseudotime": np.nan,
-                "spearman_pval_pseudotime": np.nan,
-                "kendall_stat_pseudotime": np.nan,
-                "kendall_pval_pseudotime": np.nan,
-                "fate_index_pval": np.nan,
-                "fate_index_stat": np.nan,
-                "n_terminal_states" : np.nan,
-                "pearson_pval_KLD": np.nan,
-                "pearson_stat_KLD": np.nan,
-                "pearson_pval_SHE": np.nan,
-                "pearson_stat_SHE": np.nan,
-                "spearman_pval_KLD": np.nan,
-                "spearman_stat_KLD": np.nan,
-                "spearman_pval_SHE": np.nan,
-                "spearman_stat_SHE": np.nan,
-                "temporal_state_score": np.nan,
-                "terminal_enrichment": np.nan,
-                "terminal_silhouette_pse": np.nan,
-                "terminal_silhouette_soft": np.nan,
-                "tsr": np.nan,
-                "ttc": np.nan,
-                "ttp": np.nan,
-                "tts": np.nan,
-                "jsd_totipotent": np.nan,
-                "jsd_multipotent": np.nan,
-                "jsd_committed": np.nan,
-            }
-
-    if failed:
-        return results
-                    
-    results["n_terminal_states"] = mudata.obsm["fate_probabilities"].shape[1]
-
-    # no fate probabilities    
-    if results["n_terminal_states"] <= 0:
-        return results    
-
-    #SUPERVISED - JSD
-    if fixed_terminal:
-        jsd = js_distance(mudata=mudata,
-                        truth = true_probabilities,
-                        fate_key = "fate_probabilities")
-        if not jsd.index.equals(mudata.obs["rna:pop"].index):
-            jsd = jsd.loc[mudata.obs["rna:pop"].index]
-        jsdf = pd.DataFrame({"jsd": jsd, "cluster": mudata.obs["rna:pop"]})
-        jsdf["potency"] = jsdf["cluster"].map(POTENCY_DICT[tree])
-        mean_jsd = jsdf.groupby("potency")["jsd"].mean()
-        for cat in ["multipotent", "totipotent", "committed"]:
-            results[f"jsd_{cat}"] = mean_jsd.get(cat, np.nan)
-
-    #SUPERVISED - TERMINAL STATE SCORE
-    tts, ttp, tsr, ttc, overall = terminal_state_score(
-                                            mudata = mudata,
-                                            time_key = "rna:pseudotime",
-                                            cluster_key = "rna:pop",
-                                            terminal_clusters = terminal_clusters)
-    results["tts"] = tts
-    results["ttp"] = ttp
-    results["tsr"] = tsr
-    results["ttc"] = ttc
-    results["temporal_state_score"] = overall
-
-    #UNSUPERVISED
-    stat, pval, _ = atlas.tl.spearman_correlation(
-                                                    mudata = mudata,
-                                                    key1= "rna:pseudotime",
-                                                    key2 = "kl_divergence",
-                                                    seed = seed)
-    results["spearman_stat_KLD"] = stat
-    results["spearman_pval_KLD"] = pval
-    stat, pval, _ = atlas.tl.spearman_correlation(
-                                                    mudata = mudata,
-                                                    key1= "rna:pseudotime",
-                                                    key2 = "shannon_entropy",
-                                                    seed = seed)
-    results["spearman_stat_SHE"] = stat
-    results["spearman_pval_SHE"] = pval
-    stat, pval, _ = atlas.tl.pearson_correlation(
-                                                    mudata = mudata,
-                                                    key1= "rna:pseudotime",
-                                                    key2 = "kl_divergence",
-                                                    seed = seed)
-    results["pearson_stat_KLD"] = stat
-    results["pearson_pval_KLD"] = pval
-    stat, pval, _ = atlas.tl.pearson_correlation(
-                                                    mudata = mudata,
-                                                    key1= "rna:pseudotime",
-                                                    key2 = "shannon_entropy",
-                                                    seed = seed)
-    results["pearson_stat_SHE"] = stat
-    results["pearson_pval_SHE"] = pval
-    stat, pval, _, __ = atlas.tl.fate_concentration_index(
-                                                mudata = mudata,
-                                                fate_key = "fate_probabilities",
-                                                time_key = "rna:pseudotime",
-                                                seed = seed)
-    results["fate_index_stat"] = stat
-    results["fate_index_pval"] = pval
-
-    results["terminal_silhouette_soft"] = atlas.tl.terminal_state_silhouette(
-                                                mudata = mudata,
-                                                fate_key = "fate_probabilities",
-                                                soft_assignment= True)
-    results["terminal_silhouette_pse"] = atlas.tl.terminal_state_silhouette(
-                                                mudata = mudata,
-                                                fate_key = "fate_probabilities",
-                                                soft_assignment= False,
-                                                time_key="rna:pseudotime")
-
-    results["terminal_enrichment"] = atlas.tl.terminal_pseudotime_enrichment(
-                                                    mudata = mudata,
-                                                    time_key = "rna:pseudotime",
-                                                    rank = True)
-    # VISUALIZATION
-    atlas.pl.plot_embedding(mudata=mudata,
-                        embedding_key = "X_umap",
-                        observation = "kl_divergence",
-                        save = f"_pseudokernel_KLDIV_{code}.png",
-                        show= False)
-    atlas.pl.plot_embedding(mudata=mudata,
-                        embedding_key = "X_umap",
-                        observation = "shannon_entropy",
-                        save = f"_pseudokernel_SHENTR_{code}.png",
-                        show= False)
-    atlas.pl.plot_fate_probabilities(mudata=mudata,
-                                    embedding_key= "X_umap",
-                                    states = None,
-                                    save =  f"_pseudokernel_fates_{code}.png",
-                                    show= False)
-    try:
-        atlas.pl.plot_tree(mudata = mudata,
-                        embedding_key = "umap",
-                        time_key = "rna:pseudotime",
-                        save = f"_pseudokernel_{code}.png",
-                        color = "rna:pop", 
-                        color_milestones = False,
-                        show = False)
-    except (IndexError, KeyError, ValueError) as e:
-        print(f"WARNING: plot_tree failed for {code}: {e}")        
-    return results
-
 
 
 if __name__=="__main__":
@@ -242,7 +26,7 @@ if __name__=="__main__":
     parser.add_argument("--sigma", type=float)
     parser.add_argument("--knn_rna", type=int)
     parser.add_argument("--knn_activity", type=int)
-    parser.add_argument("--wnn", type=int)
+    parser.add_argument("--wnn", type=int, default = None)
     args = parser.parse_args()
     
     # DATA CONSTRUCTION
@@ -300,126 +84,65 @@ if __name__=="__main__":
 
 
     # PREPROCESSING
-    start_p_wall, start_p_cpu = time.perf_counter(), time.process_time()
-    tracemalloc.start()
     atlas.pp.preprocessing(mudata = mudata,
                         n_pcs_rna = n_pcs_rna,
                         n_pcs_act = n_pcs_activity,
                         knn_rna = knn_rna,
                         knn_act = knn_activity,
-                        n_neighbors = wnn) 
-    _, preprocessing_mem_peak = tracemalloc.get_traced_memory()
-    tracemalloc.stop()
-    preprocessing_mem_peak = preprocessing_mem_peak / (1024 * 1024)  # bytes -> MiB
-    end_p_wall, end_p_cpu = time.perf_counter(), time.process_time()
-    preprocessing_wall, preprocessing_cpu = end_p_wall - start_p_wall, end_p_cpu - start_p_cpu
+                        n_neighbors = wnn,
+                        random_state = seed) 
 
     # INITIALIZATION
-    start_i_wall, start_i_cpu = time.perf_counter(), time.process_time()
-    tracemalloc.start()
     cext = CellRankExtension(mudata=mudata)
-    _, init_mem_peak = tracemalloc.get_traced_memory()
-    tracemalloc.stop()
-    init_mem_peak = init_mem_peak / (1024 * 1024)  # bytes -> MiB
-    end_i_wall, end_i_cpu = time.perf_counter(), time.process_time()
-    init_wall, init_cpu = end_i_wall - start_i_wall, end_i_cpu - start_i_cpu
 
     # COMPUTE KERNEL
     try:
-        start_k_wall, start_k_cpu = time.perf_counter(), time.process_time()
-        tracemalloc.start()
         cext.compute_kernel(connectivity_key = "wnn_connectivities",
                             time_key = "rna:pseudotime",
                             cluster_key = "rna:pop",
                             threshold_scheme = "hard")
-        _, kernel_mem_peak = tracemalloc.get_traced_memory()
-        tracemalloc.stop()
-        kernel_mem_peak = kernel_mem_peak / (1024 * 1024)  # bytes -> MiB
-        end_k_wall, end_k_cpu = time.perf_counter(), time.process_time()
-        kernel_wall, kernel_cpu = end_k_wall - start_k_wall, end_k_cpu - start_k_cpu
         failed = False
-    except:
-        if tracemalloc.is_tracing():
-            tracemalloc.stop()
+    except Exception as e:
+        print(e)
         failed = True
-        kernel_wall, kernel_cpu, kernel_mem_peak = np.nan, np.nan, np.nan
-
 
     # TI WITH NO FIXED TERMINAL
     try:
-        start_r_wall, start_r_cpu = time.perf_counter(), time.process_time()
-        tracemalloc.start()
         cext.run(
             n_states = None, 
             n_jobs = threads, 
             allow_overlap = True)
-        _, run_mem_peak = tracemalloc.get_traced_memory()
-        tracemalloc.stop()
-        run_mem_peak = run_mem_peak / (1024 * 1024)  # bytes -> MiB
-        end_r_wall, end_r_cpu = time.perf_counter(), time.process_time()
-        run_wall, run_cpu = end_r_wall - start_r_wall, end_r_cpu - start_r_cpu
         failed = False
-    except: 
-        if tracemalloc.is_tracing():
-            tracemalloc.stop()
+    except Exception as e: 
         failed = True
-        run_wall, run_cpu, run_mem_peak = None, None, None
 
-    ts_dict = cext.mudata.uns.get("terminal_states", {})
-    resources = {"init_wall_time": init_wall,
-                    "init_cpu_time": init_cpu,
-                    "preprocessing_wall_time": preprocessing_wall,
-                    "preprocessinf_cpu_time": preprocessing_cpu,
-                    "run_wall_time": run_wall + kernel_wall,
-                    "run_cpu_time": run_cpu + kernel_cpu,
-                    "init_mem_peak": init_mem_peak,
-                    "run_mem_peak": np.maximum(run_mem_peak, kernel_mem_peak),
-                    "preprocessing_mem_peak": preprocessing_mem_peak
-                }
-    results = _apply_metrics_and_visualize(mudata = mudata, tree = tree, rd= diff_cif_fraction, sigma = cif_sigma,
-                    knn_rna = knn_rna, knn_activity = knn_activity, wnn = wnn,
+    ts_dict = mudata.uns.get("terminal_states", {})
+
+    results = _apply_metrics(mudata = mudata, tree = tree, rd= diff_cif_fraction, sigma = cif_sigma,
+                    knn_rna = knn_rna, knn_activity = knn_activity, wnn = wnn, pseudotime_key = "rna:pseudotime",
                     failed = failed, fixed_terminal = False, terminal_clusters = TERM_DICT[tree],
-                    ts_dict = ts_dict, true_probabilities = true_fates)
+                    ts_dict = ts_dict, true_probabilities = true_fates, ground_truth_pseudotime=False)
     _save_simulation(mudata = mudata, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, 
                     knn_rna = knn_rna, knn_activity = knn_activity, wnn= wnn, fixed_terminal = False, 
-                    saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary, resources = resources)
+                    saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary)
 
 
     # RUN WITH FIXED TERMINAL
     try: 
-        start_r_wall, start_r_cpu = time.perf_counter(), time.process_time()
-        tracemalloc.start()
         cext.run(
             n_jobs = threads,
             initial_states = early_cell, 
             terminal_states = terminal_cells)
-        _, run_mem_peak = tracemalloc.get_traced_memory()
-        tracemalloc.stop()
-        run_mem_peak = run_mem_peak / (1024 * 1024)  # bytes -> MiB
-        end_r_wall, end_r_cpu = time.perf_counter(), time.process_time()
-        run_wall, run_cpu = end_r_wall - start_r_wall, end_r_cpu - start_r_cpu
         failed = False
     except:
-        if tracemalloc.is_tracing():
-            tracemalloc.stop()
         failed = True
-        run_wall, run_cpu, run_mem_peak = None, None, None
 
-    ts_dict = cext.mudata.uns.get("terminal_states", {})
-    resources = {"init_wall_time": init_wall,
-                    "init_cpu_time": init_cpu,
-                    "preprocessing_wall_time": preprocessing_wall,
-                    "preprocessinf_cpu_time": preprocessing_cpu,
-                    "run_wall_time": run_wall + kernel_wall,
-                    "run_cpu_time": run_cpu + kernel_cpu,
-                    "init_mem_peak": init_mem_peak,
-                    "run_mem_peak": np.maximum(run_mem_peak, kernel_mem_peak),
-                    "preprocessing_mem_peak": preprocessing_mem_peak
-                }
-    results = _apply_metrics_and_visualize(mudata = mudata, tree = args.tree, rd= diff_cif_fraction, sigma = cif_sigma,
-                    knn_rna = knn_rna, knn_activity = knn_activity, wnn = wnn,
+    ts_dict = mudata.uns.get("terminal_states", {})
+
+    results = _apply_metrics(mudata = mudata, tree = args.tree, rd= diff_cif_fraction, sigma = cif_sigma,
+            knn_rna = knn_rna, knn_activity = knn_activity, wnn = wnn, pseudotime_key = "rna:pseudotime",
                     failed = failed, fixed_terminal = True, terminal_clusters = TERM_DICT[tree],
-                    ts_dict = ts_dict, true_probabilities = true_fates)
+                    ts_dict = ts_dict, true_probabilities = true_fates, ground_truth_pseudotime=False)
     _save_simulation(mudata = mudata, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, 
                     knn_rna = knn_rna, knn_activity = knn_activity, wnn= wnn, fixed_terminal = True, 
-                    saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary, resources=resources)
+                    saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary)

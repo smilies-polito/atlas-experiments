@@ -14,8 +14,7 @@ import scanpy as sc
 from muon import MuData
 from anndata import AnnData
 from scipy.sparse import csr_matrix
-from .utils import initial_macrostate, terminal_macrostate, truth_like_fates, TERM_DICT, POTENCY_DICT
-from atlas import pearson_correlation, spearman_correlation, kendall_correlation, fate_concentration_index, terminal_state_silhouette, terminal_pseudotime_enrichment_score, js_distance, terminal_state_score
+from .utils import initial_macrostate, terminal_macrostate, truth_like_fates, TERM_DICT, POTENCY_DICT, _save_simulation_rna, _apply_metrics
 
 def _invert_assignment(assignment):
 	if not isinstance(assignment.dtype, pd.CategoricalDtype):
@@ -56,137 +55,7 @@ def compute_entropy(data: AnnData, fate_prob_key:str="palantir_fate_probabilitie
 	data.obs["shannon_entropy"] = pd.Series(shannon_entropy, index = data.obs.index)
 	data.obs["kl_divergence"] = pd.Series(kl_divergence, index = data.obs.index)
 
-def _save_simulation(data: AnnData, 
-					tree: str,
-					rd: float, 	
-					sigma: float,
-					knn_rna: int, 
-					fixed_terminal: bool, 
-					results: dict,
-					ground_truth: dict,
-					saving_folder: str,
-					resources: dict):
-	'''
-		Save simulation results.
-	'''
-	code = f"{tree}_{fixed_terminal}_{rd}_{sigma}_{knn_rna}.h5ad"
-	data.X = None
-	data.obsm["true_fates"] = ground_truth["fate_probabilities"]
-	data.uns["true_states"] = ground_truth["true_states"]
-	data.uns["simulation_results"] = results
-	data.write(os.path.join(saving_folder, code))
-
-	results_path = os.path.join(saving_folder, "results.csv")
-	resources_path = os.path.join(saving_folder, "resources.csv")
-	resources["code"] = code
-
-	with open(results_path, "a") as f:
-		fcntl.flock(f, fcntl.LOCK_EX)
-		pd.DataFrame([results]).to_csv(f, index=False, header=f.tell() == 0)
-		fcntl.flock(f, fcntl.LOCK_UN)
-
-	with open(resources_path, "a") as f:
-		fcntl.flock(f, fcntl.LOCK_EX)
-		pd.DataFrame([resources]).to_csv(f, index=False, header=f.tell() == 0)
-		fcntl.flock(f, fcntl.LOCK_UN)
 		
-def _apply_metrics_and_visualize(data: AnnData,
-								tree: str,
-								rd: float, 
-								sigma: float,
-								knn_rna: int, 
-								ts_dict: dict,
-								terminal_clusters: list,
-								true_probabilities: pd.DataFrame,
-								failed: bool = False,
-								fixed_terminal: bool = False,
-								):
-	'''
-		Compute metrics.
-	'''
-	code = f"{tree}_{fixed_terminal}_{rd}_{sigma}_{knn_rna}"
-	results = {
-				"code" : code,
-				"failed": failed,
-				"fixed_terminal" : fixed_terminal,
-				"spearman_stat_pseudotime": np.nan,
-				"spearman_pval_pseudotime": np.nan,
-				"kendall_stat_pseudotime": np.nan,
-				"kendall_pval_pseudotime": np.nan,
-				"fate_index_pval": np.nan,
-				"fate_index_stat": np.nan,
-				"n_terminal_states" : np.nan,
-				"pearson_pval_KLD": np.nan,
-				"pearson_stat_KLD": np.nan,
-				"pearson_pval_SHE": np.nan,
-				"pearson_stat_SHE": np.nan,
-				"spearman_pval_KLD": np.nan,
-				"spearman_stat_KLD": np.nan,
-				"spearman_pval_SHE": np.nan,
-				"spearman_stat_SHE": np.nan,
-				"temporal_state_score": np.nan,
-				"terminal_enrichment": np.nan,
-				"terminal_silhouette_pse": np.nan,
-				"terminal_silhouette_soft": np.nan,
-				"tsr": np.nan,
-				"ttc": np.nan,
-				"ttp": np.nan,
-				"tts": np.nan,
-				"jsd_totipotent": np.nan,
-				"jsd_multipotent": np.nan,
-				"jsd_committed": np.nan,
-			}
-
-	if failed:
-		return results
-					
-	results["n_terminal_states"] = data.obsm["fate_probabilities"].shape[1]
-
-	# no fate probabilities	
-	if results["n_terminal_states"] <= 0:
-		return results	
-
-	#SUPERVISED - JSD
-	if fixed_terminal:
-		jsd = js_distance(data.obsm["fate_probabilities"], true_probabilities)
-		if not jsd.index.equals(data.obs["pop"].index):
-			jsd = jsd.loc[data.obs["pop"].index]
-		jsdf = pd.DataFrame({"jsd": jsd, "cluster": data.obs["pop"]})
-		jsdf["potency"] = jsdf["cluster"].map(POTENCY_DICT[tree])
-		mean_jsd = jsdf.groupby("potency")["jsd"].mean()
-        for cat in ["multipotent", "totipotent", "committed"]:
-            results[f"jsd_{cat}"] = mean_jsd.get(cat, np.nan)
-
-	#SUPERVISED - TERMINAL STATE SCORE
-	tts, ttp, tsr, ttc, overall = terminal_state_score(data.obs["pseudotime"], data.obs["pop"], ts_dict, terminal_clusters)
-	results["tts"] = tts
-	results["ttp"] = ttp
-	results["tsr"] = tsr
-	results["ttc"] = ttc
-	results["temporal_state_score"] = overall
-
-	#UNSUPERVISED
-	stat, pval, _ = spearman_correlation(data.obs["pseudotime"], data.obs["kl_divergence"], seed = 42)	
-	results["spearman_stat_KLD"] = stat
-	results["spearman_pval_KLD"] = pval
-	stat, pval, _ = spearman_correlation(data.obs["pseudotime"], data.obs["shannon_entropy"], seed = 42)	
-	results["spearman_stat_SHE"] = stat
-	results["spearman_pval_SHE"] = pval
-	stat, pval, _ = pearson_correlation(data.obs["pseudotime"], data.obs["kl_divergence"], seed = 42)	
-	results["pearson_stat_KLD"] = stat
-	results["pearson_pval_KLD"] = pval
-	stat, pval, _ = pearson_correlation(data.obs["pseudotime"], data.obs["shannon_entropy"], seed = 42)	
-	results["pearson_stat_SHE"] = stat
-	results["pearson_pval_SHE"] = pval
-	stat, pval, _, __ = fate_concentration_index(data.obsm["fate_probabilities"], data.obs["pseudotime"], seed = 42)
-	results["fate_index_stat"] = stat
-	results["fate_index_pval"] = pval
-	results["terminal_silhouette_soft"] = terminal_state_silhouette(data.obsm["fate_probabilities"], soft_assignment=True)
-	results["terminal_silhouette_pse"] = terminal_state_silhouette(data.obsm["fate_probabilities"], soft_assignment=False, pseudotime=data.obs["pseudotime"])
-	results["terminal_enrichment"] = terminal_pseudotime_enrichment_score(terminal_states=ts_dict, pseudotime = data.obs["pseudotime"], rank=True)
-
-	return results
-
 if __name__=="__main__":
 	seed = 42
 	threads = 3
@@ -246,27 +115,16 @@ if __name__=="__main__":
 											"terminal": terminal_cells}
 						}
 	try:
-		start_i_wall, start_i_cpu = time.perf_counter(), time.process_time()
-		tracemalloc.start()
 		kernel = cellrank.kernels.PseudotimeKernel(data,
 											time_key = "pseudotime",
 											connectivity_key = "connectivities")
 		kernel.compute_transition_matrix(threshold_scheme = "hard", n_jobs = threads)
-		_, init_mem_peak = tracemalloc.get_traced_memory()
-		tracemalloc.stop()
-		init_mem_peak = init_mem_peak / (1024 * 1024)  # bytes -> MiB
-		end_i_wall, end_i_cpu = time.perf_counter(), time.process_time()
-		init_wall, init_cpu = end_i_wall - start_i_wall, end_i_cpu - start_i_cpu
 		failed = False
 	except Exception as e:
-		if tracemalloc.is_tracing():
-			tracemalloc.stop()
-		init_wall, init_cpu, init_mem_peak = None, None, None
+		print(e)
 		failed = True
 	
 	try:
-		start_r_wall, start_r_cpu = time.perf_counter(), time.process_time()
-		tracemalloc.start()
 		g = cellrank.estimators.GPCCA(kernel)
 		g.compute_schur()
 		g.compute_macrostates(n_states=None, cluster_key = "pop")
@@ -279,37 +137,16 @@ if __name__=="__main__":
 		data.uns["initial_states"] = _invert_assignment(g.initial_states)
 		data.uns["terminal_states"] = _invert_assignment(g.terminal_states)
 		compute_entropy(data = data, fate_prob_key="fate_probabilities")
-		_, run_mem_peak = tracemalloc.get_traced_memory()
-		tracemalloc.stop()
-		run_mem_peak = run_mem_peak / (1024 * 1024)  # bytes -> MiB
-		end_r_wall, end_r_cpu = time.perf_counter(), time.process_time()
-		run_wall, run_cpu = end_r_wall - start_r_wall, end_r_cpu - start_r_cpu
 		failed = False
-	except:
-		if tracemalloc.is_tracing():
-			tracemalloc.stop()
+	except Exception as e:
+		print(e)
 		failed = True
-		run_wall, run_cpu, run_mem_peak = None, None, None
 
-	resources = {	"run_wall_time": run_wall,
-					"run_cpu_time": run_cpu,
-					"run_mem_peak": run_mem_peak,
-					"init_wall_time": init_wall,
-					"init_cpu_time": init_cpu,
-					"init_mem_peak": init_mem_peak
-				}
 	ts_dict = data.uns.get("terminal_states", {})
-	results = _apply_metrics_and_visualize(data = data, tree = args.tree, rd= diff_cif_fraction, sigma = cif_sigma,
-					knn_rna = knn_rna,
-					failed = failed, fixed_terminal = False, terminal_clusters = TERM_DICT[tree],
-					ts_dict = ts_dict, true_probabilities = true_fates)
-	_save_simulation(data = data.copy(), tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, 
-					knn_rna = knn_rna, fixed_terminal = False, 
-					saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary, resources=resources)
+	results = _apply_metrics(mudata = data, tree = args.tree, rd= diff_cif_fraction, sigma = cif_sigma, knn_rna = knn_rna, fate_key = "fate_probabilities", pseudotime_key="rna:pseudotime", entropy_key="rna:shannon_entropy", kl_div_key = "rna:kl_divergence", cluster_key="rna:pop",  ground_truth_pseudotime=False, failed = failed, fixed_terminal = False, terminal_clusters = TERM_DICT[tree], ts_dict = ts_dict, true_probabilities = true_fates)
+	_save_simulation_rna(data = data.copy(), tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, knn_rna = knn_rna, fixed_terminal = False, saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary)
 
 	try:
-		start_r_wall, start_r_cpu = time.perf_counter(), time.process_time()
-		tracemalloc.start()
 		kernel.compute_transition_matrix(threshold_scheme = "hard", n_jobs = -1)
 		g = cellrank.estimators.GPCCA(kernel)
 		g.compute_schur()
@@ -322,34 +159,15 @@ if __name__=="__main__":
 		data.uns["initial_states"] = _invert_assignment(g.initial_states)
 		data.uns["terminal_states"] = _invert_assignment(g.terminal_states)
 		compute_entropy(data = data, fate_prob_key="fate_probabilities")
-		_, run_mem_peak = tracemalloc.get_traced_memory()
-		tracemalloc.stop()
-		run_mem_peak = run_mem_peak / (1024 * 1024)  # bytes -> MiB
-		end_r_wall, end_r_cpu = time.perf_counter(), time.process_time()
-		run_wall, run_cpu = end_r_wall - start_r_wall, end_r_cpu - start_r_cpu
 		failed = False
-	except:
-		if tracemalloc.is_tracing():
-			tracemalloc.stop()
+	except Exception as e:
+		print(e)
 		failed = True
-		run_wall, run_cpu, run_mem_peak = None, None, None
 
-	resources = {	"run_wall_time": run_wall,
-					"run_cpu_time": run_cpu,
-					"run_mem_peak": run_mem_peak,
-					"init_wall_time": init_wall,
-					"init_cpu_time": init_cpu,
-					"init_mem_peak": init_mem_peak
-				}
 	
 	ts_dict = data.uns.get("terminal_states", {})
-	results = _apply_metrics_and_visualize(data = data, tree = args.tree, rd= diff_cif_fraction, sigma = cif_sigma,
-					knn_rna = knn_rna,
-					failed = failed, fixed_terminal = True, terminal_clusters = TERM_DICT[tree],
-					ts_dict = ts_dict, true_probabilities = true_fates)
-	_save_simulation(data = data, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, 
-					knn_rna = knn_rna, fixed_terminal = True, 
-					saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary, resources=resources)
+	results = _apply_metrics(mudata = data, tree = args.tree, rd= diff_cif_fraction, sigma = cif_sigma, knn_rna = knn_rna, fate_key = "fate_probabilities", entropy_key = "rna:shannon_entropy", kl_div_key = "rna:kl_divergence", cluster_key="rna:pop", pseudotime_key="rna:pseudotime", ground_truth_pseudotime=False, failed = failed, fixed_terminal = True, terminal_clusters = TERM_DICT[tree], ts_dict = ts_dict, true_probabilities = true_fates)
+	_save_simulation_rna(data = data, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, knn_rna = knn_rna, fixed_terminal = True, saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary)
 
 
 		

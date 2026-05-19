@@ -43,7 +43,7 @@ if __name__=="__main__":
     peaks= os.path.join(data_path, "GSM4156597_skin.late.anagen.peaks.bed")
     feature_path = os.path.join(output_path, "features.tsv")
     annotation_path = os.path.join(data_path, "GSM4156597_skin_celltype.txt")
-    fragment_file_path = os.path.join(data_path, "GSM4156597_skin.late.anagen.atac.sorted.fragments.bed.gz")
+    fragment_file_path = os.path.join(data_path, "GSM4156597_skin.late.anagen.atac.fragments.sorted.bed.gz")
 
     valid_chr = [f"{i}" for i in range(1,23)] + ["X","MT"]
 

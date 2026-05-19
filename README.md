@@ -30,9 +30,10 @@ v1.0:
 
 Follow these steps to setup for reproducing the experiments. 
 
-1. Install `apptainer` (simulations were perfomed using version 1.4.5)
-2. Clone the repository in your home folder via `git clone URL`
-3. Move to the repository folder and build the `singularity` container with:
+1. Install `Singularity` version 1.4.5 from [this link](https://docs.sylabs.io/guides/3.0/user-guide/installation.html).
+2. Install `samtools` version 
+3. Clone the repository in your home folder via `git clone `
+4. Move to the repository folder and build the `singularity` container with:
 ```
 cd scvemo/container
 sudo singularity build container.sif container.def 
@@ -53,6 +54,51 @@ Input data must be downloaded and places in the `scvemo/data` folder under the c
 | SHARE-seq Mouse Hair Follicle | [scATAC-seq](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM4156597), [scRNA-seq](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM4156608) | `scvemo/data/mouse_hair` | `GSM4156608_skin.late.anagen.rna.counts.txt`, `GSM4156597_skin.late.anagen.counts.txt`, `GSM4156597_skin.late.anagen.barcodes.txt`, `GSM4156597_skin.late.anagen.peaks.bed`, `GSM4156597_skin_celltype.txt`, `GSM4156597_skin.late.anagen.atac.sorted.fragments.bed.gz` |
 | Human Fetal Brain | [GEO: GSE162170](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE162170) | `scvemo/data/human_brain` | `GSE162170_multiome_cluster_names.txt`, `GSE162170_multiome_cell_metadata.txt`, `GSE162170_multiome_rna_counts.tsv.gz`, `GSE162170_multiome_atac_gene_activities.tsv.gz` |
 | Synthetic data generated via scMultiSim | [Link]() | `scvemo/data/synthetic_data` | Generated simulation outputs |
+
+Here we provide with all bash commands to batch download data and obtain the correct inputs:
+
+Fresh Embryonic E18 Mouse Brain:
+```
+cd scvemo/data/embryonic_mouse_brain
+curl -O https://cf.10xgenomics.com/samples/cell-arc/2.0.0/e18_mouse_brain_fresh_5k/e18_mouse_brain_fresh_5k_filtered_feature_bc_matrix.tar.gz
+tar -xvf e18_mouse_brain_fresh_5k_filtered_feature_bc_matrix.tar.gz
+curl -O https://cf.10xgenomics.com/samples/cell-arc/2.0.0/e18_mouse_brain_fresh_5k/e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz
+curl -O https://cf.10xgenomics.com/samples/cell-arc/2.0.0/e18_mouse_brain_fresh_5k/e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz.tbi
+```
+
+SHARE-seq Mouse Hair Follicle:
+```
+cd scvemo/data/mouse_hair
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4156nnn/GSM4156597/suppl/GSM4156597_skin_celltype.txt.gz
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4156nnn/GSM4156597/suppl/GSM4156597_skin.late.anagen.counts.txt.gz
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4156nnn/GSM4156597/suppl/GSM4156597_skin.late.anagen.peaks.bed.gz
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4156nnn/GSM4156608/suppl/GSM4156608_skin.late.anagen.rna.counts.txt.gz
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4156nnn/GSM4156597/suppl/GSM4156597_skin.late.anagen.barcodes.txt.gz
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4156nnn/GSM4156597/suppl/GSM4156597_skin.late.anagen.atac.fragments.bed.gz
+
+gunzip GSM4156597_skin_celltype.txt.gz
+gunzip GSM4156597_skin.late.anagen.barcodes.txt.gz
+gunzip GSM4156597_skin.late.anagen.counts.txt.gz
+gunzip GSM4156608_skin.late.anagen.rna.counts.txt.gz
+gunzip GSM4156597_skin.late.anagen.peaks.bed.gz
+gunzip GSM4156597_skin.late.anagen.atac.fragments.bed.gz
+sort -k1,1 -k2,2n GSM4156597_skin.late.anagen.atac.fragments.bed > GSM4156597_skin.late.anagen.atac.fragments.sorted.bed
+bgzip GSM4156597_skin.late.anagen.atac.fragments.sorted.bed
+tabix -p bed GSM4156597_skin.late.anagen.atac.fragments.sorted.bed
+```
+
+Human Fetal Brain: 
+```
+cd scvemo/data/human_brain
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiomics_atac_gene_activities.tsv.gz
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_cell_metadata.txt.gz
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_rna_counts.tsv.gz
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_cluster_names.tsv.gz
+
+gunzip GSE162170_multiome_cluster_names.tsv.gz
+gunzip GSE162170_multiome_cell_metadata.txt.gz
+```
+
 
 ### Output Folders
 
@@ -122,9 +168,11 @@ scvemo/
 │   ├── supplementary9_hb_gex.py       # Gene Expression UMAP for selected genes in the Human Brain Data
 │   └── utils.py      
 ├── simulated_data/                    # Folder with code for synthetic data experiments
-│   ├── # TO DO
-│   ├── # TO DO
-│   └──  to do       
+│   ├── palantir_rna_run.py            # scRNA-seq only experiment on synthetic data using Palantir
+│   ├── palantir_run.py                # ATLAS on synthetic casa (Palantir-based TI)
+│   ├── pseudotime_rna_run.py          # scRNA-seq only experiment on synthetic data using CellRank
+│   ├── pseudotime_run.py              # ATLAS on synthetic data (CellRank-based TI)
+│   └── utils.py
 ├── supplementary/                     # Folder with code for additional visualisations 
 │   ├── supplementary34_box_radar_plots.py 
 │   └── supplementary34_tables.py
