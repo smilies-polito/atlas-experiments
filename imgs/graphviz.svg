@@ -1,0 +1,276 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1452pt" height="260pt" viewBox="0.00 0.00 1452.00 260.00">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 256)">
+<title>snakemake_dag</title>
+<polygon fill="white" stroke="none" points="-4,4 -4,-256 1448.47,-256 1448.47,4 -4,4"/>
+<!-- 0 -->
+<g id="node1" class="node">
+<title>0</title>
+<path fill="none" stroke="#afd856" stroke-width="2" d="M628.99,-36C628.99,-36 598.99,-36 598.99,-36 592.99,-36 586.99,-30 586.99,-24 586.99,-24 586.99,-12 586.99,-12 586.99,-6 592.99,0 598.99,0 598.99,0 628.99,0 628.99,0 634.99,0 640.99,-6 640.99,-12 640.99,-12 640.99,-24 640.99,-24 640.99,-30 634.99,-36 628.99,-36"/>
+<text xml:space="preserve" text-anchor="middle" x="613.99" y="-15" font-family="sans" font-size="10.00">all</text>
+</g>
+<!-- 1 -->
+<g id="node2" class="node">
+<title>1</title>
+<path fill="none" stroke="#56d892" stroke-width="2" d="M133.98,-252C133.98,-252 32,-252 32,-252 26,-252 20,-246 20,-240 20,-240 20,-228 20,-228 20,-222 26,-216 32,-216 32,-216 133.98,-216 133.98,-216 139.98,-216 145.98,-222 145.98,-228 145.98,-228 145.98,-240 145.98,-240 145.98,-246 139.98,-252 133.98,-252"/>
+<text xml:space="preserve" text-anchor="middle" x="82.99" y="-231" font-family="sans" font-size="10.00">humanBrain_preprocessing</text>
+</g>
+<!-- 1&#45;&gt;0 -->
+<g id="edge13" class="edge">
+<title>1-&gt;0</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M43.92,-215.19C29.96,-206.67 15.76,-195.01 7.99,-180 -18.54,-128.77 27.85,-96.68 79.99,-72 167.4,-30.62 464.27,-21.5 573.35,-19.53"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="573.32,-23.03 583.26,-19.36 573.2,-16.03 573.32,-23.03"/>
+</g>
+<!-- 9 -->
+<g id="node10" class="node">
+<title>9</title>
+<path fill="none" stroke="#59d856" stroke-width="2" d="M137.32,-180C137.32,-180 28.66,-180 28.66,-180 22.66,-180 16.66,-174 16.66,-168 16.66,-168 16.66,-156 16.66,-156 16.66,-150 22.66,-144 28.66,-144 28.66,-144 137.32,-144 137.32,-144 143.32,-144 149.32,-150 149.32,-156 149.32,-156 149.32,-168 149.32,-168 149.32,-174 143.32,-180 137.32,-180"/>
+<text xml:space="preserve" text-anchor="middle" x="82.99" y="-159" font-family="sans" font-size="10.00">supp1012_humanBrain_atlas</text>
+</g>
+<!-- 1&#45;&gt;9 -->
+<g id="edge23" class="edge">
+<title>1-&gt;9</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M82.99,-215.34C82.99,-208.75 82.99,-201.08 82.99,-193.67"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="86.49,-193.93 82.99,-183.93 79.49,-193.93 86.49,-193.93"/>
+</g>
+<!-- 11 -->
+<g id="node12" class="node">
+<title>11</title>
+<path fill="none" stroke="#d88d56" stroke-width="2" d="M268.87,-180C268.87,-180 179.11,-180 179.11,-180 173.11,-180 167.11,-174 167.11,-168 167.11,-168 167.11,-156 167.11,-156 167.11,-150 173.11,-144 179.11,-144 179.11,-144 268.87,-144 268.87,-144 274.87,-144 280.87,-150 280.87,-156 280.87,-156 280.87,-168 280.87,-168 280.87,-174 274.87,-180 268.87,-180"/>
+<text xml:space="preserve" text-anchor="middle" x="223.99" y="-159" font-family="sans" font-size="10.00">supp9_humanBrain_gex</text>
+</g>
+<!-- 1&#45;&gt;11 -->
+<g id="edge25" class="edge">
+<title>1-&gt;11</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M118.94,-215.15C136.42,-206.47 157.67,-195.92 176.47,-186.59"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="178,-189.74 185.4,-182.16 174.89,-183.47 178,-189.74"/>
+</g>
+<!-- 2 -->
+<g id="node3" class="node">
+<title>2</title>
+<path fill="none" stroke="#5673d8" stroke-width="2" d="M407.75,-252C407.75,-252 320.23,-252 320.23,-252 314.23,-252 308.23,-246 308.23,-240 308.23,-240 308.23,-228 308.23,-228 308.23,-222 314.23,-216 320.23,-216 320.23,-216 407.75,-216 407.75,-216 413.75,-216 419.75,-222 419.75,-228 419.75,-228 419.75,-240 419.75,-240 419.75,-246 413.75,-252 407.75,-252"/>
+<text xml:space="preserve" text-anchor="middle" x="363.99" y="-231" font-family="sans" font-size="10.00">e18brain_preprocessing</text>
+</g>
+<!-- 2&#45;&gt;0 -->
+<g id="edge17" class="edge">
+<title>2-&gt;0</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M355.19,-215.03C340.45,-182.05 315.76,-111.6 351.99,-72 381.29,-39.97 507.72,-26.45 573.65,-21.49"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="573.61,-25 583.34,-20.8 573.12,-18.02 573.61,-25"/>
+</g>
+<!-- 4 -->
+<g id="node5" class="node">
+<title>4</title>
+<path fill="none" stroke="#c6d856" stroke-width="2" d="M444.59,-180C444.59,-180 365.39,-180 365.39,-180 359.39,-180 353.39,-174 353.39,-168 353.39,-168 353.39,-156 353.39,-156 353.39,-150 359.39,-144 365.39,-144 365.39,-144 444.59,-144 444.59,-144 450.59,-144 456.59,-150 456.59,-156 456.59,-156 456.59,-168 456.59,-168 456.59,-174 450.59,-180 444.59,-180"/>
+<text xml:space="preserve" text-anchor="middle" x="404.99" y="-159" font-family="sans" font-size="10.00">supp6_e18brain_atlas</text>
+</g>
+<!-- 2&#45;&gt;4 -->
+<g id="edge18" class="edge">
+<title>2-&gt;4</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M374.34,-215.34C378.48,-208.26 383.36,-199.92 388,-192"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="390.94,-193.91 392.97,-183.51 384.9,-190.37 390.94,-193.91"/>
+</g>
+<!-- 3 -->
+<g id="node4" class="node">
+<title>3</title>
+<path fill="none" stroke="#56d8c9" stroke-width="2" d="M781.2,-252C781.2,-252 684.78,-252 684.78,-252 678.78,-252 672.78,-246 672.78,-240 672.78,-240 672.78,-228 672.78,-228 672.78,-222 678.78,-216 684.78,-216 684.78,-216 781.2,-216 781.2,-216 787.2,-216 793.2,-222 793.2,-228 793.2,-228 793.2,-240 793.2,-240 793.2,-246 787.2,-252 781.2,-252"/>
+<text xml:space="preserve" text-anchor="middle" x="732.99" y="-231" font-family="sans" font-size="10.00">mouseHair_preprocessing</text>
+</g>
+<!-- 3&#45;&gt;0 -->
+<g id="edge14" class="edge">
+<title>3-&gt;0</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M707.44,-215.05C695.48,-205.67 681.76,-193.37 671.99,-180 642.74,-139.97 626.98,-83.73 619.55,-49.41"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="623.05,-49.06 617.63,-39.96 616.19,-50.46 623.05,-49.06"/>
+</g>
+<!-- 7 -->
+<g id="node8" class="node">
+<title>7</title>
+<path fill="none" stroke="#70d856" stroke-width="2" d="M773.15,-180C773.15,-180 692.83,-180 692.83,-180 686.83,-180 680.83,-174 680.83,-168 680.83,-168 680.83,-156 680.83,-156 680.83,-150 686.83,-144 692.83,-144 692.83,-144 773.15,-144 773.15,-144 779.15,-144 785.15,-150 785.15,-156 785.15,-156 785.15,-168 785.15,-168 785.15,-174 779.15,-180 773.15,-180"/>
+<text xml:space="preserve" text-anchor="middle" x="732.99" y="-159" font-family="sans" font-size="10.00">fig1_mouseHair_atlas</text>
+</g>
+<!-- 3&#45;&gt;7 -->
+<g id="edge21" class="edge">
+<title>3-&gt;7</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M732.99,-215.34C732.99,-208.75 732.99,-201.08 732.99,-193.67"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="736.49,-193.93 732.99,-183.93 729.49,-193.93 736.49,-193.93"/>
+</g>
+<!-- 13 -->
+<g id="node14" class="node">
+<title>13</title>
+<path fill="none" stroke="#d85656" stroke-width="2" d="M897.81,-180C897.81,-180 834.17,-180 834.17,-180 828.17,-180 822.17,-174 822.17,-168 822.17,-168 822.17,-156 822.17,-156 822.17,-150 828.17,-144 834.17,-144 834.17,-144 897.81,-144 897.81,-144 903.81,-144 909.81,-150 909.81,-156 909.81,-156 909.81,-168 909.81,-168 909.81,-174 903.81,-180 897.81,-180"/>
+<text xml:space="preserve" text-anchor="middle" x="865.99" y="-159" font-family="sans" font-size="10.00">hyper_parameters</text>
+</g>
+<!-- 3&#45;&gt;13 -->
+<g id="edge27" class="edge">
+<title>3-&gt;13</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M766.9,-215.15C783.23,-206.56 803.05,-196.12 820.67,-186.85"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="822.25,-189.98 829.47,-182.22 818.99,-183.78 822.25,-189.98"/>
+</g>
+<!-- 4&#45;&gt;0 -->
+<g id="edge6" class="edge">
+<title>4-&gt;0</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M385.45,-143.25C366.89,-124.23 344.26,-93.85 361.99,-72 388.16,-39.75 509.07,-26.4 573.42,-21.5"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="573.5,-25 583.22,-20.79 573,-18.02 573.5,-25"/>
+</g>
+<!-- 5 -->
+<g id="node6" class="node">
+<title>5</title>
+<path fill="none" stroke="#56d8a9" stroke-width="2" d="M456.81,-108C456.81,-108 383.17,-108 383.17,-108 377.17,-108 371.17,-102 371.17,-96 371.17,-96 371.17,-84 371.17,-84 371.17,-78 377.17,-72 383.17,-72 383.17,-72 456.81,-72 456.81,-72 462.81,-72 468.81,-78 468.81,-84 468.81,-84 468.81,-96 468.81,-96 468.81,-102 462.81,-108 456.81,-108"/>
+<text xml:space="preserve" text-anchor="middle" x="419.99" y="-87" font-family="sans" font-size="10.00">supp7_e18brain_rna</text>
+</g>
+<!-- 4&#45;&gt;5 -->
+<g id="edge19" class="edge">
+<title>4-&gt;5</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M408.78,-143.34C410.2,-136.67 411.87,-128.89 413.48,-121.39"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="416.85,-122.37 415.52,-111.86 410,-120.91 416.85,-122.37"/>
+</g>
+<!-- 6 -->
+<g id="node7" class="node">
+<title>6</title>
+<path fill="none" stroke="#8fd856" stroke-width="2" d="M573.65,-108C573.65,-108 498.33,-108 498.33,-108 492.33,-108 486.33,-102 486.33,-96 486.33,-96 486.33,-84 486.33,-84 486.33,-78 492.33,-72 498.33,-72 498.33,-72 573.65,-72 573.65,-72 579.65,-72 585.65,-78 585.65,-84 585.65,-84 585.65,-96 585.65,-96 585.65,-102 579.65,-108 573.65,-108"/>
+<text xml:space="preserve" text-anchor="middle" x="535.99" y="-87" font-family="sans" font-size="10.00">supp8_e18brain_gex</text>
+</g>
+<!-- 4&#45;&gt;6 -->
+<g id="edge20" class="edge">
+<title>4-&gt;6</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M438.39,-143.15C454.55,-134.52 474.19,-124.02 491.6,-114.72"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="492.82,-118.04 499.99,-110.24 489.52,-111.87 492.82,-118.04"/>
+</g>
+<!-- 5&#45;&gt;0 -->
+<g id="edge12" class="edge">
+<title>5-&gt;0</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M469.7,-71.06C502.02,-59.4 543.61,-44.4 573.83,-33.49"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="574.96,-36.81 583.17,-30.12 572.58,-30.22 574.96,-36.81"/>
+</g>
+<!-- 6&#45;&gt;0 -->
+<g id="edge7" class="edge">
+<title>6-&gt;0</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M555.67,-71.34C564.38,-63.52 574.81,-54.16 584.42,-45.53"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="586.68,-48.21 591.79,-38.92 582.01,-43 586.68,-48.21"/>
+</g>
+<!-- 7&#45;&gt;0 -->
+<g id="edge8" class="edge">
+<title>7-&gt;0</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M708.84,-143.11C696.71,-133.47 682.24,-120.92 670.99,-108 654.95,-89.59 640.19,-66.27 629.7,-48.12"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="632.76,-46.41 624.8,-39.41 626.66,-49.84 632.76,-46.41"/>
+</g>
+<!-- 8 -->
+<g id="node9" class="node">
+<title>8</title>
+<path fill="none" stroke="#d8cb56" stroke-width="2" d="M774.26,-108C774.26,-108 691.72,-108 691.72,-108 685.72,-108 679.72,-102 679.72,-96 679.72,-96 679.72,-84 679.72,-84 679.72,-78 685.72,-72 691.72,-72 691.72,-72 774.26,-72 774.26,-72 780.26,-72 786.26,-78 786.26,-84 786.26,-84 786.26,-96 786.26,-96 786.26,-102 780.26,-108 774.26,-108"/>
+<text xml:space="preserve" text-anchor="middle" x="732.99" y="-87" font-family="sans" font-size="10.00">supp5_mouseHair_rna</text>
+</g>
+<!-- 7&#45;&gt;8 -->
+<g id="edge22" class="edge">
+<title>7-&gt;8</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M732.99,-143.34C732.99,-136.75 732.99,-129.08 732.99,-121.67"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="736.49,-121.93 732.99,-111.93 729.49,-121.93 736.49,-121.93"/>
+</g>
+<!-- 12 -->
+<g id="node13" class="node">
+<title>12</title>
+<path fill="none" stroke="#5692d8" stroke-width="2" d="M845.99,-108C845.99,-108 815.99,-108 815.99,-108 809.99,-108 803.99,-102 803.99,-96 803.99,-96 803.99,-84 803.99,-84 803.99,-78 809.99,-72 815.99,-72 815.99,-72 845.99,-72 845.99,-72 851.99,-72 857.99,-78 857.99,-84 857.99,-84 857.99,-96 857.99,-96 857.99,-102 851.99,-108 845.99,-108"/>
+<text xml:space="preserve" text-anchor="middle" x="830.99" y="-87" font-family="sans" font-size="10.00">lineages</text>
+</g>
+<!-- 7&#45;&gt;12 -->
+<g id="edge26" class="edge">
+<title>7-&gt;12</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M757.97,-143.15C769.38,-135.01 783.09,-125.22 795.53,-116.33"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="797.49,-119.23 803.59,-110.57 793.42,-113.54 797.49,-119.23"/>
+</g>
+<!-- 8&#45;&gt;0 -->
+<g id="edge5" class="edge">
+<title>8-&gt;0</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M702.65,-71.15C687.44,-62.2 668.84,-51.26 652.61,-41.72"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="654.83,-38.96 644.43,-36.91 651.28,-45 654.83,-38.96"/>
+</g>
+<!-- 9&#45;&gt;0 -->
+<g id="edge9" class="edge">
+<title>9-&gt;0</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M81.2,-143.33C80.21,-122.91 82.13,-89.84 101.99,-72 136.85,-40.69 458.22,-25.11 573.27,-20.5"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="573.36,-24 583.22,-20.11 573.09,-17 573.36,-24"/>
+</g>
+<!-- 10 -->
+<g id="node11" class="node">
+<title>10</title>
+<path fill="none" stroke="#d87556" stroke-width="2" d="M226.54,-108C226.54,-108 123.44,-108 123.44,-108 117.44,-108 111.44,-102 111.44,-96 111.44,-96 111.44,-84 111.44,-84 111.44,-78 117.44,-72 123.44,-72 123.44,-72 226.54,-72 226.54,-72 232.54,-72 238.54,-78 238.54,-84 238.54,-84 238.54,-96 238.54,-96 238.54,-102 232.54,-108 226.54,-108"/>
+<text xml:space="preserve" text-anchor="middle" x="174.99" y="-87" font-family="sans" font-size="10.00">supp1113_humanBrain_rna</text>
+</g>
+<!-- 9&#45;&gt;10 -->
+<g id="edge24" class="edge">
+<title>9-&gt;10</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M106.21,-143.34C116.8,-135.27 129.56,-125.57 141.19,-116.72"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="143.21,-119.58 149.05,-110.73 138.98,-114 143.21,-119.58"/>
+</g>
+<!-- 10&#45;&gt;0 -->
+<g id="edge2" class="edge">
+<title>10-&gt;0</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M239.19,-74.64C243.85,-73.71 248.49,-72.82 252.99,-72 368.72,-50.92 506.51,-32.53 573.46,-24.03"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="573.77,-27.51 583.25,-22.79 572.89,-20.57 573.77,-27.51"/>
+</g>
+<!-- 11&#45;&gt;0 -->
+<g id="edge3" class="edge">
+<title>11-&gt;0</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M232.26,-143.01C242.78,-122.29 263.02,-88.92 290.99,-72 337.89,-43.63 497.53,-27.92 573.36,-21.9"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="573.35,-25.41 583.05,-21.15 572.81,-18.43 573.35,-25.41"/>
+</g>
+<!-- 12&#45;&gt;0 -->
+<g id="edge16" class="edge">
+<title>12-&gt;0</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M803.27,-75.38C800.5,-74.18 797.7,-73.03 794.99,-72 747.48,-53.95 691.05,-38.31 653.98,-28.79"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="655.21,-25.49 644.66,-26.42 653.49,-32.27 655.21,-25.49"/>
+</g>
+<!-- 13&#45;&gt;0 -->
+<g id="edge1" class="edge">
+<title>13-&gt;0</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M872.27,-143.12C877.94,-123.42 883.16,-91.91 866.99,-72 840.71,-39.64 719.32,-26.34 654.72,-21.47"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="655.09,-17.99 644.87,-20.77 654.59,-24.97 655.09,-17.99"/>
+</g>
+<!-- 14 -->
+<g id="node15" class="node">
+<title>14</title>
+<path fill="none" stroke="#56d873" stroke-width="2" d="M989.81,-108C989.81,-108 926.17,-108 926.17,-108 920.17,-108 914.17,-102 914.17,-96 914.17,-96 914.17,-84 914.17,-84 914.17,-78 920.17,-72 926.17,-72 926.17,-72 989.81,-72 989.81,-72 995.81,-72 1001.81,-78 1001.81,-84 1001.81,-84 1001.81,-96 1001.81,-96 1001.81,-102 995.81,-108 989.81,-108"/>
+<text xml:space="preserve" text-anchor="middle" x="957.99" y="-87" font-family="sans" font-size="10.00">synthetic_palantir</text>
+</g>
+<!-- 14&#45;&gt;0 -->
+<g id="edge10" class="edge">
+<title>14-&gt;0</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M913.46,-75.45C908.93,-74.22 904.38,-73.05 899.99,-72 813.32,-51.32 710.25,-33.97 654.57,-25.18"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="655.21,-21.74 644.79,-23.65 654.13,-28.66 655.21,-21.74"/>
+</g>
+<!-- 15 -->
+<g id="node16" class="node">
+<title>15</title>
+<path fill="none" stroke="#56a9d8" stroke-width="2" d="M1140.59,-108C1140.59,-108 1031.39,-108 1031.39,-108 1025.39,-108 1019.39,-102 1019.39,-96 1019.39,-96 1019.39,-84 1019.39,-84 1019.39,-78 1025.39,-72 1031.39,-72 1031.39,-72 1140.59,-72 1140.59,-72 1146.59,-72 1152.59,-78 1152.59,-84 1152.59,-84 1152.59,-96 1152.59,-96 1152.59,-102 1146.59,-108 1140.59,-108"/>
+<text xml:space="preserve" text-anchor="middle" x="1085.99" y="-87" font-family="sans" font-size="10.00">synthetic_pseudotime_kernel</text>
+</g>
+<!-- 15&#45;&gt;0 -->
+<g id="edge15" class="edge">
+<title>15-&gt;0</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M1018.59,-73.42C1016.03,-72.92 1013.49,-72.45 1010.99,-72 881.44,-48.72 726.4,-30.89 654.41,-23.18"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="654.88,-19.71 644.57,-22.13 654.14,-26.67 654.88,-19.71"/>
+</g>
+<!-- 16 -->
+<g id="node17" class="node">
+<title>16</title>
+<path fill="none" stroke="#56c9d8" stroke-width="2" d="M1263.7,-108C1263.7,-108 1182.28,-108 1182.28,-108 1176.28,-108 1170.28,-102 1170.28,-96 1170.28,-96 1170.28,-84 1170.28,-84 1170.28,-78 1176.28,-72 1182.28,-72 1182.28,-72 1263.7,-72 1263.7,-72 1269.7,-72 1275.7,-78 1275.7,-84 1275.7,-84 1275.7,-96 1275.7,-96 1275.7,-102 1269.7,-108 1263.7,-108"/>
+<text xml:space="preserve" text-anchor="middle" x="1222.99" y="-87" font-family="sans" font-size="10.00">synthetic_palantir_rna</text>
+</g>
+<!-- 16&#45;&gt;0 -->
+<g id="edge11" class="edge">
+<title>16-&gt;0</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M1169.56,-73.54C1167.01,-72.98 1164.48,-72.46 1161.99,-72 974.52,-37.09 746.42,-24.4 654.88,-20.5"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="655.05,-17.01 644.91,-20.09 654.76,-24 655.05,-17.01"/>
+</g>
+<!-- 17 -->
+<g id="node18" class="node">
+<title>17</title>
+<path fill="none" stroke="#d8ac56" stroke-width="2" d="M1432.47,-108C1432.47,-108 1305.51,-108 1305.51,-108 1299.51,-108 1293.51,-102 1293.51,-96 1293.51,-96 1293.51,-84 1293.51,-84 1293.51,-78 1299.51,-72 1305.51,-72 1305.51,-72 1432.47,-72 1432.47,-72 1438.47,-72 1444.47,-78 1444.47,-84 1444.47,-84 1444.47,-96 1444.47,-96 1444.47,-102 1438.47,-108 1432.47,-108"/>
+<text xml:space="preserve" text-anchor="middle" x="1368.99" y="-87" font-family="sans" font-size="10.00">synthetic_pseudotime_kernel_rna</text>
+</g>
+<!-- 17&#45;&gt;0 -->
+<g id="edge4" class="edge">
+<title>17-&gt;0</title>
+<path fill="none" stroke="grey" stroke-width="2" d="M1292.6,-73.13C1290.04,-72.73 1287.49,-72.35 1284.99,-72 1047.46,-38.71 759.48,-24.73 654.64,-20.5"/>
+<polygon fill="grey" stroke="grey" stroke-width="2" points="655.08,-17.01 644.95,-20.12 654.8,-24.01 655.08,-17.01"/>
+</g>
+</g>
+</svg>

@@ -136,7 +136,7 @@ rule humanBrain_preprocessing:
 		metadata = HUMAN_BRAIN_DATA + "/GSE162170_multiome_cell_metadata.txt",
 		rna = HUMAN_BRAIN_DATA + "/GSE162170_multiome_rna_counts.tsv.gz",
 		activity = HUMAN_BRAIN_DATA + "/GSE162170_multiome_atac_gene_activities.tsv.gz",
-		outlier = HUMAN_BRAIN_OUTPUT + "/to_remove.tsv",
+		outlier = HUMAN_BRAIN_DATA + "/to_remove.tsv",
 	output:
 		h5mu = HUMAN_BRAIN_OUTPUT + "/{prefix}.h5mu",
 	params: 

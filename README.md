@@ -81,13 +81,13 @@ gunzip GSM4156597_skin.late.anagen.peaks.bed.gz
 gunzip GSM4156597_skin.late.anagen.atac.fragments.bed.gz
 sort -k1,1 -k2,2n GSM4156597_skin.late.anagen.atac.fragments.bed > GSM4156597_skin.late.anagen.atac.fragments.sorted.bed
 bgzip GSM4156597_skin.late.anagen.atac.fragments.sorted.bed
-tabix -p bed GSM4156597_skin.late.anagen.atac.fragments.sorted.bed
+tabix -p bed GSM4156597_skin.late.anagen.atac.fragments.sorted.bed.gz
 ```
 
 Human Fetal Brain: 
 ```bash
 cd scvemo/data/human_brain
-curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiomics_atac_gene_activities.tsv.gz
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_atac_gene_activities.tsv.gz
 curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_cell_metadata.txt.gz
 curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_rna_counts.tsv.gz
 curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_cluster_names.tsv.gz
@@ -127,7 +127,7 @@ apptainer --version
 apptainer exec container/container.sif snakemake --version
 ```
 
-Before running populate the `data/` subfolders with the input files as described in the previous sections and perform a dry run to confirm the DAG resolves correctly. The dry run should enlist a total of XXX rules. 
+Before running populate the `data/` subfolders with the input files as described in the previous sections and perform a dry run to confirm the DAG resolves correctly. The dry run should enlist a total of 7400 rules. 
 ```bash
 apptainer exec container/container.sif snakemake -n
 ```
@@ -212,6 +212,8 @@ mkdir -p logs
 apptainer exec container/container.sif snakemake --cores 2 \
 	output/simulations/palantir/three_branches_True_0.5_0.5_30:30:30.h5mu
 ```
+
+![rule dependency](imgs/graphviz.svg)
 
 ## Repository Structure
 
