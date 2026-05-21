@@ -3,18 +3,18 @@ This repository contains the code associated to the original paper from ATLAS- A
 
 ATLAS is Python package for multi-omic Trajectory Inference (TI) from paired single-cell RNA-seq and ATAC-seq data. Since chromatin accessibility reflects regulatory potential and often precedes transcriptional changes, integrating it with RNA expression provides a more complete view of cellular dynamics than transcriptomics alone. ATLAS extends established TI frameworks to jointly leverage multi-omics data, allowing chromatin accessibility to directly inform pseudotime ordering and fate probabilities.
 
-ATLAS is scverse-compatible and currently under review for inclusion in the [scverse](https://scverse.org/) ecosystem. ATLAS source code can be found [here]().
+ATLAS is scverse-compatible and currently under review for inclusion in the [scverse](https://scverse.org/) ecosystem. ATLAS source code can be found [here](https://github.com/smilies-polito/atlas-smilies).
 
 ![ATLAS workflow](imgs/workflow.svg)
 
 
 ## Release Notes 
-v1.0:
+v0.1.0:
 - First release
 
 ## How To Cite:
 ### ATLAS Primary Publication 
-- TO DO
+- Publication will come soon
 
 ### Related Works
 - Lange, M., Bergen, V., Klein, M. et al. CellRank for directed single-cell fate mapping. Nat Methods 19, 159–170 (2022). https://doi.org/10.1038/s41592-021-01346-6
@@ -27,11 +27,14 @@ v1.0:
 - Alexandro E. Trevino et al. Chromatin and gene-regulatory dynamics of the developing human cerebral cortex at single-cell resolution. Cell, 184(19):5053–5069.e23, September 2021.
 
 ### Experimental Setup 
+
 Follow these steps to setup for reproducing the experiments. 
 
 1. Install `Singularity` version 1.4.5 from [this link](https://docs.sylabs.io/guides/3.0/user-guide/installation.html).
 2. Install `hstlib` version 1.21 from [this link](https://www.htslib.org/download/)
-3. Clone the repository in your home folder via `git clone `
+3. Clone the repository in your home folder via
+```bash
+```
 4. Move to the repository folder and build the `singularity` container with:
 ```bash
 cd scvemo/container
