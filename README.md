@@ -27,7 +27,7 @@ v0.1.0:
 - Alexandro E. Trevino et al. Chromatin and gene-regulatory dynamics of the developing human cerebral cortex at single-cell resolution. Cell, 184(19):5053–5069.e23, September 2021.
 
 
-### Experimental Setup
+### Experimental Setup
 
 Follow these steps to setup for reproducing the experiments. 
 
@@ -275,7 +275,6 @@ scvemo/
 ├── .gitignore  
 ├── README.md  
 └── SnakeFile
-
 ```
 
 
