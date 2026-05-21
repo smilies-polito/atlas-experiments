@@ -26,7 +26,8 @@ v0.1.0:
 - Sai Ma et al. Chromatin Potential Identified by Shared Single-Cell Profiling of RNA and Chromatin. Cell, 183(4):1103–1116.e20, November 2020.
 - Alexandro E. Trevino et al. Chromatin and gene-regulatory dynamics of the developing human cerebral cortex at single-cell resolution. Cell, 184(19):5053–5069.e23, September 2021.
 
-### Experimental Setup 
+
+### Experimental Setup
 
 Follow these steps to setup for reproducing the experiments. 
 
