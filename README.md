@@ -35,32 +35,32 @@ Follow these steps to setup for reproducing the experiments.
 2. Install `hstlib` version 1.21 from [this link](https://www.htslib.org/download/)
 3. Clone the repository in your home folder via
 ```bash
+git clone -b public https://github.com/smilies-polito/atlas-experiments.git
+cd atlas-experiments
 ```
 4. Move to the repository folder and build the `singularity` container with:
 ```bash
-cd scvemo/container
-sudo singularity build container.sif container.def 
+sudo singularity build container.sif container/container.def 
 ```
 or 
 ```bash
-cd scvemo/container
-singularity build --fakeroot container.sif container.def 
+singularity build --fakeroot container.sif container/container.def 
 ```
 
 ## Reproduce Analyses
 ### Required Data and Input Folders
-Input data must be downloaded and places in the `scvemo/data` folder under the correct dataset-related subfolder. Here we provide the urls for the data, the related subfolder and the minimum files to download to endure correct reproducibility, along with bash scripts:
+Input data must be downloaded and places in the `atlas-experiments/data` folder under the correct dataset-related subfolder. Here we provide the urls for the data, the related subfolder and the minimum files to download to endure correct reproducibility, along with bash scripts:
 
 | Dataset | URLs | Subfolder | Mandatory Files |
 |---|---|---|---|
-| Fresh Embryonic E18 Mouse Brain | [10x Genomics](https://www.10xgenomics.com/datasets/fresh-embryonic-e-18-mouse-brain-5-k-1-standard-2-0-0) | `scvemo/data/embryonic_mouse_brain` | `filtered_feature_bc_matrix/`, `e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz` |
-| SHARE-seq Mouse Hair Follicle | [scATAC-seq](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM4156597), [scRNA-seq](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM4156608) | `scvemo/data/mouse_hair` | `GSM4156608_skin.late.anagen.rna.counts.txt`, `GSM4156597_skin.late.anagen.counts.txt`, `GSM4156597_skin.late.anagen.barcodes.txt`, `GSM4156597_skin.late.anagen.peaks.bed`, `GSM4156597_skin_celltype.txt`, `GSM4156597_skin.late.anagen.atac.sorted.fragments.bed.gz` |
-| Human Fetal Brain | [GEO: GSE162170](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE162170) | `scvemo/data/human_brain` | `GSE162170_multiome_cluster_names.txt`, `GSE162170_multiome_cell_metadata.txt`, `GSE162170_multiome_rna_counts.tsv.gz`, `GSE162170_multiome_atac_gene_activities.tsv.gz` |
-| Synthetic data generated via scMultiSim | [Link]() | `scvemo/data/synthetic_data` | |
+| Fresh Embryonic E18 Mouse Brain | [10x Genomics](https://www.10xgenomics.com/datasets/fresh-embryonic-e-18-mouse-brain-5-k-1-standard-2-0-0) | `atlas-experiments/data/embryonic_mouse_brain` | `filtered_feature_bc_matrix/`, `e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz` |
+| SHARE-seq Mouse Hair Follicle | [scATAC-seq](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM4156597), [scRNA-seq](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM4156608) | `atlas-experiments/data/mouse_hair` | `GSM4156608_skin.late.anagen.rna.counts.txt`, `GSM4156597_skin.late.anagen.counts.txt`, `GSM4156597_skin.late.anagen.barcodes.txt`, `GSM4156597_skin.late.anagen.peaks.bed`, `GSM4156597_skin_celltype.txt`, `GSM4156597_skin.late.anagen.atac.sorted.fragments.bed.gz` |
+| Human Fetal Brain | [GEO: GSE162170](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE162170) | `atlas-experiments/data/human_brain` | `GSE162170_multiome_cluster_names.txt`, `GSE162170_multiome_cell_metadata.txt`, `GSE162170_multiome_rna_counts.tsv.gz`, `GSE162170_multiome_atac_gene_activities.tsv.gz` |
+| Synthetic data generated via scMultiSim | [Link]() | `atlas-experiments/data/synthetic_data` | |
 
 Fresh Embryonic E18 Mouse Brain:
 ```bash
-cd scvemo/data/embryonic_mouse_brain
+cd atlas-experiments/data/embryonic_mouse_brain
 curl -O https://cf.10xgenomics.com/samples/cell-arc/2.0.0/e18_mouse_brain_fresh_5k/e18_mouse_brain_fresh_5k_filtered_feature_bc_matrix.tar.gz
 tar -xvf e18_mouse_brain_fresh_5k_filtered_feature_bc_matrix.tar.gz
 curl -O https://cf.10xgenomics.com/samples/cell-arc/2.0.0/e18_mouse_brain_fresh_5k/e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz
@@ -69,7 +69,7 @@ curl -O https://cf.10xgenomics.com/samples/cell-arc/2.0.0/e18_mouse_brain_fresh_
 
 SHARE-seq Mouse Hair Follicle:
 ```bash
-cd scvemo/data/mouse_hair
+cd atlas-experiments/data/mouse_hair
 curl -O https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4156nnn/GSM4156597/suppl/GSM4156597_skin_celltype.txt.gz
 curl -O https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4156nnn/GSM4156597/suppl/GSM4156597_skin.late.anagen.counts.txt.gz
 curl -O https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4156nnn/GSM4156597/suppl/GSM4156597_skin.late.anagen.peaks.bed.gz
@@ -90,7 +90,7 @@ tabix -p bed GSM4156597_skin.late.anagen.atac.fragments.sorted.bed.gz
 
 Human Fetal Brain: 
 ```bash
-cd scvemo/data/human_brain
+cd atlas-experiments/data/human_brain
 curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_atac_gene_activities.tsv.gz
 curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_cell_metadata.txt.gz
 curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_rna_counts.tsv.gz
@@ -106,18 +106,18 @@ Simulated Data:
 
 
 ### Output Folders
-All results generated by this repository are stored in the `scvemo/output` directory.
+All results generated by this repository are stored in the `atlas-experiments/output` directory.
 
 | Dataset | Output Subfolder | Folder Content |
 |---|---|---|
-| Fresh Embryonic E18 Mouse Brain | `scvemo/output/embryonic_mouse_brain` | Files, models, and intermediate results generated from analyses on the Fresh Embryonic E18 Mouse Brain dataset |
-| SHARE-seq Mouse Hair Follicle | `scvemo/output/mouse_hair` | Files, models, and intermediate results generated from analyses on the SHARE-seq Mouse Hair Follicle dataset |
-| Human Fetal Brain | `scvemo/output/human_brain` | Files, models, and intermediate results generated from analyses on the Human Fetal Brain dataset |
-| Synthetic Data | `scvemo/output/simulations` | Files, models, and intermediate results generated from synthetic simulations |
+| Fresh Embryonic E18 Mouse Brain | `atlas-experiments/output/embryonic_mouse_brain` | Files, models, and intermediate results generated from analyses on the Fresh Embryonic E18 Mouse Brain dataset |
+| SHARE-seq Mouse Hair Follicle | `atlas-experiments/output/mouse_hair` | Files, models, and intermediate results generated from analyses on the SHARE-seq Mouse Hair Follicle dataset |
+| Human Fetal Brain | `atlas-experiments/output/human_brain` | Files, models, and intermediate results generated from analyses on the Human Fetal Brain dataset |
+| Synthetic Data | `atlas-experiments/output/simulations` | Files, models, and intermediate results generated from synthetic simulations |
 
-Results and intermediate files generated during synthetic simulations are further organized into experiment-specific subfolders such as `scvemo/output/simulations/palantir`, `scvemo/output/simulations/palantir_rna`, etc.
+Results and intermediate files generated during synthetic simulations are further organized into experiment-specific subfolders such as `atlas-experiments/output/simulations/palantir`, `atlas-experiments/output/simulations/palantir_rna`, etc.
 
-Figures are saved in `scvemo/figures` as performed in [scanpy](https://scanpy.readthedocs.io/) and [muon](https://muon.scverse.org/). 
+Figures are saved in `atlas-experiments/figures` as performed in [scanpy](https://scanpy.readthedocs.io/) and [muon](https://muon.scverse.org/). 
 
 ### Run Experiments
 
@@ -223,7 +223,7 @@ apptainer exec container/container.sif snakemake --cores 2 \
 
 The complete repository structure can be found here: 
 ```
-scvemo/
+atlas-experiments/
 ├── container/ 
 │   ├── requirements.txt               # repository requirements 
 │   └── container.def                  # singularity container definition file
