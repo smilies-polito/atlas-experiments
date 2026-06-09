@@ -56,7 +56,7 @@ Input data must be downloaded and places in the `atlas-experiments/data` folder 
 | Fresh Embryonic E18 Mouse Brain | [10x Genomics](https://www.10xgenomics.com/datasets/fresh-embryonic-e-18-mouse-brain-5-k-1-standard-2-0-0) | `atlas-experiments/data/embryonic_mouse_brain` | `filtered_feature_bc_matrix/`, `e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz` |
 | SHARE-seq Mouse Hair Follicle | [scATAC-seq](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM4156597), [scRNA-seq](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM4156608) | `atlas-experiments/data/mouse_hair` | `GSM4156608_skin.late.anagen.rna.counts.txt`, `GSM4156597_skin.late.anagen.counts.txt`, `GSM4156597_skin.late.anagen.barcodes.txt`, `GSM4156597_skin.late.anagen.peaks.bed`, `GSM4156597_skin_celltype.txt`, `GSM4156597_skin.late.anagen.atac.sorted.fragments.bed.gz` |
 | Human Fetal Brain | [GEO: GSE162170](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE162170) | `atlas-experiments/data/human_brain` | `GSE162170_multiome_cluster_names.txt`, `GSE162170_multiome_cell_metadata.txt`, `GSE162170_multiome_rna_counts.tsv.gz`, `GSE162170_multiome_atac_gene_activities.tsv.gz` |
-| Synthetic data generated via scMultiSim | [Link]() | `atlas-experiments/data/synthetic_data` | |
+| Synthetic data generated via scMultiSim | [Link](https://zenodo.org/records/20611526) | `atlas-experiments/data/synthetic_data` | |
 
 Fresh Embryonic E18 Mouse Brain:
 ```bash
@@ -102,6 +102,9 @@ gunzip GSE162170_multiome_cell_metadata.txt.gz
 
 Simulated Data:
 ```bash
+cd atlas-experiments/data
+curl -0 https://zenodo.org/records/20611526/files/simulated_data.tar.gz
+tar -xvf simulated_data.tar.gz
 ```
 
 
@@ -192,14 +195,14 @@ Example:
 # Run preprocessing on all three real datasets
 mkdir -p logs
 apptainer exec container/container.sif snakemake --cores 4 \
-	humanBrain_preprocessing e18brain_preprocessing mouseHair_preprocessing
+    humanBrain_preprocessing e18brain_preprocessing mouseHair_preprocessing
 ```
 
 ```bash
 # Run Figure 1
 mkdir -p logs
 apptainer exec container/container.sif snakemake --cores 4 \
-	fig1_mouseHair_atlas lineages
+    fig1_mouseHair_atlas lineages
 ```
 
 Most runs are based on wildcards (similar to hyperparameters) combinations. To run a rule with a specific set of wildcards it is sufficient to target the specific output file. For example:
@@ -207,14 +210,14 @@ Most runs are based on wildcards (similar to hyperparameters) combinations. To r
 # Run ATLAS experiment on the SHARE-seq Mouse Hair dataser on a specific configuration
 mkdir -p logs
 apptainer exec container/container.sif snakemake --cores 2 \
-	output/mouse_hair/hyper_done/rna30_act30_wnn30_states8.done
+    output/mouse_hair/hyper_done/rna30_act30_wnn30_states8.done
 ```
 
 ```bash
 # Run ATLAS (Palantir-based TI) on a specific synthetic dataset configuration
 mkdir -p logs
 apptainer exec container/container.sif snakemake --cores 2 \
-	output/simulations/palantir/three_branches_True_0.5_0.5_30:30:30.h5mu
+    output/simulations/palantir/three_branches_True_0.5_0.5_30:30:30.h5mu
 ```
 
 ![rule dependency](imgs/graphviz.svg)
@@ -277,4 +280,7 @@ atlas-experiments/
 └── SnakeFile
 ```
 
-
+## Information about R Environment
+Synthetic data were generated using scMultiSim v1.0.0 and R v.4.4.1. Code for synthetic data generation can be found at `atlas-experiments/simulated_data/simulate.R`. 
+Set the working environment by inserting the path to `atlas-experiments/data/simulated_data/<differentiation_tree>` in `setwd(...)` at line 74.
+Set the `tree` parameter either to `Phyla3()` or `Phyla5()` in the `sim_true_counts` function at line 93. 
