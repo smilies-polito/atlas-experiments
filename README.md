@@ -14,7 +14,7 @@ v0.1.0:
 
 ## How To Cite:
 ### ATLAS Primary Publication 
-- Publication will come soon
+- Leclercq A, Martini L, Bardini R, Savino A, Di Carlo S. ATLAS: a scverse-compatible package for multi-omic single-cell trajectory inference integration. bioRxiv (2026). doi:10.64898/2026.05.23.727175
 
 ### Related Works
 - Lange, M., Bergen, V., Klein, M. et al. CellRank for directed single-cell fate mapping. Nat Methods 19, 159–170 (2022). https://doi.org/10.1038/s41592-021-01346-6
