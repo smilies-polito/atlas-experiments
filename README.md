@@ -180,15 +180,16 @@ It is not mandatory to run the entire workflow. Snakemake can target individual 
 | supp6\_e18brain\_atlas | Fresh Embryonic E18 Mouse Brain | Applies ATLAS (both TI strategies) on the E18 Mouse Brain and produces results from Supp. Fig. 6 |
 | supp7\_e18brain\_rna | Fresh Embryonic E18 Mouse Brain | Applies scRNA-seq only based TI on the E18 Mouse Brain and produces results from Supp. Fig. 7 |
 | supp8\_e18brain\_gex | Fresh Embryonic E18 Mouse Brain | Gene Expression for target genes on the E18 Mouse Brain and produces results from Supp. Fig. 8 |
-| mouseHair\_preprocessing | SHARE-seq Mouse Hair | Preprocesses the SHARE-seq Mouse Hair data and outputs `.h5mu` file |
-| figure1\_mouseHair\_atlas | SHARE-seq Mouse Hair | Applies ATLAS (both TI strategies) on the SHARE-seq Mouse Hair and produces results from Fig. 1 and Supp. Fig. 5 |
-| supp5\_mouseHair\_rna | SHARE-seq Mouse Hair | Applies scRNA-seq only based TI on the SHARE-seq Mouse Hair and produces results from Supp. Fig. 5 |
 | lineages | SHARE-seq Mouse Hair | Performs Multiomics visualization on the SHARE-seq Mouse Hair ATLAS experiments and produces results from Fig.1 |
-| hyper\_parameters | SHARE-seq Mouse Hair | Hyperparameter grid evaluation of performances |
 | synthetic\_palantir | Synthetic Data | ATLAS (Palantir-based TI) on all combination of Synthetic Data |
 | synthetic\_pseudotime\_kernel | Synthetic Data | ATLAS (CellRank-based TI) on all combination of Synthetic Data |
 | synthetic\_palantir\_rna | Synthetic Data | scRNA-seq only experiments using Palantir |
 | synthetic\_pseudotime\_kernel\_rna | Synthetic Data | scRNA-seq only experiments using CellRank |
+| mouseHair\_preprocessing | SHARE-seq Mouse Hair | Preprocesses the SHARE-seq Mouse Hair data and outputs `.h5mu` file |
+| mouseHair\_rna\_cellrank | SHARE-seq Mouse Hair | Applies scRNA-seq only TI (CellRank) on the SHARE-seq Mouse Hair and and produces results from Supp. Fig. 5 |
+| mouseHair\_rna\_palantir | SHARE-seq Mouse Hair | Applies scRNA-seq only TI (Palantir) on the SHARE-seq Mouse Hair and and produces results from Supp. Fig. 5 |
+| mouseHair\_atlas\_cellrank | SHARE-seq Mouse Hair | Applies ATLAS TI (CellRank-based strategy) on the SHARE-seq Mouse Hair and and produces results from Fig.1 and Supp. Fig. 5 |
+| mouseHair\_atlas\_palantir | SHARE-seq Mouse Hair | Applies ATLAS TI (Palantir-based strategy) on the SHARE-seq Mouse Hair and and produces results from Fig.1 and Supp. Fig. 5 |
 
 Example:
 ```bash
@@ -252,15 +253,19 @@ atlas-experiments/
 │   │   ├── pseudotime_kernel/         # Results and support data for ATLAS (CellRank-based TI) on synthetic data
 │   │   └── pseudotime_kernel_rna/     # Results and support data for CellRank on synthetic data (scRNA-seq only)
 ├── real_data/                         # Folder with code for real dataset experiments
+│   │   ├── mouse_hair/    	       # Results for the SHARE-seq Mouse Hair Follicle 
+|   |  	|   ├── preprocessing.py
+|   |   |   ├── figure1_hf_atlas_cellrank.py 
+|   |   |   ├── figure1_hf_atlas_palantir.py 
+|   |   |   ├── supplementary5_mh_rna_cellrank.py 
+|   |   |   ├── supplementary5_mh_rna_palantir.py 
+|   |   |   └── figure1_hf_lineages.py
 │   ├── brain_processing.py            # Preprocessing for Human Fetal Brain
 │   ├── e18_preprocessing.py           # Preprocessing for Fresh Embryonic E18 Mouse Brain
-│   ├── figure1_hf_atlas.py            # ATLAS on SHARE-seq Mouse Hair Follicle
 │   ├── figure1_hf_lineages.py         # Multimodal visualisation present in Figure 1
 │   ├── hyperparams.py                 # ATLAS on SHARE-seq Mouse Hair Follicle, multiple parameters configurations
-│   ├── mouse_hair_preprocessing.py    # Preprocessing for SHARE-seq Mouse Hair Follicle
 │   ├── supplementary1012_hb_atlas.py  # ATLAS on the Human Fetal Brain
 │   ├── supplementary1113_hb_rna.py    # scRNA-seq only run on the Human Fetal Brain
-│   ├── supplementary5_mh_rna.py       # scRNA-seq only run on the SHARE-seq Mouse Hair 
 │   ├── supplementary6_e18_atlas.py    # ATLAS on E18 Mouse Brain data
 │   ├── supplementary7_e18_rna.py      # scRNA-seq only run on the E18 Mouse Brain data
 │   ├── supplementary8_e18_gex.py      # Gene Expression UMAP for selected genes in the E18 Mouse Brain

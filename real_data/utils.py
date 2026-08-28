@@ -11,48 +11,39 @@ from anndata import AnnData
 from matplotlib.colors import to_hex
 from scipy.stats import median_abs_deviation
 from matplotlib.colors import LinearSegmentedColormap
+from typing import Mapping, Sequence
 
+def _save_metrics(metrics: dict,
+                path:str) -> None:
+    df = pd.DataFrame([metrics])
+    df.to_csv(
+        path,
+        sep="\t",
+        mode="a",
+        header=not os.path.exists(path),
+        index=False,
+    ) 
 
 def _compute_outlier(adata: AnnData, 
                 metric: str,
                 nmads: int):
     M = adata.obs[metric]
     outlier = (
-                        (M < np.median(M) - nmads * median_abs_deviation(M)) | (
-                         np.median(M) + nmads * median_abs_deviation(M) < M)
-                )
+           (M < np.median(M) - nmads * median_abs_deviation(M)) | (
+           np.median(M) + nmads * median_abs_deviation(M) < M)
+    )
     return outlier
 
 
-def compute_entropy(data: MuData, fate_prob_key:str="palantir_fate_probabilities"):
-    """Function mimicking ATLAS entropy computation"""
-    def _minmax(x:np.ndarray) -> np.ndarray:
-        if np.max(x) == np.min(x):
-            return np.zeros_like(x)
-        return (x- np.min(x)) / (np.max(x) - np.min(x))
+def _states_to_columns(states,
+                    obs_names: pd.Index) -> pd.Series:
+    assignment = pd.Series(pd.NA, index=obs_names, dtype=object)
 
-    probs = data.obsm.get(fate_prob_key, None)
-    if probs is None:
-        raise ValueError("Compute fate probabilities before running entropy")
+    for name, cells in states.items():
+        assignment.loc[list(cells)] = str(name)
 
-    if not isinstance(probs, pd.DataFrame):
-        raise ValueError("Fate probabilities not a DataFrame")
+    return assignment.astype(pd.CategoricalDtype(categories=[str(name) for name in states]))
 
-    if (probs.shape[1] == 0
-        or np.any(probs.sum(axis=1) == 0)
-        or np.any(probs.sum(axis=0) == 0)):
-        warnings.warn("No terminal states or cells with no developmental probability or state without assignment")
-        data.obs["shannon_entropy"] = np.nan
-        data.obs["kl_divergence"] = np.nan
-        return
-    shannon_entropy = scipy.stats.entropy(probs, axis=1)
-    average_distribution = np.mean(probs, axis=0)
-    kl_divergence = np.nan_to_num(scipy.stats.entropy(probs, average_distribution, axis=1, base=2),
-                            nan=1.0,
-                            copy=False)
-    shannon_entropy, kl_divergence = _minmax(shannon_entropy), _minmax(kl_divergence)
-    data.obs["shannon_entropy"] = pd.Series(shannon_entropy, index = data.obs.index)
-    data.obs["kl_divergence"] = pd.Series(kl_divergence, index = data.obs.index)
 
 def  _create_ts_dict(data:AnnData, fate_prob_key:str, cluster_key: str) -> dict:
     """Function creating terminal and initial states dicts from fate probabilities"""
@@ -217,44 +208,46 @@ def _get_plots(mudata: MuData,
                 time_key: str = "pseudotime",
                 embedding_key: str = "umap",
                 fate_key: str = "fate_probabilities",
-                seed: int = 42,
-                ti_strategy: str = "palantir"):
+                seed: int = 42):
 
-    ek = "X_" + embedding_key 
-    save = f"_{time_key}_{code}_{ti_strategy}.png"
-    atlas.pl.plot_embedding(mudata = mudata,
-                            embedding_key = ek,
-                            observation = time_key,
-                            save = save)
+    save = f"_{code}_pseudotime.png"
+    atlas.pl.embedding(mudata = mudata,
+                       basis = embedding_key,
+                       color = time_key,
+                       color_map = "Blues",
+                       save = save)
 
-    save = f"_SHE_{code}_{ti_strategy}.png"
-    atlas.pl.plot_embedding(mudata = mudata,
-                            embedding_key = ek,
-                            observation = "shannon_entropy",
-                            save = save)
+    save = f"_{code}_entropy.png"
+    atlas.pl.embedding(mudata = mudata,
+                       basis = embedding_key,
+                       color = ["shannon_entropy", "kl_divergence"],
+                       color_map = "Reds",
+                       save = save)
 
-    save = f"_KL_{code}_{ti_strategy}.png"
-    atlas.pl.plot_embedding(mudata = mudata,
-                            embedding_key = ek,
-                            observation = "kl_divergence",
-                            save = save)
-   
-    save = f"_fates_{code}_{ti_strategy}.png"
-    atlas.pl.plot_fate_probabilities(mudata = mudata,
-                                        embedding_key = ek,
-                                        fate_probability_key = fate_key,
-                                        save = save)
+    save = f"_{code}_probabilities.png"
+    atlas.pl.fate_probabilities(mudata = mudata,
+                                basis = embedding_key ,
+                                fate_probability_key = fate_key,
+                                save = save)
+    
+    save = f"_{code}_macrostates.png"
+    atlas.pl.embedding(mudata=mudata,
+                        basis = embedding_key,
+                        color = "macrostates",
+                        save = save)
 
-    save = f"_tree_{code}_{ti_strategy}.png"
+    save = f"_tree_{code}.png"
     try: 
-        atlas.pl.plot_tree(mudata = mudata,
-                            embedding_key = embedding_key,
+        atlas.pl.fate_tree(mudata = mudata,
+                            basis = embedding_key,
+                            color = "celltype",
                             fate_probability_key = fate_key,
                             time_key = time_key,
                             random_state = seed,
+                            show = False,
                             save = save)
     except Exception as e:
-        print(ti_strategy, code, e)
+        print(f"Got exception \n{e}\n for {code}")
 
 
 def _compute_enrichment(pseudotime: pd.Series, 

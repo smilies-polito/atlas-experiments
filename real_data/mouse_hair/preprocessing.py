@@ -1,6 +1,5 @@
 import os
-import atlas
-import muon as mu
+import argparse
 import numpy as np 
 import pandas as pd
 import scanpy as sc
@@ -8,8 +7,10 @@ import seaborn as sns
 import muon.atac as ac
 import matplotlib.pyplot as plt
 from muon import MuData
-from .utils import _compute_outlier
+from real_data.utils import _compute_outlier
 from anndata import AnnData
+from atlas.pp import compute_gene_activity, wnn
+from atlas.tl import umap
 from scipy.io import mmread
 from pybiomart import Dataset
 from scipy.sparse import load_npz, csr_matrix
@@ -35,6 +36,16 @@ if __name__=="__main__":
     working_dir = os.getcwd()
     np.random.seed(seed)
 
+    parser = argparse.ArgumentParser
+    parser.add_argument("--knn_rna", type=int, default = 15)
+    parser.add_argument("--knn_act", type=int, default = 15)
+    parser.add_argument("--n_pcs_rna", type=int, default = 20)
+    parser.add_argument("--n_pcs_act", type=int, default = 10)
+    parser.add_argument("--wnn", default = None)
+    args = parser.parse_args()
+
+    code = f"{args.n_pcs_rna}:{args.n_pcs_act}_{args.knn_rna}:{args.knn_act}:{args.wnn}"
+    # Path declaration
     data_path = os.path.join(working_dir, "data", "mouse_hair")
     output_path = os.path.join(working_dir, "output", "mouse_hair")
     rna_matrix = os.path.join(data_path, "GSM4156608_skin.late.anagen.rna.counts.txt")
@@ -56,6 +67,7 @@ if __name__=="__main__":
     rna_to_atac = dict(zip(annotations["rna.bc"], annotations["atac.bc"]))
     atac_to_rna = dict(zip(annotations["atac.bc"], annotations["rna.bc"]))
 
+    # read RNA data and create AnnData 
     rna = pd.read_csv(rna_matrix, header=0, index_col=0, sep= "\t")
     rna = rna.T
     rna = AnnData(X = csr_matrix(rna.values),
@@ -65,6 +77,7 @@ if __name__=="__main__":
     rna.obs_names = rna.obs_names.str.replace(",", ".")
     rna = rna[rna.obs_names.isin(annotations["rna.bc"])].copy() 
 
+    # read ATAC data and create AnnData
     atac =  mmread(atac_matrix)
     atac = csr_matrix(atac)
     atac = atac.T
@@ -111,22 +124,22 @@ if __name__=="__main__":
     
 
     features_collapsed = features_collapsed.set_index("Name")
-    features_collapsed[["Chromosome", "Start", "End", "Strand"]].to_csv(feature_path, sep="\t", header=True, index = True)
     rna = rna[:, rna.var_names.isin(features_collapsed.index)].copy()
 
+    # Quality filtering
     rna.var["mt"] = rna.var_names.str.startswith("mt-")
     rna.var["ribo"] = rna.var_names.str.startswith(("rps", "rpl"))
     sc.pp.calculate_qc_metrics(rna, qc_vars = ["mt", "ribo"], inplace=True, log1p = True)
 
     sc.pl.violin(rna, 
                 ["total_counts", "pct_counts_mt", "n_genes_by_counts"],
-                multi_panel = True, save = "MH_rna_violin.png")
+                multi_panel = True, save = "_mouse_hair_rna_qc.png")
     sc.pl.scatter(rna, 
                     x = "total_counts",
                     y = "n_genes_by_counts",
                     color = "pct_counts_mt",
                     show = True,
-                    save = "MH_rna_QC.png")
+                    save = "_mouse_hair_rna_qc.png")
     rna.obs["outlier"] = ( _compute_outlier(rna, "log1p_total_counts", 5) |
                             _compute_outlier(rna, "log1p_n_genes_by_counts", 5) |
                             (rna.obs["pct_counts_mt"] > 10)
@@ -138,23 +151,24 @@ if __name__=="__main__":
     atac.obs["nuc_filter"] = ["NUC_FAIL" if ns > nuc_threshold else "NUC_PASS" for ns in atac.obs["nucleosome_signal"] ]
     fig, axs = plt.subplots(figsize=(7, 3.5))
     sns.histplot(atac.obs, x="nucleosome_signal", ax=axs)
-    plt.savefig(os.path.join(os.getcwd(), "figures", "MH_nuc.png"))
+    plt.savefig(os.path.join(os.getcwd(), "figures", "_mouse_hair_nuclesome_signal.png"))
     plt.close()
 
     atac.obs["outlier"] = atac.obs["nuc_filter"] == "NUC_FAIL"
 
     features_collapsed = features_collapsed[features_collapsed["Chromosome"] != "chrM"] # chrM not present in fragments 
+
+    # Compute activity: we don't use ATLAS here as there is a mismatch between atac and rna barcodes.
+    # We use the same preprocessing strategy although with the original muon and scanpy functions. 
     activity = ac.tl.count_fragments_features(atac, features = features_collapsed, stranded=True, count_reads=False)
     activity.obs["outlier"] = atac.obs["outlier"]
     activity.obs_names = activity.obs_names.str.replace(",", ".")
     activity.obs_names = [atac_to_rna.get(x, None) for x in activity.obs_names]
 
-
-    # Filtering 
+    # MuData + Filtering 
     data = MuData({"rna":rna, "activity":activity})
     mask = ~(data["rna"].obs["outlier"] | data["activity"].obs["outlier"])
     data = data[mask, :].copy()
-   
     annotations = annotations.set_index("rna.bc")
     data.obs = data.obs.join(annotations)
 
@@ -165,10 +179,34 @@ if __name__=="__main__":
     sc.pp.highly_variable_genes(data["rna"], n_top_genes = 2000)
     sc.pp.pca(data["rna"], random_state=seed)
     sc.pp.pca(data["activity"], random_state=seed)
-    sc.pl.pca_variance_ratio(data["rna"], save = "MH_rna_pca.png")     
-    sc.pl.pca_variance_ratio(data["activity"], save = "MH_activity_pca.png")     
+    sc.pl.pca_variance_ratio(data["rna"], save = "_mouse_hair_rna_pca.png")     
+    sc.pl.pca_variance_ratio(data["activity"], save = "_mouse_hair_activity_pca.png")     
 
-    data.write(os.path.join(output_path, "hair.h5mu"))
+    # WNN and RNA computation 
+    modalities = ("rna", "activity")
+    knn = {"rna": args.knn_rna, "activity": args.knn_activity}
+    n_pcs = {"rna": args.n_pcs_rna, "activity": args.n_pcs_act}
+    key = "wnn"
+
+    _ = wnn(mudata = data,
+            modalities = modalities,
+            knn = knn,
+            n_pcs= n_pcs,
+            use_rep = "X_pca",
+            key_added = key,
+            n_neighbors= args.wnn,
+            random_state = seed)
+
+    _ = umap(mudata = data,
+            neighbors_key = key, 
+            random_state = seed)
+                
+    mu.pl.embedding(data,
+                    basis = "X_umap", 
+                    color = ["celltype"],
+                    save = f"_mouse_hair_celltype.png")
+
+    data.write(os.path.join(output_path, f"{code}.h5mu"))
 
 
 

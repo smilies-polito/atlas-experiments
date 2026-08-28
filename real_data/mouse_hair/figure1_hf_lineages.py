@@ -8,7 +8,6 @@ import atlas
 import argparse
 import numpy as np
 import muon as mu
-from typing import Literal
 from muon import MuData
 
 def _infer_organism(path:str):
@@ -17,31 +16,28 @@ def _infer_organism(path:str):
     else:
         return "mouse_skin"
 
+def _get_strategy(path:str):
+    if "cellrank" in path:
+        return "cellrank"
+    else:
+        return "palantir"
+
 def plot_regulation(mudata: MuData,
                         regs: dict,
-                        strategy: Literal["pseudotime-kernel","palantir"]):
-
-    if strategy == "pseudotime-kernel":
-        mudata.uns["fate_state_colors"] = mudata.uns["pseudotimeK_fate_colors"]
-        mudata.obsm["fate_probabilities"] = mudata.obsm["pseudotimeK_fate_probabilities"]
-    elif strategy == "palantir":
-        mudata.uns["fate_state_colors"] = mudata.uns["palantir_fate_colors"]
-        mudata.obsm["fate_probabilities"] = mudata.obsm["palantir_probabilities"]
-    else: 
-        raise ValueError(f"Strategy {strategy} not a valid TI inference method")
+                        strategy:str):
 
     for ptf, genes in regs.items():
-        for g in genes:
-            try:
-                atlas.pl.plot_trends(mudata = mudata,
-                                        ptf = ptf,
-                                        gene = g,
-                                        time_key = "pseudotime",
-                                        fate_probability_key = "fate_probabilities",
-                                         save = f"{strategy}_{ptf}_{g}")
-            except Exception as e:
-                print(ptf, g, e)
-
+        save = f"{strategy}_{ptf}"
+        try:
+            atlas.pl.trends(mudata = mudata,
+                            ptf = ptf,
+                            genes = genes, 
+                            time_key = "pseudotime",
+                            fate_probability_key = "fate_probabilities",
+                            show= False,
+                            save = save)
+        except Exception as e:
+            print("Plot Trends for {strategy} and ptf = {ptf} got Exception\n{e}\n")
                 
 
 REGULATION = {"mouse_skin": {"Lef1": ["Dlx3", "Jag1", "Hoxc13"],
@@ -61,13 +57,13 @@ if __name__=="__main__":
     np.random.seed(seed)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--strategy", type=str, default = "palantir")
     parser.add_argument("--h5mu", type=str)
     args = parser.parse_args()
-    strategy, data_path = args.strategy, args.h5mu
 
-    mudata = mu.read_h5mu(data_path) 
+    file_path = os.path.join(os.getcwd(), args.h5mu)
+    mudata = mu.read_h5mu(file_path)
     
-    regs = REGULATION[_infer_organism(data_path)]
+    regs = REGULATION[_infer_organism(args.h5mu)]
+    strategy = _get_strategy(args.h5mu)
 
     plot_regulation(mudata = mudata, regs = regs, strategy = strategy)
