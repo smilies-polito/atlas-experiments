@@ -13,9 +13,15 @@ LOG_DIR= "logs"
 MOUSE_HAIR_DATA= DATA_DIR+"/mouse_hair"
 MOUSE_HAIR_OUTPUT= OUTPUT_DIR+"/mouse_hair"
 MOUSE_HAIR_FOLDER = "/real_data/mouse_hair"
+HUMAN_BRAIN_DATA= DATA_DIR+"/human_brain"
+HUMAN_BRAIN_OUTPUT= OUTPUT_DIR+"/human_brain"
+HUMAN_BRAIN_FOLDER = "/real_data/human_brain"
 
 # WILDCARDS
 MH_STATES = [4,5,6,7,8]
+HB_STATES = [4,5,6,7,8]
+REMOVED = {1: "removed", 0: "non_removed",}
+INVERSE_REMOVED = {v: k for k, v in REMOVED.items()}
 KNN_RNA = [15]
 KNN_ACT = [15]
 WNN = ["None"]
@@ -82,6 +88,68 @@ rule all:
         wnn = WNN,
         n_states = MH_STATES,
    ),
+    # preprocessing human brain dataset
+        expand(
+        HUMAN_BRAIN_OUTPUT + "/{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+        n_pcs_rna = N_PCS_RNA, 
+        n_pcs_act= N_PCS_ACT, 
+        knn_rna = KNN_RNA, 
+        knn_act = KNN_ACT, 
+        wnn = WNN,
+	removed = list(REMOVED.values()),
+   ),
+    # atlas palantir human brain dataset
+        expand(
+        HUMAN_BRAIN_OUTPUT + "/palantir_{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+        n_pcs_rna = N_PCS_RNA, 
+        n_pcs_act= N_PCS_ACT, 
+        knn_rna = KNN_RNA, 
+        knn_act = KNN_ACT, 
+        wnn = WNN,
+	removed = list(REMOVED.values()),
+   ),
+    # atlas cellrank human brain dataset
+        expand(
+        HUMAN_BRAIN_OUTPUT + "/cellrank_{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_{n_states}.h5mu",
+        n_pcs_rna = N_PCS_RNA, 
+        n_pcs_act= N_PCS_ACT, 
+        knn_rna = KNN_RNA, 
+        knn_act = KNN_ACT, 
+        wnn = WNN,
+	n_states = HB_STATES,
+	removed = list(REMOVED.values()),
+   ),
+    # rna palantir human brain dataset
+        expand(
+        HUMAN_BRAIN_OUTPUT + "/rna_palantir_{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+        n_pcs_rna = N_PCS_RNA, 
+        n_pcs_act= N_PCS_ACT, 
+        knn_rna = KNN_RNA, 
+        knn_act = KNN_ACT, 
+        wnn = WNN,
+	removed = list(REMOVED.values()),
+   ),
+    # rna cellrank human brain dataset
+        expand(
+        HUMAN_BRAIN_OUTPUT + "/rna_cellrank_{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_{n_states}.h5mu",
+        n_pcs_rna = N_PCS_RNA, 
+        n_pcs_act= N_PCS_ACT, 
+        knn_rna = KNN_RNA, 
+        knn_act = KNN_ACT, 
+        wnn = WNN,
+	n_states = HB_STATES,
+	removed = list(REMOVED.values()),
+   ),
+    # human brain expression plots
+    expand(
+        HUMAN_BRAIN_OUTPUT
+        + "/expression_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.done",
+        n_pcs_rna=N_PCS_RNA,
+        n_pcs_act=N_PCS_ACT,
+        knn_rna=KNN_RNA,
+        knn_act=KNN_ACT,
+        wnn=WNN,
+    )
 
 
 
@@ -208,3 +276,179 @@ rule mouseHair_rna_cellrank:
         "--n_pcs_act {wildcards.n_pcs_act} "
         "--n_states {wildcards.n_states} &> {log}"
 
+rule humanBrain_preprocessing:
+    input:
+	clusters = HUMAN_BRAIN_DATA + "/GSE162170_multiome_cluster_names.txt",
+	metadata = HUMAN_BRAIN_DATA + "/GSE162170_multiome_cell_metadata.txt",
+	rna = HUMAN_BRAIN_DATA + "/GSE162170_multiome_rna_counts.tsv.gz",
+	activity = HUMAN_BRAIN_DATA + "/GSE162170_multiome_atac_gene_activities.tsv.gz",
+	outlier = HUMAN_BRAIN_DATA + "/to_remove.tsv",
+	
+    output:
+        h5mu = ( HUMAN_BRAIN_OUTPUT + 
+        "/{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu"
+    ), 
+
+    params:
+        removed = lambda wildcards: INVERSE_REMOVED[wildcards.removed]
+
+    log:
+        ( LOG_DIR + "/human_brain_preprocessing_"
+        "{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.log"
+    ), 
+    shell:
+        "python3 -m real_data.human_brain.preprocessing "
+        "--knn_rna {wildcards.knn_rna} "
+        "--knn_act {wildcards.knn_act} "
+        "--wnn {wildcards.wnn} "
+        "--n_pcs_rna {wildcards.n_pcs_rna} "
+        "--n_pcs_act {wildcards.n_pcs_act} "
+        "--removed {params.removed} &> {log}"
+
+
+rule humanBrain_expression:
+    input:
+        h5mu = ( HUMAN_BRAIN_OUTPUT + 
+        "/non_removed_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu"
+    ), 
+
+    output:
+        touch( HUMAN_BRAIN_OUTPUT + 
+        "/expression_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.done"
+    ),
+
+    log:
+        ( LOG_DIR + "/human_brain_expression_"
+        "{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.log"
+    ), 
+
+    shell:
+        "python3 -m real_data.human_brain.supplementary9_hb_gex "
+        "--knn_rna {wildcards.knn_rna} "
+        "--knn_act {wildcards.knn_act} "
+        "--wnn {wildcards.wnn} "
+        "--n_pcs_rna {wildcards.n_pcs_rna} "
+        "--n_pcs_act {wildcards.n_pcs_act} &> {log}"
+
+
+rule humanBrain_atlas_palantir:
+    input:
+        h5mu = ( HUMAN_BRAIN_OUTPUT + 
+        "/{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu"
+    ), 
+
+    output:
+        h5mu = ( HUMAN_BRAIN_OUTPUT + 
+        "/palantir_{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu"
+    ), 
+        tsv = ( HUMAN_BRAIN_OUTPUT + 
+        "/pseudotime_{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.tsv"
+    ), 
+
+    params:
+        removed = lambda wildcards: INVERSE_REMOVED[wildcards.removed]
+
+    log:
+        ( LOG_DIR + "/_human_brain_atlas_palantir_"
+        "{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.log"
+    ), 
+    shell:
+        "python3 -m real_data.human_brain.supplementary1012_hb_atlas_palantir "
+        "--knn_rna {wildcards.knn_rna} "
+        "--knn_act {wildcards.knn_act} "
+        "--wnn {wildcards.wnn} "
+        "--n_pcs_rna {wildcards.n_pcs_rna} "
+        "--n_pcs_act {wildcards.n_pcs_act} "
+        "--removed {params.removed} &> {log}"
+
+rule humanBrain_atlas_cellrank:
+    input:
+        h5mu = ( HUMAN_BRAIN_OUTPUT + 
+        "/{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu"
+    ), 
+        tsv = ( HUMAN_BRAIN_OUTPUT + 
+        "/pseudotime_{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.tsv"
+    ), 
+
+    output:
+        h5mu = ( HUMAN_BRAIN_OUTPUT + 
+        "/cellrank_{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_{n_states}.h5mu"
+    ), 
+
+    params:
+        removed = lambda wildcards: INVERSE_REMOVED[wildcards.removed]
+
+    log:
+        ( LOG_DIR + "/_human_brain_atlas_cellrank_"
+        "{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_{n_states}.log"
+    ), 
+    shell:
+        "python3 -m real_data.human_brain.supplementary1012_hb_atlas_cellrank "
+        "--knn_rna {wildcards.knn_rna} "
+        "--knn_act {wildcards.knn_act} "
+        "--wnn {wildcards.wnn} "
+        "--n_pcs_rna {wildcards.n_pcs_rna} "
+        "--n_pcs_act {wildcards.n_pcs_act} "
+        "--n_states {wildcards.n_states} "
+        "--removed {params.removed} &> {log}"
+
+rule humanBrain_rna_palantir:
+    input:
+        h5mu = ( HUMAN_BRAIN_OUTPUT + 
+        "/{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu"
+    ), 
+
+    output:
+        tsv = ( HUMAN_BRAIN_OUTPUT + 
+        "/rna_pseudotime_{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.tsv"
+    ), 
+        h5mu = ( HUMAN_BRAIN_OUTPUT + 
+        "/rna_palantir_{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu"
+    ), 
+
+    params:
+        removed = lambda wildcards: INVERSE_REMOVED[wildcards.removed]
+
+    log:
+        ( LOG_DIR + "/_human_brain_rna_palantir"
+        "{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.log"
+    ), 
+    shell:
+        "python3 -m real_data.human_brain.supplementary1113_hb_rna_palantir "
+        "--knn_rna {wildcards.knn_rna} "
+        "--knn_act {wildcards.knn_act} "
+        "--wnn {wildcards.wnn} "
+        "--n_pcs_rna {wildcards.n_pcs_rna} "
+        "--n_pcs_act {wildcards.n_pcs_act} "
+        "--removed {params.removed} &> {log}"
+
+rule humanBrain_rna_cellrank:
+    input:
+        h5mu = ( HUMAN_BRAIN_OUTPUT + 
+        "/{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu"
+    ), 
+        tsv = ( HUMAN_BRAIN_OUTPUT + 
+        "/rna_pseudotime_{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.tsv"
+    ), 
+
+    output:
+        h5mu = ( HUMAN_BRAIN_OUTPUT + 
+        "/rna_cellrank_{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_{n_states}.h5mu"
+    ), 
+
+    params:
+        removed = lambda wildcards: INVERSE_REMOVED[wildcards.removed]
+
+    log:
+        ( LOG_DIR + "/_human_brain_rna_cellrank"
+        "{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_{n_states}.log"
+    ), 
+    shell:
+        "python3 -m real_data.human_brain.supplementary1113_hb_rna_cellrank "
+        "--knn_rna {wildcards.knn_rna} "
+        "--knn_act {wildcards.knn_act} "
+        "--wnn {wildcards.wnn} "
+        "--n_pcs_rna {wildcards.n_pcs_rna} "
+        "--n_pcs_act {wildcards.n_pcs_act} "
+        "--n_states {wildcards.n_states} "
+        "--removed {params.removed} &> {log}"

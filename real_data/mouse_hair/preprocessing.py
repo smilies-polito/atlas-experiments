@@ -187,6 +187,7 @@ if __name__=="__main__":
     knn = {"rna": args.knn_rna, "activity": args.knn_activity}
     n_pcs = {"rna": args.n_pcs_rna, "activity": args.n_pcs_act}
     key = "wnn"
+    n_neighbors = None if (args.wnn == "None" or args.wnn is None) else int(args.wnn)
 
     _ = wnn(mudata = data,
             modalities = modalities,
@@ -194,7 +195,7 @@ if __name__=="__main__":
             n_pcs= n_pcs,
             use_rep = "X_pca",
             key_added = key,
-            n_neighbors= args.wnn,
+            n_neighbors= n_neighbors,
             random_state = seed)
 
     _ = umap(mudata = data,

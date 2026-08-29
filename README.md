@@ -172,15 +172,10 @@ sbatch submit.sh
 It is not mandatory to run the entire workflow. Snakemake can target individual output files or rules and it will automatically execute all the upstream rules rerquired to produce them. Here we provide an overview of the available rules:
 | Rule | Dataset | Outcome |
 | --- | --- | --- |
-| humanBrain\_preprocessing | Human Fetal Brain | Preprocesses the Human Fetal Brain data and outputs `.h5mu` files (both `brain` and `brainR`) |
-| supp1012\_humanBrain\_atlas | Human Fetal Brain | Applies ATLAS (both TI strategies) on the Human Fetal Brain and produces results from Supp. Fig. 10 and 12 |
-| supp1113\_humanBrain\_rna | Human Fetal Brain | Applies scRNA-seq only based TI on the Human Fetal Brain and produces results from Supp. Fig. 11 and 13 |
-| supp9\_humanBrain\_gex | Human Fetal Brain | Gene Expression for target genes on the Human Fetal Brain and produces results from Supp. Fig. 9 |
 | e18brain\_preprocessing | Fresh Embryonic E18 Mouse Brain | Preprocesses the E18 Mouse Brain data and outputs `.h5mu` file |
 | supp6\_e18brain\_atlas | Fresh Embryonic E18 Mouse Brain | Applies ATLAS (both TI strategies) on the E18 Mouse Brain and produces results from Supp. Fig. 6 |
 | supp7\_e18brain\_rna | Fresh Embryonic E18 Mouse Brain | Applies scRNA-seq only based TI on the E18 Mouse Brain and produces results from Supp. Fig. 7 |
 | supp8\_e18brain\_gex | Fresh Embryonic E18 Mouse Brain | Gene Expression for target genes on the E18 Mouse Brain and produces results from Supp. Fig. 8 |
-| lineages | SHARE-seq Mouse Hair | Performs Multiomics visualization on the SHARE-seq Mouse Hair ATLAS experiments and produces results from Fig.1 |
 | synthetic\_palantir | Synthetic Data | ATLAS (Palantir-based TI) on all combination of Synthetic Data |
 | synthetic\_pseudotime\_kernel | Synthetic Data | ATLAS (CellRank-based TI) on all combination of Synthetic Data |
 | synthetic\_palantir\_rna | Synthetic Data | scRNA-seq only experiments using Palantir |
@@ -190,6 +185,12 @@ It is not mandatory to run the entire workflow. Snakemake can target individual 
 | mouseHair\_rna\_palantir | SHARE-seq Mouse Hair | Applies scRNA-seq only TI (Palantir) on the SHARE-seq Mouse Hair and and produces results from Supp. Fig. 5 |
 | mouseHair\_atlas\_cellrank | SHARE-seq Mouse Hair | Applies ATLAS TI (CellRank-based strategy) on the SHARE-seq Mouse Hair and and produces results from Fig.1 and Supp. Fig. 5 |
 | mouseHair\_atlas\_palantir | SHARE-seq Mouse Hair | Applies ATLAS TI (Palantir-based strategy) on the SHARE-seq Mouse Hair and and produces results from Fig.1 and Supp. Fig. 5 |
+| humanBrain\_preprocessing |  Human Fetal Brain | Preprocesses the Human Fetal Brain data and outputs `.h5mu` file |
+| humanBrain\_expression |  Human Fetal Brain | Gene Expression for target genes on the Human Fetal Brain and produces results from Supp. Fig. 9 | 
+| humanBrain\_rna\_cellrank | Human Fetal Brain | Applies scRNA-seq only TI (CellRank) on the Human Fetal Brain and and produces results from Supp. Fig. 11 and 13 |
+| humanBrain\_rna\_palantir | Human Fetal Brain | Applies scRNA-seq only TI (Palantir) on the Human Fetal Brain and and produces results from Supp. Fig. 11 and 13 |
+| humanBrain\_atlas\_cellrank | Human Fetal Brain | Applies ATLAS TI (CellRank-based strategy) on the Human Fetal Brain and and produces results from Supp. Fig. 10 and 12 |
+| humanBrain\_atlas\_palantir | Human Fetal Brain | Applies ATLAS TI (Palantir-based strategy) on the Human Fetal Brain and and produces results from Supp. Fig. 10 and 12 |
 
 Example:
 ```bash
@@ -254,22 +255,24 @@ atlas-experiments/
 │   │   └── pseudotime_kernel_rna/     # Results and support data for CellRank on synthetic data (scRNA-seq only)
 ├── real_data/                         # Folder with code for real dataset experiments
 │   │   ├── mouse_hair/    	       # Results for the SHARE-seq Mouse Hair Follicle 
-|   |  	|   ├── preprocessing.py
-|   |   |   ├── figure1_hf_atlas_cellrank.py 
-|   |   |   ├── figure1_hf_atlas_palantir.py 
-|   |   |   ├── supplementary5_mh_rna_cellrank.py 
-|   |   |   ├── supplementary5_mh_rna_palantir.py 
-|   |   |   └── figure1_hf_lineages.py
-│   ├── brain_processing.py            # Preprocessing for Human Fetal Brain
+│   │  	│   ├── preprocessing.py
+│   │   │   ├── figure1_hf_atlas_cellrank.py 
+│   │   │   ├── figure1_hf_atlas_palantir.py 
+│   │   │   ├── supplementary5_mh_rna_cellrank.py 
+│   │   │   ├── supplementary5_mh_rna_palantir.py 
+│   │   │   └── figure1_hf_lineages.py
+│   │   ├── human_brain/    	       # Results for the Human Fetal Brain 
+│   │  	│   ├── get_features.py
+│   │  	│   ├── preprocessing.py
+│   │   │   ├── supplementary1012_hb_atlas_palantir.py
+│   │   │   ├── supplementary1012_hb_atlas_cellrank.py
+│   │   │   ├── supplementary1113_hb_rna_palantir.py
+│   │   │   ├── supplementary1113_hb_rna_cellrank.py
+│   │   │   └── supplementary9_hb_gex.py
 │   ├── e18_preprocessing.py           # Preprocessing for Fresh Embryonic E18 Mouse Brain
-│   ├── figure1_hf_lineages.py         # Multimodal visualisation present in Figure 1
-│   ├── hyperparams.py                 # ATLAS on SHARE-seq Mouse Hair Follicle, multiple parameters configurations
-│   ├── supplementary1012_hb_atlas.py  # ATLAS on the Human Fetal Brain
-│   ├── supplementary1113_hb_rna.py    # scRNA-seq only run on the Human Fetal Brain
 │   ├── supplementary6_e18_atlas.py    # ATLAS on E18 Mouse Brain data
 │   ├── supplementary7_e18_rna.py      # scRNA-seq only run on the E18 Mouse Brain data
 │   ├── supplementary8_e18_gex.py      # Gene Expression UMAP for selected genes in the E18 Mouse Brain
-│   ├── supplementary9_hb_gex.py       # Gene Expression UMAP for selected genes in the Human Brain Data
 │   └── utils.py      
 ├── simulated_data/                    # Folder with code for synthetic data experiments
 │   ├── palantir_rna_run.py            # scRNA-seq only experiment on synthetic data using Palantir

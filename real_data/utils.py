@@ -208,6 +208,7 @@ def _get_plots(mudata: MuData,
                 time_key: str = "pseudotime",
                 embedding_key: str = "umap",
                 fate_key: str = "fate_probabilities",
+                cluster_key: str = "celltype",
                 seed: int = 42):
 
     save = f"_{code}_pseudotime.png"
@@ -240,7 +241,7 @@ def _get_plots(mudata: MuData,
     try: 
         atlas.pl.fate_tree(mudata = mudata,
                             basis = embedding_key,
-                            color = "celltype",
+                            color = cluster_key,
                             fate_probability_key = fate_key,
                             time_key = time_key,
                             random_state = seed,

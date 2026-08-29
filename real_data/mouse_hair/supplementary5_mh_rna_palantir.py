@@ -28,7 +28,6 @@ if __name__ == "__main__":
     parser.add_argument("--n_pcs_rna", type=int, default=20)
     parser.add_argument("--n_pcs_act", type=int, default=10)
     parser.add_argument("--wnn", default=None)
-    parser.add_argument("--n_states", type=int, default=4)
     args=parser.parse_args()
 
     pCode = f"{args.n_pcs_rna}:{args.n_pcs_act}_{args.knn_rna}:{args.knn_act}:{args.wnn}"
