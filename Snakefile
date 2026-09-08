@@ -16,6 +16,9 @@ MOUSE_HAIR_FOLDER = "/real_data/mouse_hair"
 HUMAN_BRAIN_DATA= DATA_DIR+"/human_brain"
 HUMAN_BRAIN_OUTPUT= OUTPUT_DIR+"/human_brain"
 HUMAN_BRAIN_FOLDER = "/real_data/human_brain"
+SIMULATION_MUDATA = OUTPUT_DIR + "/simulations" + "/mudata"
+SIMULATION_DATA = DATA_DIR + "/simulated_data" 
+SIMULATION_OUTPUT = OUTPUT_DIR + "/simulations"
 
 # WILDCARDS
 MH_STATES = [4,5,6,7,8]
@@ -28,6 +31,14 @@ WNN = ["None"]
 N_PCS_RNA = [20]
 N_PCS_ACT = [10]
 
+TREES = ["five_branches", "three_branches"]
+RDS = [0.1, 0.3, 0.5, 0.7, 0.9]
+SIGMAS = [0.1, 0.3, 0.5, 0.7, 0.9]
+SIM_KNN_RNAS = [10,30,50,70]
+SIM_KNN_ACTS = [10,30,50,70]
+SIM_WNNS = [10,30,50,70]
+
+
 wildcard_constraints:
     states = r"\d+",
     real_states = r"\d+",
@@ -36,6 +47,10 @@ wildcard_constraints:
     wnn = r"(None|\d+)",
     knn_rna = r"\d+",
     knn_act = r"\d+",
+    rd = r"0\.\d+",
+    sigma = r"0\.\d+",
+    tree = r"three_branches|five_branches",
+
 
 
 # RULE ALL
@@ -149,6 +164,60 @@ rule all:
         knn_rna=KNN_RNA,
         knn_act=KNN_ACT,
         wnn=WNN,
+    )
+    # preprocess synthetic
+   expand( 
+       SIMULATION_MUDATA + "/{tree}_{rd}:{sigma}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+       tree = TREES,
+       rd = RDS,
+       sigma = SIGMAS,
+       n_pcs_rna = N_PCS_RNA,
+       n_pcs_act = N_PCS_ACT,
+       knn_rna = SIM_KNN_RNAS,
+       knn_act = SIM_KNN_ACTS,
+       wnn = SIM_WNNS,
+    ),
+   # atlas palantir synthetic 
+   expand( 
+       SIMULATION_OUTPUT + "/palantir/{tree}_{rd}:{sigma}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.done",
+       tree = TREES,
+       rd = RDS,
+       sigma = SIGMAS,
+       n_pcs_rna = N_PCS_RNA,
+       n_pcs_act = N_PCS_ACT,
+       knn_rna = SIM_KNN_RNAS,
+       knn_act = SIM_KNN_ACTS,
+       wnn = SIM_WNNS,
+    )
+   # atlas cellrank synthetic
+   expand( 
+       SIMULATION_OUTPUT + "/pseudotime_kernel/{tree}_{rd}:{sigma}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.done",
+       tree = TREES,
+       rd = RDS,
+       sigma = SIGMAS,
+       n_pcs_rna = N_PCS_RNA,
+       n_pcs_act = N_PCS_ACT,
+       knn_rna = SIM_KNN_RNAS,
+       knn_act = SIM_KNN_ACTS,
+       wnn = SIM_WNNS,
+    )
+   # rna palantir synthetic 
+   expand( 
+       SIMULATION_OUTPUT + "/palantir_rna/{tree}_{rd}:{sigma}_{n_pcs_rna}_{knn_rna}.done",
+       tree = TREES,
+       rd = RDS,
+       sigma = SIGMAS,
+       n_pcs_rna = N_PCS_RNA,
+       knn_rna = SIM_KNN_RNAS,
+    )
+   # atlas cellrank synthetic
+   expand( 
+       SIMULATION_OUTPUT + "/pseudotime_kernel_rna/{tree}_{rd}:{sigma}_{n_pcs_rna}_{knn_rna}.done",
+       tree = TREES,
+       rd = RDS,
+       sigma = SIGMAS,
+       n_pcs_rna = N_PCS_RNA,
+       knn_rna = SIM_KNN_RNAS,
     )
 
 
@@ -452,3 +521,132 @@ rule humanBrain_rna_cellrank:
         "--n_pcs_act {wildcards.n_pcs_act} "
         "--n_states {wildcards.n_states} "
         "--removed {params.removed} &> {log}"
+
+rule preprocess_synthetic:
+    input:
+        activity = ( SIMULATION_DATA + 
+        "/{rd}_{sigma}_activity.tsv")
+    ), 
+        metadata = ( SIMULATION_DATA + 
+        "/{rd}_{sigma}_metadata.tsv")
+    ),
+        spliced = ( SIMULATION_DATA + 
+        "/{rd}_{sigma}_spliced.tsv")
+    ),
+
+    output:
+        h5mu = ( SIMULATION_MUDATA + 
+        "/{tree}_{rd}:{sigma}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu"
+    ), 
+
+    log:
+        ( LOG_DIR + "/_simulation_preprocessing_"
+        "{tree}_{rd}:{sigma}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.log"
+    ), 
+    shell:
+        "python3 -m simulated_data.preprocessing "
+        "--rd {wildcards.rd} "
+        "--sigma {wildcards.sigma} "
+        "--tree {wildcards.tree} "
+        "--knn_rna {wildcards.knn_rna} "
+        "--knn_act {wildcards.knn_act} "
+        "--wnn {wildcards.wnn} "
+        "--n_pcs_rna {wildcards.n_pcs_rna} "
+        "--n_pcs_act {wildcards.n_pcs_act} &> {log}"
+
+rule synthetic_palantir:
+    input:
+        h5mu = ( SIMULATION_MUDATA + 
+        "/{tree}_{rd}:{sigma}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu"
+    ), 
+
+    output:
+        sentinel = touch(SIMULATION_OUTPUT + "/palantir/{tree}_{rd}:{sigma}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.done")
+
+    log:
+        ( LOG_DIR + "/_simulated_palantir_"
+        "{tree}_{rd}:{sigma}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.log"
+    ), 
+
+    shell:
+        "python3 -m simulated_data.palantir_run "
+        "--rd {wildcards.rd} "
+        "--sigma {wildcards.sigma} "
+        "--tree {wildcards.tree} "
+        "--knn_rna {wildcards.knn_rna} "
+        "--knn_act {wildcards.knn_act} "
+        "--wnn {wildcards.wnn} "
+        "--n_pcs_rna {wildcards.n_pcs_rna} "
+        "--n_pcs_act {wildcards.n_pcs_act} &> {log}"
+
+
+rule synthetic_pseudotime_kernel:
+    input:
+        h5mu = ( SIMULATION_MUDATA + 
+        "/{tree}_{rd}:{sigma}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu"
+    ), 
+
+    output:
+        sentinel = touch(SIMULATION_OUTPUT + "/pseudotime_kernel/{tree}_{rd}:{sigma}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.done")
+
+    log:
+        ( LOG_DIR + "/_simulated_cellrank_"
+        "{tree}_{rd}:{sigma}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.log"
+    ), 
+
+    shell:
+        "python3 -m simulated_data.pseudotime_kernel_run "
+        "--rd {wildcards.rd} "
+        "--sigma {wildcards.sigma} "
+        "--tree {wildcards.tree} "
+        "--knn_rna {wildcards.knn_rna} "
+        "--knn_act {wildcards.knn_act} "
+        "--wnn {wildcards.wnn} "
+        "--n_pcs_rna {wildcards.n_pcs_rna} "
+        "--n_pcs_act {wildcards.n_pcs_act} &> {log}"
+
+
+rule synthetic_palantir_rna:
+    input:
+        h5mu = ( SIMULATION_MUDATA + 
+        "/{tree}_{rd}:{sigma}_{n_pcs_rna}:10_{knn_rna}:30:30.h5mu"
+    ), 
+
+    output:
+        sentinel = touch(SIMULATION_OUTPUT + "/palantir_rna/{tree}_{rd}:{sigma}_{n_pcs_rna}_{knn_rna}.done")
+
+    log:
+        ( LOG_DIR + "/_simulated_palantir_rna_"
+        "{tree}_{rd}:{sigma}_{n_pcs_rna}_{knn_rna}:.log"
+    ), 
+
+    shell:
+        "python3 -m simulated_data.palantir_rna_run "
+        "--rd {wildcards.rd} "
+        "--sigma {wildcards.sigma} "
+        "--tree {wildcards.tree} "
+        "--knn_rna {wildcards.knn_rna} "
+        "--n_pcs_rna {wildcards.n_pcs_rna} &> {log}"
+
+
+rule synthetic_pseudotime_kernel_rna:
+    input:
+        h5mu = ( SIMULATION_MUDATA + 
+        "/{tree}_{rd}:{sigma}_{n_pcs_rna}:10_{knn_rna}:30:30.h5mu"
+    ), 
+
+    output:
+        sentinel = touch(SIMULATION_OUTPUT + "/pseudotime_kernel_rna/{tree}_{rd}:{sigma}_{n_pcs_rna}_{knn_rna}.done")
+
+    log:
+        ( LOG_DIR + "/_simulated_cellrank_rna_"
+        "{tree}_{rd}:{sigma}_{n_pcs_rna}_{knn_rna}:.log"
+    ), 
+
+    shell:
+        "python3 -m simulated_data.pseudotime_kernel_rna_run "
+        "--rd {wildcards.rd} "
+        "--sigma {wildcards.sigma} "
+        "--tree {wildcards.tree} "
+        "--knn_rna {wildcards.knn_rna} "
+        "--n_pcs_rna {wildcards.n_pcs_rna} &> {log}"

@@ -1,4 +1,5 @@
 import os
+import re
 import warnings
 import numpy as np 
 import pandas as pd
@@ -55,15 +56,15 @@ def terminal_state_score(mudata:MuData,
     '''
 
 
-    def _construct_terminal_df(ts: dict, p: pd.Series, m:pd.Series) -> pd.DataFrame:
-        rows = []    
-        for state, cells in ts.items():
-            for cell in cells:
-                rows.append({"terminal_state": state,
-                            "cell": cell,
-                            "pseudotime": p.loc[cell],
-                            "cluster": m.loc[cell]})
-        return pd.DataFrame(rows)
+#    def _construct_terminal_df(ts: dict, p: pd.Series, m:pd.Series) -> pd.DataFrame:
+#        rows = []    
+#        for state, cells in ts.items():
+#            for cell in cells:
+#                rows.append({"terminal_state": state,
+#                            "cell": cell,
+#                            "pseudotime": p.loc[cell],
+#                            "cluster": m.loc[cell]})
+#        return pd.DataFrame(rows)
 
     if not time_key in mudata.obs:
         raise KeyError(f"{time_key} not in mudata.obs")
@@ -74,44 +75,45 @@ def terminal_state_score(mudata:MuData,
     membership = mudata.obs[cluster_key]
     tau_min = pseudotime.min()
 
-    terminal_states = mudata.uns["terminal_states"]
-    terminal_df = _construct_terminal_df(
-                terminal_states,
-                pseudotime,
-                membership,
-            )
-    if terminal_df.empty:
-        warnings.warn("WARNING: no terminal states detected", stacklevel=2)
+    if "terminal_states" not in mudata.obs:
+        raise KeyError("This code has been updated with ATLAS and 'terminal_states' not in mudata.obs. Please provide a categorical column with terminal states as in ATLAS 1.1.0 or use the atlas.tl.migrate_states function beforehand.")
+
+    if mudata.obs["terminal_states"].isna().all():
         return 0.0, 0.0, 0.0, 0.0, 0.0
+
+#    terminal_df = _construct_terminal_df(
+#                terminal_states,
+#                pseudotime,
+#                membership,
+#            )
+    terminal_df = mudata.obs.loc[
+        mudata.obs["terminal_states"].notna(),
+        [time_key, cluster_key, "terminal_states"],
+    ]
 
     gt_tau = (pseudotime.groupby(membership).max().
             reindex(terminal_clusters, fill_value=tau_min))
-    inferred_tau = (terminal_df[terminal_df["cluster"].isin(terminal_clusters)].
-                    groupby("cluster")["pseudotime"].
+    inferred_tau = (terminal_df[terminal_df[cluster_key].isin(terminal_clusters)].
+        groupby(cluster_key)[time_key].
                     median().
                     reindex(terminal_clusters, fill_value=tau_min)
             )
-    tts_i =  1 - (gt_tau- inferred_tau) / (gt_tau - tau_min)
+
+    tts_i =  1 - (gt_tau- inferred_tau) / (gt_tau - tau_min + 1e-6)
     tts = tts_i.mean()
 
-    if terminal_df.empty:
-        ttp = 0
-    else:
-        ttp = terminal_df["cluster"].isin(terminal_clusters).mean()
+    ttp = terminal_df[cluster_key].isin(terminal_clusters).mean()
 
-    if terminal_df.empty:
-        ttr = 0
-    else: 
-        found, expected = set(terminal_df["cluster"]), set(terminal_clusters)
-        missing = expected.difference(found) 
-        tsr = 1 - (len(missing) / len(expected))
+    found, expected = set(terminal_df[cluster_key]), set(terminal_clusters)
+    missing = expected.difference(found) 
+    tsr = 1 - (len(missing) / len(expected))
 
-    df_term = terminal_df[terminal_df["cluster"].isin(terminal_clusters)]
+    df_term = terminal_df[terminal_df[cluster_key].isin(terminal_clusters)]
     if df_term.empty:
         ttc = 0
     else:
-        iqr = (df_term.groupby("cluster")["pseudotime"].quantile(0.75) - 
-            df_term.groupby("cluster")["pseudotime"].quantile(0.25))
+        iqr = (df_term.groupby(cluster_key)[time_key].quantile(0.75) - 
+            df_term.groupby(cluster_key)[time_key].quantile(0.25))
         iqr = iqr.reindex(terminal_clusters, fill_value=0.0)
         ttc = (1-iqr).mean()  
     
@@ -119,6 +121,15 @@ def terminal_state_score(mudata:MuData,
     
     return tts, ttp, tsr, ttc, overall
 
+def _remove_disambiguation(name: str,
+                            truth_columns: list) -> str:
+    if name in truth_columns:
+        return name
+    base, _, suffix = name.rpartition("_")
+    if suffix.isdigit() and base in truth_columns:
+        return base
+
+    return name
 
 
 def js_distance(
@@ -164,9 +175,10 @@ def js_distance(
         raise ValueError(f"Instances not match {pred.shape} != {truth.shape}")
     if pred.isna().any().any() or truth.isna().any().any():
         raise ValueError(f"NaNs are not a valid input")
-    if set(pred.columns) != set(truth.columns):
+    renamed_columns = [_remove_disambiguation(c, truth.columns) for c in pred.columns]
+    if set(renamed_columns) != set(truth.columns):
         raise ValueError(f"Fate columns do not match")
-    pred = pred.loc[truth.index, truth.columns]    
+    truth = truth.loc[pred.index, renamed_columns]    
     return pd.Series(jensenshannon(pred.values, truth.values, base=base, axis=1), index = pred.index)
     
 

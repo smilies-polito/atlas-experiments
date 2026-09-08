@@ -94,7 +94,7 @@ cd atlas-experiments/data/human_brain
 curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_atac_gene_activities.tsv.gz
 curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_cell_metadata.txt.gz
 curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_rna_counts.tsv.gz
-curl -fLO https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_cluster_names.txt.gz
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_cluster_names.tsv.gz
 
 gunzip GSE162170_multiome_cluster_names.tsv.gz
 gunzip GSE162170_multiome_cell_metadata.txt.gz
@@ -176,6 +176,7 @@ It is not mandatory to run the entire workflow. Snakemake can target individual 
 | supp6\_e18brain\_atlas | Fresh Embryonic E18 Mouse Brain | Applies ATLAS (both TI strategies) on the E18 Mouse Brain and produces results from Supp. Fig. 6 |
 | supp7\_e18brain\_rna | Fresh Embryonic E18 Mouse Brain | Applies scRNA-seq only based TI on the E18 Mouse Brain and produces results from Supp. Fig. 7 |
 | supp8\_e18brain\_gex | Fresh Embryonic E18 Mouse Brain | Gene Expression for target genes on the E18 Mouse Brain and produces results from Supp. Fig. 8 |
+| preprocess\_synthetic | Synthetic Data | ATLAS preprocessing on all combination of Synthetic Data |
 | synthetic\_palantir | Synthetic Data | ATLAS (Palantir-based TI) on all combination of Synthetic Data |
 | synthetic\_pseudotime\_kernel | Synthetic Data | ATLAS (CellRank-based TI) on all combination of Synthetic Data |
 | synthetic\_palantir\_rna | Synthetic Data | scRNA-seq only experiments using Palantir |
@@ -275,10 +276,12 @@ atlas-experiments/
 │   ├── supplementary8_e18_gex.py      # Gene Expression UMAP for selected genes in the E18 Mouse Brain
 │   └── utils.py      
 ├── simulated_data/                    # Folder with code for synthetic data experiments
+│   ├── preprocessing.py               # Preprocessing using ATLAS and scanpy
 │   ├── palantir_rna_run.py            # scRNA-seq only experiment on synthetic data using Palantir
 │   ├── palantir_run.py                # ATLAS on synthetic casa (Palantir-based TI)
 │   ├── pseudotime_rna_run.py          # scRNA-seq only experiment on synthetic data using CellRank
 │   ├── pseudotime_run.py              # ATLAS on synthetic data (CellRank-based TI)
+│   ├── supervised_metrics.py          # Code for supervised evaluation
 │   └── utils.py
 ├── supplementary/                     # Folder with code for additional visualisations 
 │   ├── supplementary34_box_radar_plots.py 

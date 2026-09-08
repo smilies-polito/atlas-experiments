@@ -1,17 +1,10 @@
 import os
+import muon as mu
 import json
-import atlas
 import argparse
 import numpy as np
-import pandas as pd
-import scanpy as sc
-from muon import MuData
-from anndata import AnnData
 from atlas.tl import PalantirExtension
-from scipy.sparse import csr_matrix
 from .utils import initial_macrostate, terminal_macrostate, truth_like_fates, TERM_DICT, POTENCY_DICT, _save_simulation, _apply_metrics
-from .supervised_metrics import terminal_state_score, js_distance, kendall_correlation
-
 
 
 if __name__=="__main__":
@@ -24,38 +17,23 @@ if __name__=="__main__":
     parser.add_argument("--rd", type=float)
     parser.add_argument("--sigma", type=float)
     parser.add_argument("--knn_rna", type=int)
-    parser.add_argument("--knn_activity", type=int)
+    parser.add_argument("--knn_act", type=int)
+    parser.add_argument("--n_pcs_rna", type=int, default=20)
+    parser.add_argument("--n_pcs_act", type=int, default=10)
     parser.add_argument("--wnn", type=int, default=None)
     args = parser.parse_args()
     
     # DATA CONTRUCTION 
     tree = args.tree
     diff_cif_fraction, cif_sigma = args.rd, args.sigma
-    knn_rna, knn_activity, wnn = args.knn_rna, args.knn_activity, args.wnn
-    n_pcs_rna, n_pcs_activity = 20, 10
+    knn_rna, knn_act, wnn = args.knn_rna, args.knn_act, args.wnn
+    n_pcs_rna, n_pcs_act = args.n_pcs_rna, args.n_pcs_act
+    pCode = f"{tree}_{diff_cif_fraction}:{cif_sigma}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{args.wnn}"
     
-    data_path = os.path.join(working_directory, "data", "simulated_data", tree)
+    data_path = os.path.join(working_directory, "output", "simulations", "mudata")
     saving_simulation_path = os.path.join(working_directory, "output", "simulations", "palantir")
-    activity = pd.read_csv(os.path.join(data_path, f"{diff_cif_fraction}_{cif_sigma}_activity.tsv"), sep="\t", header=0, index_col=0)
-    spliced = pd.read_csv(os.path.join(data_path, f"{diff_cif_fraction}_{cif_sigma}_spliced.tsv"), sep="\t", header=0, index_col=0)
-    metadata = pd.read_csv(os.path.join(data_path, f"{diff_cif_fraction}_{cif_sigma}_metadata.tsv"), sep="\t", header=0, index_col=0)
-
-    # create activity matrix
-    activity = AnnData(X=csr_matrix(activity.values), 
-            obs = pd.DataFrame(data=None, index=activity.index.values, columns=None), 
-            var = pd.DataFrame(data=None, index=activity.columns, columns=None))    
-    sc.pp.normalize_total(activity)
-    sc.pp.pca(activity, random_state=seed, use_highly_variable=False)
-    # create rna matrix
-    rna = AnnData(X=csr_matrix(spliced.values.T), 
-            obs=pd.DataFrame(data=None, index=spliced.columns, columns=None), 
-            var=pd.DataFrame(data=None, index=spliced.index.values, columns=None))
-    rna.obs = rna.obs.merge(metadata, how="left", left_index=True, right_index=True)
-    sc.pp.normalize_total(rna)
-    sc.pp.log1p(rna)
-    sc.pp.pca(rna, random_state=seed, use_highly_variable=False)
-
-    mudata = MuData({"rna":rna, "activity":activity})
+    mudata = mu.read_h5mu(os.path.join(data_path, f"{pCode}.h5mu"))
+    mudata.pull_obs()
 
     # ground truth construction
     early_cell = initial_macrostate(mudata = mudata, 
@@ -74,24 +52,7 @@ if __name__=="__main__":
                                     membership = mudata.obs["rna:pop"],
                                     tree = tree)
 
-    truth_dictionary = { "fate_probabilities" :true_fates, 
-                        "true_states": {"initial" : early_cell,    
-                                        "terminal": terminal_cells}
-                        }
-
-    # PREPROCESSING 
-    atlas.pp.preprocessing(mudata = mudata,
-                        n_pcs_rna=n_pcs_rna,
-                        n_pcs_act=n_pcs_activity,
-                        knn_rna=knn_rna,
-                        knn_act=knn_activity,
-                        n_neighbors=wnn,
-                        random_state=seed)
-
-    # INSTANTIATE CLASS
-    pext = PalantirExtension(mudata = mudata)
-
-    # RUN DIFFUSION COMPONENTS
+    pext = PalantirExtension(mudata = mudata.copy())
     try: 
         n_components, num_waypoints = 5, 250
         pext.compute_kernel()
@@ -114,17 +75,32 @@ if __name__=="__main__":
         print(e)
         failed = True
 
-    ts_dict = mudata.uns.get("terminal_states", {})
+    data = pext.mudata 
+    results = _apply_metrics(mudata = data,
+                            tree = tree,
+                            code = pCode,
+                            failed = failed,
+                            fixed_terminal = False, 
+                            terminal_clusters = TERM_DICT[tree], 
+                            true_probabilities = true_fates,
+                            true_pseudotime_key = "rna:pseudotime",
+                            cluster_key = "rna:pop",
+                            seed = seed)
 
-    results = _apply_metrics(mudata = mudata, tree = args.tree, rd= diff_cif_fraction, sigma = cif_sigma,
-                    knn_rna = knn_rna, knn_activity = knn_activity, wnn = wnn,
-                    failed = failed, fixed_terminal = False, terminal_clusters = TERM_DICT[tree],
-                    ts_dict = ts_dict, true_probabilities = true_fates)
-    _save_simulation(mudata = mudata, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, 
-                    knn_rna = knn_rna, knn_activity = knn_activity, wnn= wnn, fixed_terminal = False, 
-                    saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary)
+
+    _save_simulation(mudata = data, 
+                    tree = tree, 
+                    rd = diff_cif_fraction, 
+                    sigma= cif_sigma, 
+                    knn_rna = knn_rna,
+                    knn_act = knn_act, 
+                    wnn= wnn, 
+                    fixed_terminal = False, 
+                    saving_folder = saving_simulation_path, 
+                    results=results)
 
     # TRAJECTORY INFERENCE WITH TERMINAL STATES
+    pext = PalantirExtension(mudata = mudata.copy())
     try: 
         pext.run(early_cell=early_cell[0],
                     cluster_key="rna:pop",
@@ -135,12 +111,26 @@ if __name__=="__main__":
         print(e)
         failed = True
             
-    ts_dict = mudata.uns.get("terminal_states", {})
+    data = pext.mudata 
+    results = _apply_metrics(mudata = data,
+                            tree = tree,
+                            code = pCode,
+                            failed = failed,
+                            fixed_terminal = True, 
+                            terminal_clusters = TERM_DICT[tree], 
+                            true_probabilities = true_fates,
+                            true_pseudotime_key = "rna:pseudotime",
+                            cluster_key = "rna:pop",
+                            seed = seed)
 
-    results = _apply_metrics(mudata = mudata, tree = args.tree, rd= diff_cif_fraction, sigma = cif_sigma,
-                    knn_rna = knn_rna, knn_activity = knn_activity, wnn = wnn,
-                    failed = failed, fixed_terminal = True, terminal_clusters = TERM_DICT[tree],
-                    ts_dict = ts_dict, true_probabilities = true_fates)
-    _save_simulation(mudata = mudata, tree = args.tree, rd = diff_cif_fraction, sigma= cif_sigma, 
-                        knn_rna = knn_rna, knn_activity = knn_activity, wnn= wnn, fixed_terminal = True, 
-                        saving_folder = saving_simulation_path, results=results, ground_truth = truth_dictionary)
+
+    _save_simulation(mudata = data, 
+                    tree = tree, 
+                    rd = diff_cif_fraction, 
+                    sigma= cif_sigma, 
+                    knn_rna = knn_rna,
+                    knn_act = knn_act, 
+                    wnn= wnn, 
+                    fixed_terminal = True, 
+                    saving_folder = saving_simulation_path,
+                    results=results)
