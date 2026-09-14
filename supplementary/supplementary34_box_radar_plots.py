@@ -22,14 +22,14 @@ METRIC_DICT = {"spearman_stat_pseudotime": (-1,1),
                 "fate_index_stat": (-1,1),
                 "terminal_enrichment": (-1,1),
                 "terminal_silhouette_soft": (-1,1),
-                "terminal_silhouette_pse": (-1,1), 
+                "terminal_silhouette_pse": (-1, 1), 
                 "spearman_stat_SHE": (-1,1),
                 "spearman_stat_KLD": (-1,1),
                 "pearson_stat_SHE": (-1,1),
                 "pearson_stat_KLD": (-1,1),
-                "totipotent": (0, np.log(2)),
-                "multipotent": (0, np.log(2)), 
-                "committed": (0, np.log(2))
+                "totipotent": (0, np.sqrt(np.log(2))),
+                "multipotent": (0, np.sqrt(np.log(2))), 
+                "committed": (0, np.sqrt(np.log(2))),
                 }
 
 PSEUDOTIME_METRICS = ["spearman_stat_pseudotime", "kendall_stat_pseudotime"]
@@ -53,7 +53,7 @@ METRIC_RENOM = {"spearman_stat_pseudotime": "Spearman corr. pseudotime",
                 "pearson_stat_KLD": "Pearson corr. KL-divergence",
                 "totipotent": "JSD - root",
                 "multipotent": "JSD - parent",
-                "committed": "JSD- leaf"
+                "committed": "JSD - leaf"
                 }
 
 
@@ -64,13 +64,20 @@ SHORT_METRIC_RENOM = {"spearman_stat_pseudotime": "Spearman pseudo.",
                 "terminal_enrichment": "T.S. Enrichment",
                 "terminal_silhouette_soft": "Silhouette - Soft",
                 "terminal_silhouette_pse": "Silhouette - Pseudo.",
-                "spearman_stat_SHE" : "Spearman SHE",
+                "spearman_stat_SHE" : "- Spearman SHE",
                 "spearman_stat_KLD": "Spearman KL",
-                "pearson_stat_SHE": "Pearson SHE",
+                "pearson_stat_SHE": "- Pearson SHE",
                 "pearson_stat_KLD": "Pearson KL",
-                "totipotent": "JSD - R",
-                "multipotent": "JSD - P",
-                "committed": "JSD - L"
+                "totipotent": "1 - JSD (r)",
+                "multipotent": "1 - JSD (p)",
+                "committed": "1 - JSD (l)"
+                }
+
+RADAR_INVERTED_METRICS = {"spearman_stat_SHE": lambda x: -x,
+                "pearson_stat_SHE": lambda x: -x,
+                "totipotent": lambda x: 1 - x,
+                "multipotent": lambda x: 1 - x,
+                "committed": lambda x: 1 - x
                 }
 
 
@@ -204,16 +211,19 @@ if __name__== "__main__":
     # RADAR PLOT
     non_fixed_terminal_metrics = [m for m in METRIC_DICT.keys() if m not in ["multipotent", "totipotent", "committed", "ttp", "tsr", "ttc", "tts"]]
     fixed_terminal_metrics = ["multipotent", "totipotent", "committed"]
-    
 
-    summary_nonF = (success[~success["fixed_terminal"]].groupby("tree")[non_fixed_terminal_metrics]
+    radar_data = success.copy()
+    for metric, transform in RADAR_INVERTED_METRICS.items():
+        radar_data[metric] = transform(radar_data[metric])
+
+    summary_nonF = (radar_data[~radar_data["fixed_terminal"]].groupby("tree")[non_fixed_terminal_metrics]
                                             .agg( "median")
                     )
     summary_nonF = (summary_nonF.stack(level=0)
                                 .rename_axis(index=["dataset", "metric"])
                                 .reset_index()
                     )
-    summary_F = (success[success["fixed_terminal"]].groupby("tree")[fixed_terminal_metrics]
+    summary_F = (radar_data[radar_data["fixed_terminal"]].groupby("tree")[fixed_terminal_metrics]
                                             .agg("median")
                 )
     summary_F = (summary_F.stack(level=0)
@@ -222,6 +232,7 @@ if __name__== "__main__":
                     )
     summary = pd.concat((summary_nonF, summary_F))
     summary.columns = ["dataset", "metric", "median"]
+    summary["radar_value"] = summary["median"]
     summary["metric"] = summary["metric"].map(SHORT_METRIC_RENOM)
     radar_df = summary.pivot(index="dataset", columns="metric", values="median")
 
