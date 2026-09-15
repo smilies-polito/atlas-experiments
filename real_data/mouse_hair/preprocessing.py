@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import scanpy as sc
 import seaborn as sns
+import muon as mu
 import muon.atac as ac
 import matplotlib.pyplot as plt
 from muon import MuData
@@ -12,9 +13,7 @@ from anndata import AnnData
 from atlas.pp import compute_gene_activity, wnn
 from atlas.tl import umap
 from scipy.io import mmread
-from pybiomart import Dataset
-from scipy.sparse import load_npz, csr_matrix
-from scipy.stats import median_abs_deviation
+from scipy.sparse import csr_matrix
 
 def anndata_to_frag_bc(x):
     """This function turns atac barcodes into the same format as in the fragment file"""
@@ -36,7 +35,7 @@ if __name__=="__main__":
     working_dir = os.getcwd()
     np.random.seed(seed)
 
-    parser = argparse.ArgumentParser
+    parser = argparse.ArgumentParser()
     parser.add_argument("--knn_rna", type=int, default = 15)
     parser.add_argument("--knn_act", type=int, default = 15)
     parser.add_argument("--n_pcs_rna", type=int, default = 20)
@@ -52,16 +51,17 @@ if __name__=="__main__":
     atac_matrix = os.path.join(data_path, "GSM4156597_skin.late.anagen.counts.txt")
     barcodes = os.path.join(data_path, "GSM4156597_skin.late.anagen.barcodes.txt") 
     peaks= os.path.join(data_path, "GSM4156597_skin.late.anagen.peaks.bed")
-    feature_path = os.path.join(output_path, "features.tsv")
+    feature_path = os.path.join(data_path, "all_features.tsv")
     annotation_path = os.path.join(data_path, "GSM4156597_skin_celltype.txt")
     fragment_file_path = os.path.join(data_path, "GSM4156597_skin.late.anagen.atac.fragments.sorted.bed.gz")
 
     valid_chr = [f"{i}" for i in range(1,23)] + ["X","MT"]
 
+    features = pd.read_csv(feature_path, sep="\t", header = 0)
     barcodes = pd.read_csv(barcodes, sep="\t", index_col=False, header=None)
     barcodes = list(barcodes[0])
     
-    clusters_of_interest = ["IRS", "TAC-1", "TAC-2", "Medulla", "Hair-Shaft-cuticle.cortex"]
+    clusters_of_interest = ["IRS", "TAC-1", "TAC-2", "Medulla", "Hair Shaft-cuticle.cortex"]
     annotations = pd.read_csv(annotation_path, sep="\t", index_col=False, header=0) 
     annotations = annotations[annotations["celltype"].isin(clusters_of_interest)]
     rna_to_atac = dict(zip(annotations["rna.bc"], annotations["atac.bc"]))
@@ -92,39 +92,27 @@ if __name__=="__main__":
     atac.obs_names = atac.obs["frag_barcode_raw"].values
 
     ac.tl.locate_fragments(atac, fragment_file_path)
-    
-    ## RNA FEATURES WITH PYBIOMART mm10
+   
+    # read features
     genes = rna.var_names.tolist()
-    dataset = Dataset(
-                name='mmusculus_gene_ensembl',
-                host="http://nov2020.archive.ensembl.org",
-            )
-    res = dataset.query(attributes=[
-            'external_gene_name',
-            'chromosome_name',
-            'start_position',
-            'end_position',
-            'strand'
-    ])
-    res.columns = ["Name", "OR_Chromosome", "Start", "End", "Strand"] 
-    features = res[res['Name'].isin(genes) & res["OR_Chromosome"].isin(valid_chr)]
-    features["Chromosome"] = features["OR_Chromosome"].apply(_to_ucsc)
-
+    features = features[features['external_gene_name'].isin(genes) & features["chromosome_name"].isin(valid_chr)]
+    features["chromosome_name"] = features["chromosome_name"].apply(_to_ucsc)
     features_collapsed = (
         features
-        .groupby("Name", as_index=False)
+        .groupby("external_gene_name", as_index=False)
         .agg({
-            "OR_Chromosome": "first",
-            "Chromosome": "first",
-            "Strand": "first",
-             "Start": "min",
-            "End": "max",
+            "chromosome_name": "first",
+            "strand": "first",
+            "start_position": "min",
+            "end_position": "max",
         })
     )
     
-
-    features_collapsed = features_collapsed.set_index("Name")
+    features_collapsed = features_collapsed.set_index("external_gene_name")
     rna = rna[:, rna.var_names.isin(features_collapsed.index)].copy()
+    print(rna.shape, features_collapsed.shape)
+    features_collapsed = features_collapsed[features_collapsed["chromosome_name"] != "chrM"] # chrM not present in fragments 
+    features_collapsed.columns = ["Chromosome", "Strand", "Start", "End"]
 
     # Quality filtering
     rna.var["mt"] = rna.var_names.str.startswith("mt-")
@@ -156,7 +144,6 @@ if __name__=="__main__":
 
     atac.obs["outlier"] = atac.obs["nuc_filter"] == "NUC_FAIL"
 
-    features_collapsed = features_collapsed[features_collapsed["Chromosome"] != "chrM"] # chrM not present in fragments 
 
     # Compute activity: we don't use ATLAS here as there is a mismatch between atac and rna barcodes.
     # We use the same preprocessing strategy although with the original muon and scanpy functions. 
@@ -184,7 +171,7 @@ if __name__=="__main__":
 
     # WNN and RNA computation 
     modalities = ("rna", "activity")
-    knn = {"rna": args.knn_rna, "activity": args.knn_activity}
+    knn = {"rna": args.knn_rna, "activity": args.knn_act}
     n_pcs = {"rna": args.n_pcs_rna, "activity": args.n_pcs_act}
     key = "wnn"
     n_neighbors = None if (args.wnn == "None" or args.wnn is None) else int(args.wnn)

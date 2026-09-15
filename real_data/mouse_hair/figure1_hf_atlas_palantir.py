@@ -26,6 +26,7 @@ if __name__=="__main__":
     parser.add_argument("--n_pcs_rna", type=int, default=20)
     parser.add_argument("--n_pcs_act", type=int, default=10)
     parser.add_argument("--wnn", default=None)
+    parser.add_argument("--n_jobs", type=int, default=1)
     args=parser.parse_args()
 
     pCode = f"{args.n_pcs_rna}:{args.n_pcs_act}_{args.knn_rna}:{args.knn_act}:{args.wnn}"
@@ -46,7 +47,7 @@ if __name__=="__main__":
     pex.compute_multiscale_space()
 
     pex.run(early_cell = initial,
-                n_jobs = -1,
+                n_jobs = args.n_jobs,
                 random_state = seed)
 
     print("AVERAGE PSEUDOTIME PER CELL TYPE:")
@@ -56,7 +57,7 @@ if __name__=="__main__":
     print(mudata.obs[["terminal_states", "pseudotime"]].groupby("terminal_states").mean())
 
     print("AVERAGE PSEUDOTIME PER INITIAL STATE:")
-    print(mudata.obs[["terminal_states", "pseudotime"]].groupby("terminal_states").mean())
+    print(mudata.obs[["initial_states", "pseudotime"]].groupby("initial_states").mean())
 
     file = f"pseudotime_{pCode}.tsv"
     mudata.obs["pseudotime"].to_csv(os.path.join(output_dir, file),

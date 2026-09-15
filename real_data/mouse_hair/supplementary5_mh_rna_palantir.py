@@ -28,6 +28,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_pcs_rna", type=int, default=20)
     parser.add_argument("--n_pcs_act", type=int, default=10)
     parser.add_argument("--wnn", default=None)
+    parser.add_argument("--n_jobs", type=int, default=1)
     args=parser.parse_args()
 
     pCode = f"{args.n_pcs_rna}:{args.n_pcs_act}_{args.knn_rna}:{args.knn_act}:{args.wnn}"
@@ -59,6 +60,7 @@ if __name__ == "__main__":
                         early_cell = early_cell,
                         pseudo_time_key = "rna_pseudotime",
                         seed = seed,
+                        n_jobs = args.n_jobs,
                         fate_prob_key = "rna_fates")
 
     mudata.obsm["rna_fates"] = rna.obsm["rna_fates"].copy().reindex(mudata.obs.index)
