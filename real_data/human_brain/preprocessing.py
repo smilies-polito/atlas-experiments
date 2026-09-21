@@ -101,7 +101,7 @@ if __name__=="__main__":
                     neighbors_key = key,
                     random_state = seed)
 
-    mu.pl.embedding(data, basis="X_umap", color = ["Cluster.Name"], save = "_{prefix}_human_brain_clusters.png")
+    mu.pl.embedding(data, basis="X_umap", color = ["Cluster.Name"], save = f"_{prefix}_human_brain_clusters.png")
 
     data.write(os.path.join(output_path, f"{prefix}_{code}.h5mu"))
 

@@ -56,7 +56,7 @@ if __name__=="__main__":
     print(mudata.obs[["terminal_states", "pseudotime"]].groupby("terminal_states").mean())
 
     print("AVERAGE PSEUDOTIME PER INITIAL STATE:")
-    print(mudata.obs[["terminal_states", "pseudotime"]].groupby("terminal_states").mean())
+    print(mudata.obs[["initial_states", "pseudotime"]].groupby("initial_states").mean())
 
     file = f"pseudotime_{pCode}.tsv"
     mudata.obs["pseudotime"].to_csv(os.path.join(output_dir, file),

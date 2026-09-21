@@ -1,58 +1,231 @@
-Bootstrap: docker 
+Bootstrap: docker
+
 From: ubuntu:24.04
 
-%environment
-	export PETSC_DIR=/petsc 
-	export PETSC_ARCH=arch-linux-c-debug 
-	export SLEPC_DIR=/slepc 
-	export PATH=/usr/local/bin:$PATH
-	export PYTHONPATH=/scvemo:$PYTHONPATH
 
-%files 
-	container/requirements.txt /requirements.txt 
+%environment
+    export PETSC_DIR=/petsc
+    export PETSC_ARCH=arch-linux-c-debug
+    export SLEPC_DIR=/slepc
+    export PATH=/usr/local/bin:$PATH
+    export PYTHONPATH=/scvemo:$PYTHONPATH
+
+
+%files
+    container/old_requirements.txt /requirements.txt
+
 
 %post
-	apt-get update && apt-get install -y --no-install-recommends \
-	git \
-	python3 \
-	python3-dev \
-	python3-pip \
-	make \
-	build-essential \
-	gfortran \
-	curl \
-	wget \
-	ca-certificates \
-	cmake \
-	libigraph-dev \
-	&& rm -rf /var/lib/apt/lists/*
+    set -e
 
-	python3 -m pip install --break-system-packages "setuptools<69" wheel Cython
+    apt-get update && apt-get install -y --no-install-recommends \
+        git \
+        python3 \
+        python3-dev \
+        python3-pip \
+        make \
+        build-essential \
+        gfortran \
+        curl \
+        wget \
+        ca-certificates \
+        cmake \
+        libigraph-dev \
+        && rm -rf /var/lib/apt/lists/*
 
-	# Install petsc requirements for petsc4py
-	cd /
-	git clone -b release https://gitlab.com/petsc/petsc.git /petsc
-	cd /petsc
-	git checkout v3.23.6
-	./configure --with-mpi=0 --with-cc=gcc --with-cxx=g++ --with-fc=gfortran --download-f2cblaslapack
-	make all check
-	cd /
-	export PETSC_DIR=/petsc 
-	export PETSC_ARCH=arch-linux-c-debug
-
-	# Install slepc requirements for slepc4py
-	git clone -b release https://gitlab.com/slepc/slepc.git /slepc	
-	cd /slepc 
-	git checkout v3.23.3
-	./configure
-	make SLEPC_DIR=/slepc PETSC_DIR=/petsc PETSC_ARCH=arch-linux-c-debug
-	cd /
-	export SLEPC_DIR=/slepc
-
-	python3 -m pip install --break-system-packages -r /requirements.txt 
-	python3 -m pip install --break-system-packages --no-build-isolation petsc4py==3.23.6
-	python3 -m pip install --break-system-packages --no-build-isolation slepc4py==3.23.3
-	python3 -m pip install --break-system-packages --index-url https://test.pypi.org/simple/ --no-deps atlas-smilies
+    python3 -m pip install \
+        --break-system-packages \
+        "setuptools==68.2.2" \
+        wheel \
+        "Cython==3.1.2"
 
 
+    ######################################################################
+    # PETSc
+    ######################################################################
 
+    cd /
+
+    git clone -b release \
+        https://gitlab.com/petsc/petsc.git \
+        /petsc
+
+    cd /petsc
+
+    git checkout v3.23.6
+
+    ./configure \
+        --with-mpi=0 \
+        --with-cc=gcc \
+        --with-cxx=g++ \
+        --with-fc=gfortran \
+        --download-f2cblaslapack
+
+    make all check
+
+    cd /
+
+    export PETSC_DIR=/petsc
+    export PETSC_ARCH=arch-linux-c-debug
+
+
+    ######################################################################
+    # SLEPc
+    ######################################################################
+
+    git clone -b release \
+        https://gitlab.com/slepc/slepc.git \
+        /slepc
+
+    cd /slepc
+
+    git checkout v3.23.3
+
+    ./configure
+
+    make \
+        SLEPC_DIR=/slepc \
+        PETSC_DIR=/petsc \
+        PETSC_ARCH=arch-linux-c-debug
+
+    cd /
+
+    export SLEPC_DIR=/slepc
+
+
+    ######################################################################
+    # Python dependencies
+    ######################################################################
+
+    python3 -m pip install \
+        --break-system-packages \
+        -r /requirements.txt
+
+
+    ######################################################################
+    # petsc4py
+    ######################################################################
+
+    cd /tmp
+
+    wget -q \
+        https://files.pythonhosted.org/packages/source/p/petsc4py/petsc4py-3.23.6.tar.gz
+
+    tar -xzf petsc4py-3.23.6.tar.gz
+
+    cd petsc4py-3.23.6
+
+
+    # petsc4py 3.23.6 uses distutils.util.execute(..., dry_run=...),
+    # but the execute() available in this Python environment does not
+    # accept the dry_run keyword.
+    python3 - <<'PY'
+from pathlib import Path
+
+path = Path("conf/confpetsc.py")
+text = path.read_text()
+
+text = text.replace(
+    "from distutils.util import execute\n",
+    ""
+)
+
+old = """        execute(
+            write_file,
+            (config_file, config_data),
+            msg='writing %s' % config_file,
+            verbose=self.verbose,
+            dry_run=self.dry_run,
+        )
+"""
+
+new = """        if getattr(self, "dry_run", False):
+            log.info("skipping writing %s (dry-run)", config_file)
+            return
+        self.mkpath(os.path.dirname(config_file))
+        with open(config_file, 'w') as fh:
+            fh.write(config_data)
+"""
+
+if old not in text:
+    raise RuntimeError(
+        "Expected petsc4py 3.23.6 execute() block was not found"
+    )
+
+path.write_text(text.replace(old, new))
+
+print("Successfully patched petsc4py 3.23.6")
+PY
+
+
+    export PETSC_DIR=/petsc
+    export PETSC_ARCH=arch-linux-c-debug
+
+    python3 -m pip install \
+        --break-system-packages \
+        --no-build-isolation \
+        .
+
+
+    ######################################################################
+    # slepc4py
+    ######################################################################
+
+    cd /tmp
+
+    wget -q \
+        https://files.pythonhosted.org/packages/source/s/slepc4py/slepc4py-3.23.3.tar.gz
+
+    tar -xzf slepc4py-3.23.3.tar.gz
+
+    cd slepc4py-3.23.3
+
+
+    # slepc4py 3.23.3 also passes dry_run to execute().
+    # Remove only that unsupported keyword argument.
+    python3 - <<'PY'
+from pathlib import Path
+import re
+
+path = Path("conf/confpetsc.py")
+text = path.read_text()
+
+text, n = re.subn(
+    r",\s*dry_run=self\.dry_run\s*\)",
+    ")",
+    text,
+)
+
+if n != 1:
+    raise RuntimeError(
+        f"Expected to patch exactly one dry_run=self.dry_run "
+        f"occurrence, found {n}"
+    )
+
+path.write_text(text)
+
+print("Successfully patched slepc4py 3.23.3")
+PY
+
+
+    export PETSC_DIR=/petsc
+    export PETSC_ARCH=arch-linux-c-debug
+    export SLEPC_DIR=/slepc
+
+    python3 -m pip install \
+        --break-system-packages \
+        --no-build-isolation \
+        .
+
+
+    ######################################################################
+    # ATLAS
+    ######################################################################
+
+    python3 -m pip install \
+        --break-system-packages \
+        "atlas-smilies[trees]"
+
+
+%runscript
+    exec "$@"
