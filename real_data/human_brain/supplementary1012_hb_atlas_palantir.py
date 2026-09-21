@@ -19,6 +19,7 @@ if __name__=="__main__":
     np.random.seed(seed)
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("--n_jobs", type=int, default = 1)
     parser.add_argument("--knn_rna", type=int, default = 15)
     parser.add_argument("--knn_act", type=int, default = 15)
     parser.add_argument("--n_pcs_rna", type=int, default = 20)
@@ -46,7 +47,7 @@ if __name__=="__main__":
     pex.compute_multiscale_space()
 
     pex.run(early_cell = initial,
-                n_jobs = -1,
+                n_jobs = args.n_jobs,
                 random_state = seed)
 
     print("AVERAGE PSEUDOTIME PER CELL TYPE:")

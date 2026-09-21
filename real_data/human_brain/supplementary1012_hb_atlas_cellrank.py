@@ -25,6 +25,7 @@ if __name__=="__main__":
     parser.add_argument("--n_pcs_act", type=int, default=10)
     parser.add_argument("--wnn", default=None)
     parser.add_argument("--n_states", type=int, default=4)
+    parser.add_argument("--n_jobs", type=int, default=1)
     parser.add_argument("--removed", type=int, default=0)
     args=parser.parse_args()
 
@@ -52,13 +53,13 @@ if __name__=="__main__":
     cex.compute_kernel(key = "wnn",
                     time_key = "pseudotime",
                     cluster_key = "Cluster.Name",
-                    n_jobs = -1)
+                    n_jobs = args.n_jobs)
 
     try: 
         cex.run(n_states = args.n_states, 
              use_petsc = True,
              allow_overlap = False,
-             n_jobs = -1)
+             n_jobs = args.n_jobs)
         allow_overlap = False
 
     except Exception as e:
@@ -66,7 +67,7 @@ if __name__=="__main__":
         cex.run(n_states = args.n_states, 
             use_petsc = True,
             allow_overlap = True,
-            n_jobs = -1)
+            n_jobs = args.n_jobs)
         allow_overlap = True
 
     # Save if allow overlap has been used or not 

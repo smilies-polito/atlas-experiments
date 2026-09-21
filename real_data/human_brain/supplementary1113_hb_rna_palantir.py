@@ -28,6 +28,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_pcs_act", type=int, default=10)
     parser.add_argument("--wnn", default=None)
     parser.add_argument("--removed", type=int, default=0)
+    parser.add_argument("--n_jobs", type=int, default=1)
     args=parser.parse_args()
 
     removed= bool(args.removed)
@@ -59,6 +60,7 @@ if __name__ == "__main__":
     rna.obsm["DM_EigenVectors_multiscaled"] = result
     palantir.core.run_palantir(data=rna,
                         early_cell = early_cell,
+                        n_jobs = args.n_jobs,
                         pseudo_time_key = "rna_pseudotime",
                         seed = seed,
                         fate_prob_key = "rna_fates")

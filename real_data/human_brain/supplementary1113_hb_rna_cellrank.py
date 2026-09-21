@@ -28,6 +28,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_pcs_act", type=int, default=10)
     parser.add_argument("--wnn", default=None)
     parser.add_argument("--n_states", type=int, default=4)
+    parser.add_argument("--n_jobs", type=int, default=-1)
     parser.add_argument("--removed", type=int, default=0)
     args=parser.parse_args()
 
@@ -56,7 +57,7 @@ if __name__ == "__main__":
     kernel = cellrank.kernels.PseudotimeKernel(rna, 
                                                 time_key = "pseudotime",
                                                 connectivity_key = "connectivities")
-    kernel.compute_transition_matrix(threshold_scheme = "hard", n_jobs = -1)
+    kernel.compute_transition_matrix(threshold_scheme = "hard", n_jobs = args.n_jobs)
     g = cellrank.estimators.GPCCA(kernel)
     g.compute_schur()
     g.compute_macrostates(n_states=args.n_states, cluster_key = "Cluster.Name")
@@ -73,7 +74,7 @@ if __name__ == "__main__":
 
     rna.uns["cellrank"] = {"allow_overlap":allow_overlap}
 
-    g.compute_fate_probabilities(use_petsc=True, n_jobs=-1)
+    g.compute_fate_probabilities(use_petsc=True, n_jobs=args.n_jobs)
 
     rna.obsm["fate_probabilities"] = pd.DataFrame(g.fate_probabilities.X,
                                            index = rna.obs_names,
