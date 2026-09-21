@@ -28,7 +28,7 @@ if __name__ == "__main__":
     pCode = f"{args.n_pcs_rna}:{args.n_pcs_act}_{args.knn_rna}:{args.knn_act}:{args.wnn}_{args.n_states}"
     code = f"rna_cellrank_{pCode}"
 
-    cluster_key = "celltype"
+    cluster_key = "cell_type_abbr"
     working_dir = os.getcwd()
     output_dir = os.path.join(working_dir, "output", "embryonic_mouse_brain")
     result_path = os.path.join(output_dir, "results.tsv")

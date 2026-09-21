@@ -27,6 +27,7 @@ if __name__=="__main__":
     pCode = f"{args.n_pcs_rna}:{args.n_pcs_act}_{args.knn_rna}:{args.knn_act}:{args.wnn}"
     code = f"cellrank_{args.n_pcs_rna}:{args.n_pcs_act}_{args.knn_rna}:{args.knn_act}:{args.wnn}_{args.n_states}"
 
+    cluster_key =  "cell_type_abbr"
     working_dir = os.getcwd()
     output_dir = os.path.join(working_dir, "output", "embryonic_mouse_brain")
     result_path = os.path.join(output_dir, "results.tsv")
@@ -44,7 +45,7 @@ if __name__=="__main__":
     cex = CellRankExtension(mudata=mudata)
     cex.compute_kernel(key  = "wnn",
                     time_key = "pseudotime",
-                    cluster_key = "celltype",
+                    cluster_key = cluster_key,
                     n_jobs = args.n_jobs)
     try:
         cex.run(n_states = args.n_states,
@@ -75,7 +76,7 @@ if __name__=="__main__":
     print(metrics)
 
     _get_plots(mudata = mudata,
-            cluster_key = "celltype",
+            cluster_key = cluster_key,
             code = code,
             seed = seed)
 
