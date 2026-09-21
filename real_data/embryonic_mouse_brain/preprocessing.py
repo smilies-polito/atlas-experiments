@@ -167,13 +167,14 @@ if __name__=="__main__":
     _ = atlas.tl.umap(mudata = data,
                         neighbors_key = "wnn",
                         random_state = seed)
+    data.obsm["X_atlas"] = data.obsm["X_umap"]
 
     new_umap = pd.read_csv(umap, header = 0, index_col = 0)
     new_umap = new_umap.loc[data.obs_names, :]
-    data.obsm["X_multivelo"] = new_umap.values
+    data.obsm["X_umap"] = new_umap.values
                                         
     atlas.pl.embedding(mudata = data, color = ["celltype", "cell_type_abbr"], save = "mouse_brain_celltype.png")
-    atlas.pl.embedding(mudata = data, basis = "X_multivelo", color = ["celltype", "cell_type_abbr"], save = "mouse_brain_celltype_multivelo.png")
+    atlas.pl.embedding(mudata = data, basis = "X_atlas", color = ["celltype", "cell_type_abbr"], save = "mouse_brain_celltype_atlas_wnn.png")
 
     data.write(os.path.join(output_path, f"{code}.h5mu"))
 

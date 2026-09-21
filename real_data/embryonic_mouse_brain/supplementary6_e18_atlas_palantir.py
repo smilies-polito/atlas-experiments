@@ -21,22 +21,22 @@ if __name__=="__main__":
     parser.add_argument("--n_pcs_act", type=int, default=10)
     parser.add_argument("--wnn", default=None)
     parser.add_argument("--n_jobs", type=int, default=1)
+    parser.add_argument("--cluster_key", type=str, default="celltype")
     args = parser.parse_args()
+    cluster_key = args.cluster_key 
 
     pCode = f"{args.n_pcs_rna}:{args.n_pcs_act}_{args.knn_rna}:{args.knn_act}:{args.wnn}"
 
-    cluster_key = "cell_type_abbr"
     working_dir = os.getcwd()
     output_dir = os.path.join(working_dir, "output", "embryonic_mouse_brain")
     result_path = os.path.join(output_dir, "results.tsv")
     data_path = os.path.join(output_dir, f"{pCode}.h5mu")
-    code = "palantir_" + pCode
+    code = f"palantir_{pCode}_{cluster_key}"
 
     mudata = mu.read_h5mu(data_path)
-    mudata.obsm["X_umap"] = mudata.obsm["X_multivelo"]
 
     # select palantir initial cell
-    initial = rng.choice(mudata[(mudata.obs["celltype"] == "RG, Astro, OPC") & (mudata.obs["cell_type_abbr"] == "C")].obs_names)
+    initial = rng.choice(mudata[(mudata.obs["celltype"] == "RG, Astro, OPC")])
 
     pex = PalantirExtension(mudata = mudata)
     pex.compute_kernel(key="wnn")
@@ -55,7 +55,7 @@ if __name__=="__main__":
     print("AVERAGE PSEUDOTIME PER INITIAL STATE:")
     print(mudata.obs[["initial_states", "pseudotime"]].groupby("initial_states").mean())
 
-    file = f"pseudotime_{pCode}.tsv"
+    file = f"pseudotime_{pCode}_{cluster_key}.tsv"
     mudata.obs["pseudotime"].to_csv(os.path.join(output_dir, file),
                                     index = True, header = True, sep="\t")
 
