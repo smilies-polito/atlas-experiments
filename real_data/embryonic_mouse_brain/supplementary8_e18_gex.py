@@ -4,11 +4,22 @@
 ########################################################################
 
 import os
+import argparse
 import muon as mu
 import scanpy as sc 
 
 if __name__=="__main__":
-    data_path = os.path.join(os.getcwd(), "output", "embryonic_mouse_brain", "20:10_15:15:None_hard_6states.h5mu")
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--knn_rna", type=int, default = 15)
+    parser.add_argument("--knn_act", type=int, default = 15)
+    parser.add_argument("--n_pcs_rna", type=int, default = 20)
+    parser.add_argument("--n_pcs_act", type=int, default = 10)
+    parser.add_argument("--wnn", default = None)
+    args = parser.parse_args()
+
+    code = f"{args.n_pcs_rna}:{args.n_pcs_act}_{args.knn_rna}:{args.knn_act}:{args.wnn}"
+    data_path = os.path.join(os.getcwd(), "output", "embryonic_mouse_brain", f"{code}.h5mu")
     data = mu.read_h5mu(data_path)
 
     data["rna"].obsm["X_umap"] = data.obsm["X_umap"]

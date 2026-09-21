@@ -173,9 +173,11 @@ It is not mandatory to run the entire workflow. Snakemake can target individual 
 | Rule | Dataset | Outcome |
 | --- | --- | --- |
 | e18brain\_preprocessing | Fresh Embryonic E18 Mouse Brain | Preprocesses the E18 Mouse Brain data and outputs `.h5mu` file |
-| supp6\_e18brain\_atlas | Fresh Embryonic E18 Mouse Brain | Applies ATLAS (both TI strategies) on the E18 Mouse Brain and produces results from Supp. Fig. 6 |
-| supp7\_e18brain\_rna | Fresh Embryonic E18 Mouse Brain | Applies scRNA-seq only based TI on the E18 Mouse Brain and produces results from Supp. Fig. 7 |
-| supp8\_e18brain\_gex | Fresh Embryonic E18 Mouse Brain | Gene Expression for target genes on the E18 Mouse Brain and produces results from Supp. Fig. 8 |
+| e18brain\_atlas\_palantir | Fresh Embryonic E18 Mouse Brain | Applies ATLAS (Palantir-based stategy) on the E18 Mouse Brain and produces results from Supp. Fig. 6 |
+| e18brain\_atlas\_cellrank | Fresh Embryonic E18 Mouse Brain | Applies ATLAS (CellRank-based stategy) on the E18 Mouse Brain and produces results from Supp. Fig. 6 |
+| e18brain\_rna\_palantir | Fresh Embryonic E18 Mouse Brain | Applies originsl Palantir (scRNA-seq only based TI) on the E18 Mouse Brain and produces results from Supp. Fig. 7 |
+| e18brain\_rna\_cellexpression | Fresh Embryonic E18 Mouse Brain | Applies originsl CellRank (scRNA-seq only based TI) on the E18 Mouse Brain and produces results from Supp. Fig. 7 |
+| e18brain\_expression | Fresh Embryonic E18 Mouse Brain | Gene Expression for target genes on the E18 Mouse Brain and produces results from Supp. Fig. 8 |
 | preprocess\_synthetic | Synthetic Data | ATLAS preprocessing on all combination of Synthetic Data |
 | synthetic\_palantir | Synthetic Data | ATLAS (Palantir-based TI) on all combination of Synthetic Data |
 | synthetic\_pseudotime\_kernel | Synthetic Data | ATLAS (CellRank-based TI) on all combination of Synthetic Data |
@@ -270,10 +272,13 @@ atlas-experiments/
 │   │   │   ├── supplementary1113_hb_rna_palantir.py
 │   │   │   ├── supplementary1113_hb_rna_cellrank.py
 │   │   │   └── supplementary9_hb_gex.py
-│   ├── e18_preprocessing.py           # Preprocessing for Fresh Embryonic E18 Mouse Brain
-│   ├── supplementary6_e18_atlas.py    # ATLAS on E18 Mouse Brain data
-│   ├── supplementary7_e18_rna.py      # scRNA-seq only run on the E18 Mouse Brain data
-│   ├── supplementary8_e18_gex.py      # Gene Expression UMAP for selected genes in the E18 Mouse Brain
+│   │   ├── embryonic_mouse_brain/    	       # Results for the Fresh Embryonic E18 Mouse Brain
+│   │  	│   ├── preprocessing.py
+│   │   │   ├── supplementary6_e18_atlas_palantir.py
+│   │   │   ├── supplementary6_e18_atlas_cellrank.py
+│   │   │   ├── supplementary7_e18_rna_palantir.py
+│   │   │   ├── supplementary7_e18_rna_cellrank.py
+│   │   │   └── supplementary8_e18_gex.py
 │   └── utils.py      
 ├── simulated_data/                    # Folder with code for synthetic data experiments
 │   ├── preprocessing.py               # Preprocessing using ATLAS and scanpy

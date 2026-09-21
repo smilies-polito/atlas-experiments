@@ -37,6 +37,9 @@ MOUSE_HAIR_FOLDER = "/real_data/mouse_hair"
 HUMAN_BRAIN_DATA = DATA_DIR + "/human_brain"
 HUMAN_BRAIN_OUTPUT = OUTPUT_DIR + "/human_brain"
 HUMAN_BRAIN_FOLDER = "/real_data/human_brain"
+E18_DATA = DATA_DIR + "/embryonic_mouse_brain"
+E18_OUTPUT = OUTPUT_DIR + "/embryonic_mouse_brain"
+E18_FOLDER = "/real_data/embryonic_mouse_brain"
 SIMULATION_MUDATA = OUTPUT_DIR + "/simulations" + "/mudata"
 SIMULATION_DATA = DATA_DIR + "/simulated_data"
 SIMULATION_OUTPUT = OUTPUT_DIR + "/simulations"
@@ -44,6 +47,7 @@ SIMULATION_OUTPUT = OUTPUT_DIR + "/simulations"
 # WILDCARDS
 MH_STATES = [4, 5, 6, 7, 8]
 HB_STATES = [4, 5, 6, 7, 8]
+E18_STATES = [6, 12]
 REMOVED = {1: "removed", 0: "non_removed"}
 INVERSE_REMOVED = {v: k for k, v in REMOVED.items()}
 KNN_RNA = [15]
@@ -153,6 +157,62 @@ rule all:
             knn_act=KNN_ACT,
             wnn=WNN,
             n_states=MH_STATES,
+        ),
+        # preprocessing e18 mouse brain dataset
+        expand(
+            E18_OUTPUT + "/{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+            n_pcs_rna=N_PCS_RNA,
+            n_pcs_act=N_PCS_ACT,
+            knn_rna=KNN_RNA,
+            knn_act=KNN_ACT,
+            wnn=WNN,
+        ),
+        # atlas palantir e18 mouse brain dataset
+        expand(
+            E18_OUTPUT + "/palantir_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+            n_pcs_rna=N_PCS_RNA,
+            n_pcs_act=N_PCS_ACT,
+            knn_rna=KNN_RNA,
+            knn_act=KNN_ACT,
+            wnn=WNN,
+        ),
+        # atlas cellrank e18 mouse brain dataset
+        expand(
+            E18_OUTPUT + "/cellrank_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_{n_states}.h5mu",
+            n_pcs_rna=N_PCS_RNA,
+            n_pcs_act=N_PCS_ACT,
+            knn_rna=KNN_RNA,
+            knn_act=KNN_ACT,
+            wnn=WNN,
+            n_states=E18_STATES,
+        ),
+        # rna palantir e18 mouse brain dataset
+        expand(
+            E18_OUTPUT + "/rna_palantir_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+            n_pcs_rna=N_PCS_RNA,
+            n_pcs_act=N_PCS_ACT,
+            knn_rna=KNN_RNA,
+            knn_act=KNN_ACT,
+            wnn=WNN,
+        ),
+        # rna cellrank e18 mouse brain dataset
+        expand(
+            E18_OUTPUT + "/rna_cellrank_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_{n_states}.h5mu",
+            n_pcs_rna=N_PCS_RNA,
+            n_pcs_act=N_PCS_ACT,
+            knn_rna=KNN_RNA,
+            knn_act=KNN_ACT,
+            wnn=WNN,
+            n_states=E18_STATES,
+        ),
+        # e18 mouse brain expression plots
+        expand(
+            E18_OUTPUT + "/expression_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.done",
+            n_pcs_rna=N_PCS_RNA,
+            n_pcs_act=N_PCS_ACT,
+            knn_rna=KNN_RNA,
+            knn_act=KNN_ACT,
+            wnn=WNN,
         ),
         # preprocessing human brain dataset
         expand(
@@ -378,7 +438,130 @@ rule mouseHair_rna_cellrank:
         "--n_pcs_rna {wildcards.n_pcs_rna} "
         "--n_pcs_act {wildcards.n_pcs_act} "
         "--n_states {wildcards.n_states} &> {log}"
+# =============================================================================
+# E18 MOUSE BRAIN
+# =============================================================================
 
+rule e18brain_preprocessing:
+    input:
+	matrix = E18_DATA + "/filtered_feature_bc_matrix",
+	ann1 = E18_DATA + "/cell_annotations.tsv",
+	ann2 = E18_DATA + "/archvelo_labels.csv",
+	umap = E18_DATA + "/multivelo_umap.csv",
+	features = E18_DATA + "/e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz",
+
+    output:
+        h5mu = E18_OUTPUT + "/{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+    threads: LIGHT_THREADS
+    log:
+        LOG_DIR + "/_e18_brain_preprocessing_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.log",
+    shell:
+        ENV_JOBLIB +
+        "python3 -m real_data.embryonic_mouse_brain.preprocessing "
+        "--knn_rna {wildcards.knn_rna} "
+        "--knn_act {wildcards.knn_act} "
+        "--wnn {wildcards.wnn} "
+        "--n_pcs_rna {wildcards.n_pcs_rna} "
+        "--n_pcs_act {wildcards.n_pcs_act} &> {log}"
+
+
+rule e18brain_atlas_palantir:
+    input:
+        h5mu = E18_OUTPUT + "/{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+    output:
+        pseudotime = E18_OUTPUT + "/pseudotime_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.tsv",
+        h5mu = E18_OUTPUT + "/palantir_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+    threads: PALANTIR_THREADS
+    log:
+        LOG_DIR + "/_embryonic_brain_palantir_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.log",
+    shell:
+        ENV_JOBLIB +
+        "python3 -m real_data.embryonic_mouse_brain.supplementary6_e18_atlas_palantir "
+        "--n_jobs {threads} "
+        "--knn_rna {wildcards.knn_rna} "
+        "--knn_act {wildcards.knn_act} "
+        "--wnn {wildcards.wnn} "
+        "--n_pcs_rna {wildcards.n_pcs_rna} "
+        "--n_pcs_act {wildcards.n_pcs_act} &> {log}"
+
+
+rule e18brain_atlas_cellrank:
+    input:
+        pseudotime = E18_OUTPUT + "/pseudotime_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.tsv",
+        h5mu = E18_OUTPUT + "/{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+    output:
+        h5mu = E18_OUTPUT + "/cellrank_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_{n_states}.h5mu",
+    threads: PETSC_THREADS
+    log:
+        LOG_DIR + "/_embryonic_brain_cellrank_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_{n_states}.log",
+    shell:
+        ENV_PETSC + 
+        "python3 -m real_data.embryonic_mouse_brain.supplementary6_e18_atlas_cellrank "
+        "--n_jobs 1 "
+        "--knn_rna {wildcards.knn_rna} "
+        "--knn_act {wildcards.knn_act} "
+        "--wnn {wildcards.wnn} "
+        "--n_pcs_rna {wildcards.n_pcs_rna} "
+        "--n_pcs_act {wildcards.n_pcs_act} "
+        "--n_states {wildcards.n_states} &> {log}"
+
+
+rule e18brain_rna_palantir:
+    input:
+        h5mu = E18_OUTPUT + "/palantir_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+    output:
+        tsv = E18_OUTPUT + "/rna_pseudotime_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.tsv",
+        h5mu = E18_OUTPUT + "/rna_palantir_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+    threads: PALANTIR_THREADS
+    log:
+        LOG_DIR + "/_embryonic_brain_rna_palantir_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.log",
+    shell:
+        ENV_JOBLIB +
+        "python3 -m real_data.embryonic_mouse_brain.supplementary7_e18_rna_palantir "
+        "--n_jobs {threads} "
+        "--knn_rna {wildcards.knn_rna} "
+        "--knn_act {wildcards.knn_act} "
+        "--wnn {wildcards.wnn} "
+        "--n_pcs_rna {wildcards.n_pcs_rna} "
+        "--n_pcs_act {wildcards.n_pcs_act} &> {log}"
+
+
+rule e18brain_rna_cellrank:
+    input:
+        pseudotime = E18_OUTPUT + "/rna_pseudotime_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.tsv",
+        h5mu = E18_OUTPUT + "/cellrank_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_{n_states}.h5mu",
+    output:
+        h5mu = E18_OUTPUT + "/rna_cellrank_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_{n_states}.h5mu",
+    threads: PETSC_THREADS
+    log:
+        LOG_DIR + "/_embryonic_brain_rna_cellrank_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_{n_states}.log",
+    shell:
+        ENV_PETSC +
+        "python3 -m real_data.embryonic_mouse_brain.supplementary7_e18_rna_cellrank "
+        "--n_jobs 1 "
+        "--knn_rna {wildcards.knn_rna} "
+        "--knn_act {wildcards.knn_act} "
+        "--wnn {wildcards.wnn} "
+        "--n_pcs_rna {wildcards.n_pcs_rna} "
+        "--n_pcs_act {wildcards.n_pcs_act} "
+        "--n_states {wildcards.n_states} &> {log}"
+
+rule e18brain_expression:
+    input:
+        h5mu = E18_OUTPUT + "/non_removed_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+    output:
+        touch(E18_OUTPUT + "/expression_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.done"),
+    threads: LIGHT_THREADS
+    log:
+        LOG_DIR + "/e18_brain_expression_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.log",
+    shell:
+        ENV_JOBLIB +
+        "python3 -m real_data.embryonic_mouse_brain.supplementary8_e18_gex "
+        "--knn_rna {wildcards.knn_rna} "
+        "--knn_act {wildcards.knn_act} "
+        "--wnn {wildcards.wnn} "
+        "--n_pcs_rna {wildcards.n_pcs_rna} "
+        "--n_pcs_act {wildcards.n_pcs_act} &> {log}"
 
 # =============================================================================
 # HUMAN BRAIN

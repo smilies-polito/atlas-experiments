@@ -1,4 +1,5 @@
 import os
+import argparse
 import atlas
 import muon as mu
 import numpy as np 
@@ -7,7 +8,7 @@ import scanpy as sc
 import seaborn as sns
 import muon.atac as ac
 import matplotlib.pyplot as plt
-from .utils import _compute_outlier
+from real_data.utils import _compute_outlier
 from muon import MuData
 
 
@@ -15,14 +16,24 @@ if __name__=="__main__":
     seed = 42
     working_dir = os.getcwd()
     np.random.seed(seed)
-    n_pcs_rna, n_pcs_act = 20, 10
-    knn_rna, knn_act, wnn = 15, 15, None
+
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--n_pcs_rna", type=int, default=20)
+    parser.add_argument("--n_pcs_act", type=int, default=10)
+    parser.add_argument("--knn_rna", type=int, default=15)
+    parser.add_argument("--knn_act", type=int, default=15)
+    parser.add_argument("--wnn", default=None)
+    args = parser.parse_args()
+    code = f"{args.n_pcs_rna}:{args.n_pcs_act}_{args.knn_rna}:{args.knn_act}:{args.wnn}"
 
     data_path = os.path.join(working_dir, "data", "embryonic_mouse_brain")
     output_path = os.path.join(working_dir, "output", "embryonic_mouse_brain")
     ffbcm_path = os.path.join(data_path, "filtered_feature_bc_matrix")
     feature_path = os.path.join(output_path, "features.tsv")
     annotation_path = os.path.join(data_path, "cell_annotations.tsv")
+    archvelo_annotations = os.path.join(data_path, "archvelo_labels.csv")
+    umap = os.path.join(data_path, "multivelo_umap.csv")
     fragment_file_path = os.path.join(data_path, "e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz")
 
     valid_chr = [f"chr{i}" for i in range(1,23)] + ["chrX","chrY","chrM"]
@@ -50,13 +61,13 @@ if __name__=="__main__":
 
     sc.pl.violin(rna, 
                 ["total_counts", "pct_counts_mt", "n_genes_by_counts"],
-                multi_panel = True, save = "EMB_rna_violin.png")
+                multi_panel = True, save = "_mouse_brain_rna_violin.png")
     sc.pl.scatter(rna, 
                     x = "total_counts",
                     y = "n_genes_by_counts",
                     color = "pct_counts_mt",
                     show = True,
-                    save = "EMB_rna_QC.png")
+                    save = "_mouse_brain_rna_QC.png")
     rna.obs["outlier"] = ( _compute_outlier(rna, "log1p_total_counts", 5) |
                             _compute_outlier(rna, "log1p_n_genes_by_counts", 5) |
                             (rna.obs["pct_counts_mt"] > 10)
@@ -68,7 +79,7 @@ if __name__=="__main__":
     atac.obs["nuc_filter"] = ["NUC_FAIL" if ns > nuc_threshold else "NUC_PASS" for ns in atac.obs["nucleosome_signal"] ]
     fig, axs = plt.subplots(figsize=(7, 3.5))
     sns.histplot(atac.obs, x="nucleosome_signal", ax=axs)
-    plt.savefig(os.path.join(os.getcwd(), "figures", "EMB_nuc.png"))
+    plt.savefig(os.path.join(os.getcwd(), "figures", "_mouse_brain_nuc.png"))
     plt.close()
 
 
@@ -83,7 +94,7 @@ if __name__=="__main__":
                     ax=axs[1],
         )
     p2.set_title("Up to 99.5% percentile")
-    plt.savefig(os.path.join(os.getcwd(), "figures", "EMB_histplot_tss.png"))
+    plt.savefig(os.path.join(os.getcwd(), "figures", "_mouse_brain_histplot_tss.png"))
     plt.close()
 
     tss_threshold = 1.5
@@ -92,7 +103,7 @@ if __name__=="__main__":
 
     fig, ax = plt.subplots()
     ac.pl.tss_enrichment(tss_enr, color="tss_filter", ax = ax)
-    plt.savefig(os.path.join(os.getcwd(), "figures", "EMB_tss_filter.png"))
+    plt.savefig(os.path.join(os.getcwd(), "figures", "_mouse_brain_tss_filter.png"))
     plt.close()
     
     sc.pl.scatter(atac, 
@@ -100,7 +111,7 @@ if __name__=="__main__":
                     y = "n_genes_by_counts",
                     color = "tss_score",
                     show = True,
-                    save = "EMB_atac_qc.png")
+                    save = "mouse_brain_atac_qc.png")
     plot_tss_max = 20
     g = sns.jointplot(data=atac[(atac.obs["tss_score"] < plot_tss_max)].obs,
                         x="total_counts",
@@ -111,7 +122,7 @@ if __name__=="__main__":
     # Density plot including lines
     g.plot_joint(sns.kdeplot, fill=True, cmap="Blues", zorder=1, alpha=0.75)
     g.plot_joint(sns.kdeplot, color="black", zorder=2, alpha=0.75)
-    plt.savefig(os.path.join(os.getcwd(), "figures", "EMB_kde.png"))
+    plt.savefig(os.path.join(os.getcwd(), "figures", "_mouse_brain_kde.png"))
     plt.close()
 
     atac.obs["outlier"] = ((atac.obs["tss_filter"] == "TSS_FAIL") |
@@ -119,14 +130,18 @@ if __name__=="__main__":
 
     # Filtering 
     data = MuData({"rna":rna, "atac":atac})
+    data.pull_obs()
     mask = ~(data.obs["rna:outlier"] | data.obs["atac:outlier"])
     data = data[mask, :].copy()
     
     annotations = pd.read_csv(annotation_path, sep="\t", header=0, index_col=0)
+    archvelo = pd.read_csv(archvelo_annotations, header=0, index_col=0)
     data.obs = data.obs.join(annotations)
+    data.obs = data.obs.join(archvelo)
 
     non_developing_clusters = ["Cajal-Retzius", "Interneurons1", "Interneurons2", "Interneurons3", "Microglia", np.nan]
     data = data[~data.obs["celltype"].isin(non_developing_clusters)].copy()
+    data = data[~data.obs["cell_type_abbr"].isna()].copy()
 
     # RNA-seq preprocessing
     sc.pp.normalize_total(data["rna"])
@@ -135,7 +150,32 @@ if __name__=="__main__":
     sc.pp.pca(data["rna"], random_state=seed)
     sc.pl.pca_variance_ratio(data["rna"])     
 
-    data.write(os.path.join(output_path, "emb.h5mu"))
+    _ = atlas.pp.compute_gene_activity(mudata = data,
+                                        features = features,
+                                        fragment_path = fragment_file_path,
+                                        random_state = seed)
+
+    n_neighbors = None if (args.wnn is None or args.wnn == "None") else int(args.wnn)
+    _ = atlas.pp.wnn(mudata = data,
+                        modalities = ("rna", "activity"),
+                        knn = {"rna": args.knn_rna, "activity": args.knn_act},
+                        n_pcs = {"rna": args.n_pcs_rna, "activity": args.n_pcs_rna},
+                        use_rep = "X_pca",
+                        n_neighbors = n_neighbors,
+                        random_state = seed)
+
+    _ = atlas.tl.umap(mudata = data,
+                        neighbors_key = "wnn",
+                        random_state = seed)
+
+    new_umap = pd.read_csv(umap, header = 0, index_col = 0)
+    new_umap = new_umap.loc[data.obs_names, :]
+    data.obsm["X_multivelo"] = new_umap.values
+                                        
+    atlas.pl.embedding(mudata = data, color = ["celltype", "cell_type_abbr"], save = "mouse_brain_celltype.png")
+    atlas.pl.embedding(mudata = data, basis = "X_multivelo", color = ["celltype", "cell_type_abbr"], save = "mouse_brain_celltype_multivelo.png")
+
+    data.write(os.path.join(output_path, f"{code}.h5mu"))
 
 
 
