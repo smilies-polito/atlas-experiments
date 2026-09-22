@@ -23,7 +23,7 @@ if __name__=="__main__":
     parser.add_argument("--n_jobs", type=int, default=1)
     parser.add_argument("--cluster_key", type=str, default="celltype")
     args = parser.parse_args()
-    cluster_key = args.cluster_key
+    cluster_key = args.cluster_key 
 
     pCode = f"{args.n_pcs_rna}:{args.n_pcs_act}_{args.knn_rna}:{args.knn_act}:{args.wnn}"
 
@@ -35,9 +35,7 @@ if __name__=="__main__":
 
     mudata = mu.read_h5mu(data_path)
 
-    # select palantir initial cell
-    initial = rng.choice(mudata[(mudata.obs["celltype"] == "RG, Astro, OPC") & (mudata.obs["cell_type_abbr"] == "C")].obs_names)
-#    initial = rng.choice(mudata[(mudata.obs["cell_type_abbr"] == "IPC"].obs_names)
+    initial = rng.choice(mudata[(mudata.obs["celltype"] == "RG, Astro, OPC")])
 
     pex = PalantirExtension(mudata = mudata)
     pex.compute_kernel(key="wnn")

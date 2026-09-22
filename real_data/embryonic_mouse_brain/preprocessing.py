@@ -167,6 +167,7 @@ if __name__=="__main__":
     _ = atlas.tl.umap(mudata = data,
                         neighbors_key = "wnn",
                         random_state = seed)
+
     data.obsm["X_ATLAS"] = data.obsm["X_umap"]
 
     new_umap = pd.read_csv(umap, header = 0, index_col = 0)

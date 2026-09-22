@@ -28,7 +28,7 @@ if __name__=="__main__":
     
     pCode = f"{args.n_pcs_rna}:{args.n_pcs_act}_{args.knn_rna}:{args.knn_act}:{args.wnn}"
     code = f"cellrank_{pCode}_{args.n_states}_{cluster_key}"
-
+    
     working_dir = os.getcwd()
     output_dir = os.path.join(working_dir, "output", "embryonic_mouse_brain")
     result_path = os.path.join(output_dir, "results.tsv")
@@ -42,7 +42,6 @@ if __name__=="__main__":
                                     how = "left",
                                     left_index=True,
                                     right_index=True)
-    print(mudata.obs.columns, cluster_key)
 
     cex = CellRankExtension(mudata=mudata)
     cex.compute_kernel(key  = "wnn",
