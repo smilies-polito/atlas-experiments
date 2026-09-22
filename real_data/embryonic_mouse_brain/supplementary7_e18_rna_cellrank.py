@@ -22,13 +22,14 @@ if __name__ == "__main__":
     parser.add_argument("--n_pcs_act", type=int, default=10)
     parser.add_argument("--wnn", default=None)
     parser.add_argument("--n_states", type=int, default=4)
+    parser.add_argument("--cluster_key", type=str, default="celltype")
     parser.add_argument("--n_jobs", type=int, default=1)
     args=parser.parse_args()
+    cluster_key = args.cluster_key
 
-    pCode = f"{args.n_pcs_rna}:{args.n_pcs_act}_{args.knn_rna}:{args.knn_act}:{args.wnn}_{args.n_states}"
+    pCode = f"{args.n_pcs_rna}:{args.n_pcs_act}_{args.knn_rna}:{args.knn_act}:{args.wnn}_{args.n_states}_{cluster_key}"
     code = f"rna_cellrank_{pCode}"
 
-    cluster_key = "cell_type_abbr"
     working_dir = os.getcwd()
     output_dir = os.path.join(working_dir, "output", "embryonic_mouse_brain")
     result_path = os.path.join(output_dir, "results.tsv")
@@ -36,7 +37,7 @@ if __name__ == "__main__":
                         f"cellrank_{pCode}.h5mu")
             )
 
-    file = f"rna_pseudotime_{args.n_pcs_rna}:{args.n_pcs_act}_{args.knn_rna}:{args.knn_act}:{args.wnn}.tsv"
+    file = f"rna_pseudotime_{pCode}.tsv"
     pseudotime = pd.read_csv(os.path.join(output_dir, file),
                             sep = "\t", header=0, index_col=0)
 
