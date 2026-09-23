@@ -35,7 +35,7 @@ if __name__=="__main__":
 
     mudata = mu.read_h5mu(data_path)
 
-    initial = rng.choice(mudata[(mudata.obs["celltype"] == "RG, Astro, OPC")])
+    initial = rng.choice(mudata[(mudata.obs["celltype"] == "RG, Astro, OPC")].obs_names)
 
     pex = PalantirExtension(mudata = mudata)
     pex.compute_kernel(key="wnn")

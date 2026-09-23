@@ -25,14 +25,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
     cluster_key = args.cluster_key
    
-    pCode = f"{args.n_pcs_rna}:{args.n_pcs_act}_{args.knn_rna}:{args.knn_act}:{args.wnn}_{cluster_key}"
-    code = f"rna_palantir_{pCode}"
+    pCode = f"{args.n_pcs_rna}:{args.n_pcs_act}_{args.knn_rna}:{args.knn_act}:{args.wnn}"
+    code = f"rna_palantir_{pCode}_{cluster_key}"
 
     working_dir = os.getcwd()
     output_dir = os.path.join(working_dir, "output", "embryonic_mouse_brain")
     result_path = os.path.join(output_dir, "results.tsv")
     mudata = mu.read_h5mu(os.path.join(output_dir, 
-                            f"palantir_{pCode}.h5mu")
+                            f"palantir_{pCode}_{cluster_key}.h5mu")
                     )
 
     # same starting point as ATLAS
@@ -85,7 +85,7 @@ if __name__ == "__main__":
     print("AVERAGE PSEUDOTIME PER MACROSTATE:")
     print(mudata.obs[["macrostates", "rna_pseudotime"]].groupby("macrostates").mean())
 
-    mudata.obs["rna_pseudotime"].to_csv(os.path.join(output_dir,f"rna_pseudotime_{pCode}.tsv"),
+    mudata.obs["rna_pseudotime"].to_csv(os.path.join(output_dir,f"rna_pseudotime_{pCode}_{cluster_key}.tsv"),
                                         sep = "\t",
                                         header = True,
                                         index = True)

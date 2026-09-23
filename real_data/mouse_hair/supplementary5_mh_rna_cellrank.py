@@ -61,7 +61,7 @@ if __name__ == "__main__":
         g.predict_initial_states(allow_overlap=False)
         allow_overlap = False
     except Exception as e:
-        print("allow_overlap = False gave Exception \n{e}\n. Trying with allow_overlap = True")
+        print(f"allow_overlap = False gave Exception \n{e}\n. Trying with allow_overlap = True")
         g.predict_terminal_states(allow_overlap=True)
         g.predict_initial_states(allow_overlap=True)
         allow_overlap = True

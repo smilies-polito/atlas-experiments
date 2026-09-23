@@ -30,6 +30,7 @@
 OUTPUT_DIR = "output"
 DATA_DIR = "data"
 LOG_DIR = "logs"
+SUPPLEMENTARY = "supplementary"
 
 MOUSE_HAIR_DATA = DATA_DIR + "/mouse_hair"
 MOUSE_HAIR_OUTPUT = OUTPUT_DIR + "/mouse_hair"
@@ -45,8 +46,8 @@ SIMULATION_DATA = DATA_DIR + "/simulated_data"
 SIMULATION_OUTPUT = OUTPUT_DIR + "/simulations"
 
 # WILDCARDS
-MH_STATES = [4, 5, 6, 7, 8]
-HB_STATES = [4, 5, 6, 7, 8]
+MH_STATES = [4, 5, 6, 7, 8, 9, 10]
+HB_STATES = [5, 10]
 E18_STATES = [6, 12]
 REMOVED = {1: "removed", 0: "non_removed"}
 INVERSE_REMOVED = {v: k for k, v in REMOVED.items()}
@@ -98,6 +99,7 @@ ENV_PETSC = (
 
 wildcard_constraints:
     removed = r"removed|non_removed",
+    cluster_key = r"celltype|cell_type_abbr",
     states = r"\d+",
     real_states = r"\d+",
     n_pcs_rna = r"\d+",
@@ -334,7 +336,6 @@ rule all:
             knn_rna=SIM_KNN_RNAS,
         ),
 
-
 # =============================================================================
 # MOUSE HAIR
 # =============================================================================
@@ -442,6 +443,7 @@ rule mouseHair_rna_cellrank:
         "--n_pcs_rna {wildcards.n_pcs_rna} "
         "--n_pcs_act {wildcards.n_pcs_act} "
         "--n_states {wildcards.n_states} &> {log}"
+
 # =============================================================================
 # E18 MOUSE BRAIN
 # =============================================================================
@@ -556,7 +558,7 @@ rule e18brain_rna_cellrank:
 
 rule e18brain_expression:
     input:
-        h5mu = E18_OUTPUT + "/non_removed_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+        h5mu = E18_OUTPUT + "/{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
     output:
         touch(E18_OUTPUT + "/expression_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.done"),
     threads: LIGHT_THREADS

@@ -48,11 +48,11 @@ if __name__=="__main__":
     # Path declaration
     data_path = os.path.join(working_dir, "data", "mouse_hair")
     output_path = os.path.join(working_dir, "output", "mouse_hair")
+    feature_path = os.path.join(data_path, "all_features.tsv")
     rna_matrix = os.path.join(data_path, "GSM4156608_skin.late.anagen.rna.counts.txt")
     atac_matrix = os.path.join(data_path, "GSM4156597_skin.late.anagen.counts.txt")
     barcodes = os.path.join(data_path, "GSM4156597_skin.late.anagen.barcodes.txt") 
     peaks= os.path.join(data_path, "GSM4156597_skin.late.anagen.peaks.bed")
-    feature_path = os.path.join(data_path, "features.tsv")
     annotation_path = os.path.join(data_path, "GSM4156597_skin_celltype.txt")
     fragment_file_path = os.path.join(data_path, "GSM4156597_skin.late.anagen.atac.fragments.sorted.bed.gz")
 
@@ -94,21 +94,22 @@ if __name__=="__main__":
     ac.tl.locate_fragments(atac, fragment_file_path)
    
     # read features
+    features = pd.read_csv(feature_path, sep="\t", header = 0, index_col=None)
     genes = rna.var_names.tolist()
-    dataset = Dataset(
-                name = "mmusculus_gene_ensembl",
-                host = "http://nov2020.archive.ensembl.org",
-    )
+#    dataset = Dataset(
+#                name = "mmusculus_gene_ensembl",
+#                host = "http://nov2020.archive.ensembl.org",
+#    )
 
-    res = dataset.query(attributes=[
-            'external_gene_name',
-            'chromosome_name',
-            'start_position',
-            'end_position',
-            'strand'
-    ])
-    res.columns = ["Name", "OR_Chromosome", "Start", "End", "Strand"] 
-    features = res[res['Name'].isin(genes) & res["OR_Chromosome"].isin(valid_chr)]
+#    res = dataset.query(attributes=[
+#            'external_gene_name',
+#            'chromosome_name',
+#            'start_position',
+#            'end_position',
+#            'strand'
+#    ])
+    features.columns = ["Name", "OR_Chromosome", "Start", "End", "Strand"] 
+    features = features[features['Name'].isin(genes) & features["OR_Chromosome"].isin(valid_chr)]
     features["Chromosome"] = features["OR_Chromosome"].apply(_to_ucsc)
 
     features_collapsed = (
