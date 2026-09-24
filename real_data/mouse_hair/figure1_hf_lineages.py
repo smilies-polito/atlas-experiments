@@ -40,7 +40,7 @@ def plot_regulation(mudata: MuData,
             print("Plot Trends for {strategy} and ptf = {ptf} got Exception\n{e}\n")
                 
 
-REGULATION = {"mouse_skin": {"Lef1": ["Dlx3", "Jag1", "Hoxc13"],
+REGULATION = {"mouse_skin": {"Lef1": ["Dlx3", "Jag1", "Hoxc13", "Notch1", "Prdm1", "Krt71", "Foxq1"],
                     "Dlx3": ["Wnt3", "Hoxc13"],
                     "Hoxc13": ["Foxn1", "Foxq1", "St14"],
                     "Gata3": ["Krt71"]},
