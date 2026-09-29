@@ -35,15 +35,19 @@ if __name__=="__main__":
 
     mudata = mu.read_h5mu(data_path)
 
-    initial = rng.choice(mudata[(mudata.obs["celltype"] == "RG, Astro, OPC")].obs_names)
+    initial = rng.choice(mudata[(mudata.obs["cell_type_abbr"] == "IPC")].obs_names)
 
     pex = PalantirExtension(mudata = mudata)
     pex.compute_kernel(key="wnn")
     pex.compute_diffusion_maps(seed = seed)
     pex.compute_multiscale_space()
+
     pex.run(early_cell = initial,
+            use_early_cell_as_start = False,
             n_jobs = args.n_jobs,
             random_state = seed)
+
+    r = mudata.uns["palantir_waypoints"][0]; print(r, ct[r])
 
     print("AVERAGE PSEUDOTIME PER CELL TYPE:")
     print(mudata.obs[["pseudotime", cluster_key]].groupby(cluster_key).mean())
