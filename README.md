@@ -5,7 +5,7 @@ ATLAS is Python package for multi-omic Trajectory Inference (TI) from paired sin
 
 ATLAS included in the [scverse](https://scverse.org/) ecosystem. ATLAS source code can be found [here](https://github.com/smilies-polito/atlas-smilies).
 
-![ATLAS workflow](imgs/workflow.svg)
+![ATLAS workflow](imgs/fig1.svg)
 
 
 ## Release Notes 
