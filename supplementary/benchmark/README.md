@@ -24,16 +24,13 @@ All commands below are run from the repository root (the folder that contains
 | `benchmark_crx.py` | Measures one step of `CellRankExtension` on one dataset, one replicate |
 | `run_benchmark_crx.sh` | Runs the whole CellRank benchmark |
 | `analyze_benchmark.py` | Summary statistics, scaling exponents, check of the server load |
-| `plot_benchmark.py` | LaTeX tables (and, optionally, a figure) from the results |
-| `diagnose_diffusion_maps.py` | Counts the ARPACK iterations of the diffusion maps at each size |
-| `diagnose_dm_threads.py` | Times the diffusion maps with and without BLAS multithreading |
 
 ## Requirements
 
 - Linux (the measurements use `/proc`, `taskset` and the kernel memory high-water mark)
 - Apptainer or Singularity
 - The container image with ATLAS and its dependencies, including `psutil`,
-  `threadpoolctl`, `petsc4py` and `slepc4py` (`container_new.sif` below)
+  `threadpoolctl`, `petsc4py` and `slepc4py` (`container/container.sif`, built as described in the main README)
 
 The launchers call Python only inside the container, so no Python installation is
 needed on the host.
@@ -49,7 +46,7 @@ see `subset_dataset.py` to understand how the dataset was obtained.
 ## 2. Palantir-based strategy
 
 ```bash
-SIF=container_new.sif CORES=0-7 N_REPS=7 \
+SIF=container/container.sif CORES=0-7 N_REPS=7 \
   bash supplementary/benchmark/run_benchmark_pex.sh 2>&1 | tee bench_pex.log
 ```
 
@@ -66,7 +63,7 @@ parameters as the Palantir benchmark, and saved to `output/benchmark/pseudotime/
 
 ```bash
 APPTAINERENV_PYTHONPATH=$PWD APPTAINERENV_OMP_NUM_THREADS=1 APPTAINERENV_OPENBLAS_NUM_THREADS=1 \
-  taskset -c 0-7 singularity exec --cleanenv PATH_TO_CONTAINER \
+  taskset -c 0-7 singularity exec --cleanenv container/container.sif \
   python3 -m supplementary.benchmark.prepare_crx_pseudotime \
   --out_dir output/benchmark/pseudotime output/benchmark/data_*.h5mu
 ```
@@ -76,7 +73,7 @@ dataset and replicate, 105 runs. Results are written to
 `output/benchmark/results_crx/`.
 
 ```bash
-SIF=container_new.sif CORES=0-7 N_REPS=7 \
+SIF=container/container.sif CORES=0-7 N_REPS=7 \
   bash supplementary/benchmark/run_benchmark_crx.sh 2>&1 | tee bench_crx.log
 ```
 
@@ -89,7 +86,7 @@ instead of running without PETSc.
 
 ```bash
 for m in pex crx; do
-  singularity exec --cleanenv PATH_TO_CONTAINER python3 -m supplementary.benchmark.analyze_benchmark \
+  singularity exec --cleanenv container/container.sif python3 -m supplementary.benchmark.analyze_benchmark \
     output/benchmark/results_${m}/resources_${m}.tsv
 done
 ```
