@@ -54,7 +54,7 @@ if __name__ == "__main__":
     rna.obsm["DM_EigenVectors"] = diffusion_maps["EigenVectors"].set_index(rna.obs.index)
     rna.uns["DM_EigenValues"] = diffusion_maps["EigenValues"].values
 
-    eigenvectors = pd.DataFrame(rna.obsm["DM_EigenVectors"], index = rna.osb_names) if not isinstance(rna.obsm["DM_EigenVectors"], pd.DataFrame) else rna.obsm["DM_EigenVectors"]
+    eigenvectors = pd.DataFrame(rna.obsm["DM_EigenVectors"], index = rna.obs_names) if not isinstance(rna.obsm["DM_EigenVectors"], pd.DataFrame) else rna.obsm["DM_EigenVectors"]
     dm_dict = {"EigenValues": rna.uns["DM_EigenValues"], "EigenVectors": eigenvectors}
     result = palantir.utils.determine_multiscale_space(dm_res = dm_dict)
     rna.obsm["DM_EigenVectors_multiscaled"] = result

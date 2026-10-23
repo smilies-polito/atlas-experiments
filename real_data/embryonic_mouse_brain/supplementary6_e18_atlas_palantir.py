@@ -47,8 +47,6 @@ if __name__=="__main__":
             n_jobs = args.n_jobs,
             random_state = seed)
 
-    r = mudata.uns["palantir_waypoints"][0]; print(r, ct[r])
-
     print("AVERAGE PSEUDOTIME PER CELL TYPE:")
     print(mudata.obs[["pseudotime", cluster_key]].groupby(cluster_key).mean())
 

@@ -180,7 +180,7 @@ rule all:
         ),
         # atlas cellrank e18 mouse brain dataset
         expand(
-            E18_OUTPUT + "/cellrank_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_{n_states}.h5mu",
+            E18_OUTPUT + "/cellrank_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_{n_states}_{cluster_key}.h5mu",
             n_pcs_rna=N_PCS_RNA,
             n_pcs_act=N_PCS_ACT,
             knn_rna=KNN_RNA,
@@ -191,22 +191,24 @@ rule all:
         ),
         # rna palantir e18 mouse brain dataset
         expand(
-            E18_OUTPUT + "/rna_palantir_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+            E18_OUTPUT + "/rna_palantir_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_{cluster_key}.h5mu",
             n_pcs_rna=N_PCS_RNA,
             n_pcs_act=N_PCS_ACT,
             knn_rna=KNN_RNA,
             knn_act=KNN_ACT,
             wnn=WNN,
+            cluster_key=CLUSTER_KEY,
         ),
         # rna cellrank e18 mouse brain dataset
         expand(
-            E18_OUTPUT + "/rna_cellrank_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_{n_states}.h5mu",
+            E18_OUTPUT + "/rna_cellrank_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_{n_states}_{cluster_key}.h5mu",
             n_pcs_rna=N_PCS_RNA,
             n_pcs_act=N_PCS_ACT,
             knn_rna=KNN_RNA,
             knn_act=KNN_ACT,
             wnn=WNN,
             n_states=E18_STATES,
+            cluster_key=CLUSTER_KEY,
         ),
         # e18 mouse brain expression plots
         expand(
@@ -666,7 +668,7 @@ rule humanBrain_atlas_cellrank:
 
 rule humanBrain_rna_palantir:
     input:
-        h5mu = HUMAN_BRAIN_OUTPUT + "/{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+        h5mu = HUMAN_BRAIN_OUTPUT + "/palantir_{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
     output:
         tsv = HUMAN_BRAIN_OUTPUT + "/rna_pseudotime_{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.tsv",
         h5mu = HUMAN_BRAIN_OUTPUT + "/rna_palantir_{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
@@ -689,7 +691,7 @@ rule humanBrain_rna_palantir:
 
 rule humanBrain_rna_cellrank:
     input:
-        h5mu = HUMAN_BRAIN_OUTPUT + "/{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
+        h5mu = HUMAN_BRAIN_OUTPUT + "/cellrank_{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_{n_states}.h5mu",
         tsv = HUMAN_BRAIN_OUTPUT + "/rna_pseudotime_{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.tsv",
     output:
         h5mu = HUMAN_BRAIN_OUTPUT + "/rna_cellrank_{removed}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}_{n_states}.h5mu",

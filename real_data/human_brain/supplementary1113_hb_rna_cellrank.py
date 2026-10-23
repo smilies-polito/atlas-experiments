@@ -130,7 +130,7 @@ if __name__ == "__main__":
     mudata.obs["rna_macrostates"] = mudata.obs["macrostates"]
     mudata.obs["macrostates"] = obs_ms
     mudata.obs["terminal_states"] = obs_ts
-    mudata.obs["initial_statest"] = obs_is
+    mudata.obs["initial_states"] = obs_is
     mudata.uns["rna_state_palette"] = mudata.uns["atlas_state_palette"] 
     mudata.uns["atlas_state_palette"] = atlas_colors
     mudata.uns["rna_terminal_states_colors"] = mudata.uns["terminal_states_colors"]

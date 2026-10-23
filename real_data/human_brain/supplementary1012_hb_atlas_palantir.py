@@ -73,6 +73,7 @@ if __name__=="__main__":
 
     _get_plots(mudata = mudata,
             code=code,
+            cluster_key = "Cluster.Name",
             seed = seed)
 
     # To correctly store the mudata the objects in .obsm require columns to be strings.

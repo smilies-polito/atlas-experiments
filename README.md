@@ -53,11 +53,60 @@ Input data must be downloaded and places in the `atlas-experiments/data` folder 
 
 | Dataset | URLs | Subfolder | Mandatory Files and Compatible Naming |
 |---|---|---|---|
-| Fresh Embryonic E18 Mouse Brain | [10x Genomics](https://www.10xgenomics.com/datasets/fresh-embryonic-e-18-mouse-brain-5-k-1-standard-2-0-0) | `atlas-experiments/data/embryonic_mouse_brain` | `filtered_feature_bc_matrix/`, `e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz` |
+| Fresh Embryonic E18 Mouse Brain | [10x Genomics](https://www.10xgenomics.com/datasets/fresh-embryonic-e-18-mouse-brain-5-k-1-standard-2-0-0) | `atlas-experiments/data/embryonic_mouse_brain` | `filtered_feature_bc_matrix/`, `e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz`, `e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz.tbi` |
 | Fresh Embryonic E18 Mouse Brain other metadata | [MultiVelo labels](https://github.com/welch-lab/MultiVelo/blob/main/Examples/cell_annotations.tsv), [ArchVelo labels and UMAP](https://figshare.com/articles/dataset/summit_counts_matrix_csv_gz/27931914) | `atlas-experiments/data/embryonic_mouse_brain` | `cell_annotations.tsv`, `archvelo_labels.csv`, `multivelo_umap.csv` |
-| SHARE-seq Mouse Hair Follicle | [scATAC-seq](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM4156597), [scRNA-seq](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM4156608) | `atlas-experiments/data/mouse_hair` | `GSM4156608_skin.late.anagen.rna.counts.txt`, `GSM4156597_skin.late.anagen.counts.txt`, `GSM4156597_skin.late.anagen.barcodes.txt`, `GSM4156597_skin.late.anagen.peaks.bed`, `GSM4156597_skin_celltype.txt`, `GSM4156597_skin.late.anagen.atac.sorted.fragments.bed.gz` |
+| SHARE-seq Mouse Hair Follicle | [scATAC-seq](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM4156597), [scRNA-seq](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM4156608) | `atlas-experiments/data/mouse_hair` | `GSM4156608_skin.late.anagen.rna.counts.txt`, `GSM4156597_skin.late.anagen.counts.txt`, `GSM4156597_skin.late.anagen.barcodes.txt`, `GSM4156597_skin.late.anagen.peaks.bed`, `GSM4156597_skin_celltype.txt`, `GSM4156597_skin.late.anagen.atac.fragments.sorted.bed.gz`, `GSM4156597_skin.late.anagen.atac.fragments.sorted.bed.gz.tbi` |
 | Human Fetal Brain | [GEO: GSE162170](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE162170) | `atlas-experiments/data/human_brain` | `GSE162170_multiome_cluster_names.txt`, `GSE162170_multiome_cell_metadata.txt`, `GSE162170_multiome_rna_counts.tsv.gz`, `GSE162170_multiome_atac_gene_activities.tsv.gz` |
 | Synthetic data generated via scMultiSim | [Link](https://zenodo.org/records/20611526) | `atlas-experiments/data/simulated_data` | |
+
+Fresh Embryonic E18 Mouse Brain:
+```bash
+cd atlas-experiments/data/embryonic_mouse_brain
+curl -O https://cf.10xgenomics.com/samples/cell-arc/2.0.0/e18_mouse_brain_fresh_5k/e18_mouse_brain_fresh_5k_filtered_feature_bc_matrix.tar.gz
+tar -xvf e18_mouse_brain_fresh_5k_filtered_feature_bc_matrix.tar.gz
+curl -O https://cf.10xgenomics.com/samples/cell-arc/2.0.0/e18_mouse_brain_fresh_5k/e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz
+curl -O https://cf.10xgenomics.com/samples/cell-arc/2.0.0/e18_mouse_brain_fresh_5k/e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz.tbi
+```
+
+SHARE-seq Mouse Hair Follicle (requires `htslib` for `bgzip` and `tabix`):
+```bash
+cd atlas-experiments/data/mouse_hair
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4156nnn/GSM4156597/suppl/GSM4156597_skin_celltype.txt.gz
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4156nnn/GSM4156597/suppl/GSM4156597_skin.late.anagen.counts.txt.gz
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4156nnn/GSM4156597/suppl/GSM4156597_skin.late.anagen.peaks.bed.gz
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4156nnn/GSM4156608/suppl/GSM4156608_skin.late.anagen.rna.counts.txt.gz
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4156nnn/GSM4156597/suppl/GSM4156597_skin.late.anagen.barcodes.txt.gz
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4156nnn/GSM4156597/suppl/GSM4156597_skin.late.anagen.atac.fragments.bed.gz
+
+gunzip GSM4156597_skin_celltype.txt.gz
+gunzip GSM4156597_skin.late.anagen.barcodes.txt.gz
+gunzip GSM4156597_skin.late.anagen.counts.txt.gz
+gunzip GSM4156608_skin.late.anagen.rna.counts.txt.gz
+gunzip GSM4156597_skin.late.anagen.peaks.bed.gz
+gunzip GSM4156597_skin.late.anagen.atac.fragments.bed.gz
+sort -k1,1 -k2,2n GSM4156597_skin.late.anagen.atac.fragments.bed > GSM4156597_skin.late.anagen.atac.fragments.sorted.bed
+bgzip GSM4156597_skin.late.anagen.atac.fragments.sorted.bed
+tabix -p bed GSM4156597_skin.late.anagen.atac.fragments.sorted.bed.gz
+```
+
+Human Fetal Brain:
+```bash
+cd atlas-experiments/data/human_brain
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_atac_gene_activities.tsv.gz
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_cell_metadata.txt.gz
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_rna_counts.tsv.gz
+curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_cluster_names.txt.gz
+
+gunzip GSE162170_multiome_cluster_names.txt.gz
+gunzip GSE162170_multiome_cell_metadata.txt.gz
+```
+
+Synthetic Data:
+```bash
+cd atlas-experiments/data
+curl -O https://zenodo.org/records/20611526/files/simulated_data.tar.gz
+tar -xvf simulated_data.tar.gz
+```
 
 ### Output Folders
 All results generated by this repository are stored in the `atlas-experiments/output` directory.
@@ -122,7 +171,7 @@ It is not mandatory to run the entire workflow. Snakemake can target individual 
 | e18brain\_atlas\_palantir | Fresh Embryonic E18 Mouse Brain | Applies ATLAS (Palantir-based stategy) on the E18 Mouse Brain and produces results from Supp. Fig. 6 |
 | e18brain\_atlas\_cellrank | Fresh Embryonic E18 Mouse Brain | Applies ATLAS (CellRank-based stategy) on the E18 Mouse Brain and produces results from Supp. Fig. 6 |
 | e18brain\_rna\_palantir | Fresh Embryonic E18 Mouse Brain | Applies originsl Palantir (scRNA-seq only based TI) on the E18 Mouse Brain and produces results from Supp. Fig. 7 |
-| e18brain\_rna\_cellexpression | Fresh Embryonic E18 Mouse Brain | Applies originsl CellRank (scRNA-seq only based TI) on the E18 Mouse Brain and produces results from Supp. Fig. 7 |
+| e18brain\_rna\_cellrank | Fresh Embryonic E18 Mouse Brain | Applies originsl CellRank (scRNA-seq only based TI) on the E18 Mouse Brain and produces results from Supp. Fig. 7 |
 | e18brain\_expression | Fresh Embryonic E18 Mouse Brain | Gene Expression for target genes on the E18 Mouse Brain and produces results from Supp. Fig. 8 |
 | preprocess\_synthetic | Synthetic Data | ATLAS preprocessing on all combination of Synthetic Data |
 | synthetic\_palantir | Synthetic Data | ATLAS (Palantir-based TI) on all combination of Synthetic Data |
