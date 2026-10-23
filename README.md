@@ -89,6 +89,8 @@ bgzip GSM4156597_skin.late.anagen.atac.fragments.sorted.bed
 tabix -p bed GSM4156597_skin.late.anagen.atac.fragments.sorted.bed.gz
 ```
 
+The gene coordinates used to compute gene activities for the SHARE-seq Mouse Hair Follicle data are provided in `atlas-experiments/data/mouse_hair/all_features.tsv` and do not need to be downloaded. They were extracted from the `gene` entries of the Ensembl release 102 annotation for mouse (GRCm38, [Mus_musculus.GRCm38.102.gtf.gz](http://ftp.ensembl.org/pub/release-102/gtf/mus_musculus/Mus_musculus.GRCm38.102.gtf.gz)), keeping gene name, chromosome, start, end and strand.
+
 Human Fetal Brain:
 ```bash
 cd atlas-experiments/data/human_brain

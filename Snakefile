@@ -347,6 +347,7 @@ rule mouseHair_preprocessing:
         peaks = MOUSE_HAIR_DATA + "/GSM4156597_skin.late.anagen.peaks.bed",
         annotations = MOUSE_HAIR_DATA + "/GSM4156597_skin_celltype.txt",
         fragment_file = MOUSE_HAIR_DATA + "/GSM4156597_skin.late.anagen.atac.fragments.sorted.bed.gz",
+        features = MOUSE_HAIR_DATA + "/all_features.tsv",
     output:
         h5mu = MOUSE_HAIR_OUTPUT + "/{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
     threads: LIGHT_THREADS

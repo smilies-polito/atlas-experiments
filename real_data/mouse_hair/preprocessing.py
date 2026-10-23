@@ -49,6 +49,7 @@ if __name__=="__main__":
     data_path = os.path.join(working_dir, "data", "mouse_hair")
     output_path = os.path.join(working_dir, "output", "mouse_hair")
     feature_path = os.path.join(data_path, "all_features.tsv")
+    collapsed_feature_path = os.path.join(output_path, "features.tsv")
     rna_matrix = os.path.join(data_path, "GSM4156608_skin.late.anagen.rna.counts.txt")
     atac_matrix = os.path.join(data_path, "GSM4156597_skin.late.anagen.counts.txt")
     barcodes = os.path.join(data_path, "GSM4156597_skin.late.anagen.barcodes.txt") 
@@ -125,7 +126,7 @@ if __name__=="__main__":
     )
 
     features_collapsed = features_collapsed.set_index("Name")
-    features_collapsed[["Chromosome", "Start", "End", "Strand"]].to_csv(feature_path, sep="\t", header=True, index = True)
+    features_collapsed[["Chromosome", "Start", "End", "Strand"]].to_csv(collapsed_feature_path, sep="\t", header=True, index = True)
     rna = rna[:, rna.var_names.isin(features_collapsed.index)].copy()
 
     # Quality filtering
