@@ -3,14 +3,14 @@ This repository contains the code associated to the original paper from ATLAS- A
 
 ATLAS is Python package for multi-omic Trajectory Inference (TI) from paired single-cell RNA-seq and ATAC-seq data. Since chromatin accessibility reflects regulatory potential and often precedes transcriptional changes, integrating it with RNA expression provides a more complete view of cellular dynamics than transcriptomics alone. ATLAS extends established TI frameworks to jointly leverage multi-omics data, allowing chromatin accessibility to directly inform pseudotime ordering and fate probabilities.
 
-ATLAS is scverse-compatible and currently under review for inclusion in the [scverse](https://scverse.org/) ecosystem. ATLAS source code can be found [here](https://github.com/smilies-polito/atlas-smilies).
+ATLAS included in the [scverse](https://scverse.org/) ecosystem. ATLAS source code can be found [here](https://github.com/smilies-polito/atlas-smilies).
 
 ![ATLAS workflow](imgs/workflow.svg)
 
 
 ## Release Notes 
 v1.0.0:
-- Release after R1
+- Release after revision round 1. 
 
 v0.1.0:
 - First release
@@ -34,7 +34,7 @@ v0.1.0:
 
 Follow these steps to setup for reproducing the experiments. 
 
-1. Install `Apptainer` version from [this link](https://apptainer.org/). results in the manuscrpt were produced using Apptainer v1.4.0. 
+1. Install `Apptainer` version from [this link](https://apptainer.org/). Results in the manuscrpt were produced using Apptainer v1.4.0. 
 2. Install `htslib` version 1.21 from [this link](https://www.htslib.org/download/)
 3. Clone the repository in your home folder via
 ```bash
@@ -255,13 +255,13 @@ done
 > [!NOTE]
 > The radar plot is exported with Plotly through `kaleido`, which requires a Chrome or Chromium browser. The container does not include one, so inside the container the radar plot may fail while the box plots and the tables are produced normally. In that case, run `supplementary34_box_radar_plots.py` in a Python environment with the packages of `container/requirements.txt` and a Chrome browser installed.
 
-**Number of macrostates.** This script plots the metrics of ATLAS (CellRank-based strategy) and of CellRank (scRNA-seq only) against the number of macrostates, reading `output/<dataset>/results.tsv`. It requires the CellRank runs of the SHARE-seq Mouse Hair Follicle produced by the workflow for all numbers of macrostates, and saves the figure in `figures/metrics_vs_macrostates.png` and `figures/metrics_vs_macrostates.pdf`.
+**Number of macrostates.** This script plots the metrics of ATLAS and of CellRank (scRNA-seq only) against the number of macrostates, reading `output/<dataset>/results.tsv`. It requires the CellRank runs of the SHARE-seq Mouse Hair Follicle produced by the workflow for all numbers of macrostates, and saves the figure in `figures/metrics_vs_macrostates.png` and `figures/metrics_vs_macrostates.pdf`.
 ```bash
 apptainer exec container/container.sif python3 -m supplementary.supplementary_n_macrostates --folder mouse_hair
 ```
 
 > [!NOTE]
-> `supplementary_n_macrostates.py` currently supports only the SHARE-seq Mouse Hair Follicle (`--folder mouse_hair`). For the Fresh Embryonic E18 Mouse Brain the result codes end with the cell type key instead of the number of macrostates and the script stops with an error; for the Human Fetal Brain the `removed` and `non_removed` settings are plotted together. The figure is always saved with the same name, so running the script on another dataset overwrites it.
+> `supplementary_n_macrostates.py` supports only the SHARE-seq Mouse Hair Follicle (`--folder mouse_hair`). 
 
 **Time and memory benchmark.** The benchmark of the Palantir-based and CellRank-based strategies is run with its own launchers, and its results are provided in `output/benchmark/`. Instructions to reproduce it are in [`supplementary/benchmark/README.md`](supplementary/benchmark/README.md).
 
