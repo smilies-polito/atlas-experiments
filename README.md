@@ -31,8 +31,8 @@ v0.1.0:
 
 Follow these steps to setup for reproducing the experiments. 
 
-1. Install `Singularity` version 1.4.5 from [this link](https://docs.sylabs.io/guides/3.0/user-guide/installation.html).
-2. Install `hstlib` version 1.21 from [this link](https://www.htslib.org/download/)
+1. Install `Apptainer` version from [this link](https://apptainer.org/). results in the manuscrpt were produced using Apptainer v1.4.0. 
+2. Install `htslib` version 1.21 from [this link](https://www.htslib.org/download/)
 3. Clone the repository in your home folder via
 ```bash
 git clone -b public https://github.com/smilies-polito/atlas-experiments.git
@@ -40,73 +40,24 @@ cd atlas-experiments
 ```
 4. Move to the repository folder and build the `singularity` container with:
 ```bash
-sudo singularity build container.sif container/container.def 
+sudo apptainer build container.sif container/container.def 
 ```
 or 
 ```bash
-singularity build --fakeroot container.sif container/container.def 
+apptainer build --fakeroot container.sif container/container.def 
 ```
 
 ## Reproduce Analyses
 ### Required Data and Input Folders
 Input data must be downloaded and places in the `atlas-experiments/data` folder under the correct dataset-related subfolder. Here we provide the urls for the data, the related subfolder and the minimum files to download to endure correct reproducibility, along with bash scripts:
 
-| Dataset | URLs | Subfolder | Mandatory Files |
+| Dataset | URLs | Subfolder | Mandatory Files and Compatible Naming |
 |---|---|---|---|
 | Fresh Embryonic E18 Mouse Brain | [10x Genomics](https://www.10xgenomics.com/datasets/fresh-embryonic-e-18-mouse-brain-5-k-1-standard-2-0-0) | `atlas-experiments/data/embryonic_mouse_brain` | `filtered_feature_bc_matrix/`, `e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz` |
+| Fresh Embryonic E18 Mouse Brain other metadata | [MultiVelo labels](https://github.com/welch-lab/MultiVelo/blob/main/Examples/cell_annotations.tsv), [ArchVelo labels and UMAP](https://figshare.com/articles/dataset/summit_counts_matrix_csv_gz/27931914) | `atlas-experiments/data/embryonic_mouse_brain` | `cell_annotations.tsv`, `archvelo_labels.csv`, `multivelo_umap.csv` |
 | SHARE-seq Mouse Hair Follicle | [scATAC-seq](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM4156597), [scRNA-seq](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM4156608) | `atlas-experiments/data/mouse_hair` | `GSM4156608_skin.late.anagen.rna.counts.txt`, `GSM4156597_skin.late.anagen.counts.txt`, `GSM4156597_skin.late.anagen.barcodes.txt`, `GSM4156597_skin.late.anagen.peaks.bed`, `GSM4156597_skin_celltype.txt`, `GSM4156597_skin.late.anagen.atac.sorted.fragments.bed.gz` |
 | Human Fetal Brain | [GEO: GSE162170](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE162170) | `atlas-experiments/data/human_brain` | `GSE162170_multiome_cluster_names.txt`, `GSE162170_multiome_cell_metadata.txt`, `GSE162170_multiome_rna_counts.tsv.gz`, `GSE162170_multiome_atac_gene_activities.tsv.gz` |
 | Synthetic data generated via scMultiSim | [Link](https://zenodo.org/records/20611526) | `atlas-experiments/data/synthetic_data` | |
-
-Fresh Embryonic E18 Mouse Brain:
-```bash
-cd atlas-experiments/data/embryonic_mouse_brain
-curl -O https://cf.10xgenomics.com/samples/cell-arc/2.0.0/e18_mouse_brain_fresh_5k/e18_mouse_brain_fresh_5k_filtered_feature_bc_matrix.tar.gz
-tar -xvf e18_mouse_brain_fresh_5k_filtered_feature_bc_matrix.tar.gz
-curl -O https://cf.10xgenomics.com/samples/cell-arc/2.0.0/e18_mouse_brain_fresh_5k/e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz
-curl -O https://cf.10xgenomics.com/samples/cell-arc/2.0.0/e18_mouse_brain_fresh_5k/e18_mouse_brain_fresh_5k_atac_fragments.tsv.gz.tbi
-```
-
-SHARE-seq Mouse Hair Follicle:
-```bash
-cd atlas-experiments/data/mouse_hair
-curl -O https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4156nnn/GSM4156597/suppl/GSM4156597_skin_celltype.txt.gz
-curl -O https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4156nnn/GSM4156597/suppl/GSM4156597_skin.late.anagen.counts.txt.gz
-curl -O https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4156nnn/GSM4156597/suppl/GSM4156597_skin.late.anagen.peaks.bed.gz
-curl -O https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4156nnn/GSM4156608/suppl/GSM4156608_skin.late.anagen.rna.counts.txt.gz
-curl -O https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4156nnn/GSM4156597/suppl/GSM4156597_skin.late.anagen.barcodes.txt.gz
-curl -O https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4156nnn/GSM4156597/suppl/GSM4156597_skin.late.anagen.atac.fragments.bed.gz
-
-gunzip GSM4156597_skin_celltype.txt.gz
-gunzip GSM4156597_skin.late.anagen.barcodes.txt.gz
-gunzip GSM4156597_skin.late.anagen.counts.txt.gz
-gunzip GSM4156608_skin.late.anagen.rna.counts.txt.gz
-gunzip GSM4156597_skin.late.anagen.peaks.bed.gz
-gunzip GSM4156597_skin.late.anagen.atac.fragments.bed.gz
-sort -k1,1 -k2,2n GSM4156597_skin.late.anagen.atac.fragments.bed > GSM4156597_skin.late.anagen.atac.fragments.sorted.bed
-bgzip GSM4156597_skin.late.anagen.atac.fragments.sorted.bed
-tabix -p bed GSM4156597_skin.late.anagen.atac.fragments.sorted.bed.gz
-```
-
-Human Fetal Brain: 
-```bash
-cd atlas-experiments/data/human_brain
-curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_atac_gene_activities.tsv.gz
-curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_cell_metadata.txt.gz
-curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_rna_counts.tsv.gz
-curl -O https://ftp.ncbi.nlm.nih.gov/geo/series/GSE162nnn/GSE162170/suppl/GSE162170_multiome_cluster_names.txt.gz
-
-gunzip GSE162170_multiome_cluster_names.txt.gz
-gunzip GSE162170_multiome_cell_metadata.txt.gz
-```
-
-Simulated Data:
-```bash
-cd atlas-experiments/data
-curl -0 https://zenodo.org/records/20611526/files/simulated_data.tar.gz
-tar -xvf simulated_data.tar.gz
-```
-
 
 ### Output Folders
 All results generated by this repository are stored in the `atlas-experiments/output` directory.
@@ -117,6 +68,7 @@ All results generated by this repository are stored in the `atlas-experiments/ou
 | SHARE-seq Mouse Hair Follicle | `atlas-experiments/output/mouse_hair` | Files, models, and intermediate results generated from analyses on the SHARE-seq Mouse Hair Follicle dataset |
 | Human Fetal Brain | `atlas-experiments/output/human_brain` | Files, models, and intermediate results generated from analyses on the Human Fetal Brain dataset |
 | Synthetic Data | `atlas-experiments/output/simulations` | Files, models, and intermediate results generated from synthetic simulations |
+| Benchmark memory and time | `atlas-experiments/output/benchmark` | Files, models, and intermediate results generated from time and memory benchmark |
 
 Results and intermediate files generated during synthetic simulations are further organized into experiment-specific subfolders such as `atlas-experiments/output/simulations/palantir`, `atlas-experiments/output/simulations/palantir_rna`, etc.
 
@@ -124,22 +76,16 @@ Figures are saved in `atlas-experiments/figures` as performed in [scanpy](https:
 
 ### Run Experiments
 
-The full analysis is implemented as a Snakemake workflow that runs inside an `apptainer` (`singularity`) container. The pipeline processes the three real datasets and the grid of synthetic simulations. 
+The full analysis is implemented as a Snakemake workflow that runs inside an `apptainer` container. The pipeline processes the three real datasets and the grid of synthetic simulations. 
 Snakemake is available in the container. 
-The pipeline has been tested on SLURM; other schedulers require adapting the profile. 
+The pipeline has been tested on SLURM; other schedulers require adapting the profile. Furthermore the actual Snakefile is cofigured with a specific threading configuration, which might be adapted according to the specific settings in which simulations are performed. 
 
-To verify the envrionment run:
-```bash
-apptainer --version
-apptainer exec container/container.sif snakemake --version
-```
-
-Before running populate the `data/` subfolders with the input files as described in the previous sections and perform a dry run to confirm the DAG resolves correctly. The dry run should enlist a total of 7400 rules. 
+Before running populate the `data/` subfolders with the input files as described in the previous sections and perform a dry run to confirm the DAG resolves correctly. The dry run should enlist a total of X rules. 
 ```bash
 apptainer exec container/container.sif snakemake -n
 ```
 
-To list all target filed that would be produces by `rule all`, run:
+To list all target files that would be produces by `rule all`, run:
 ```bash
 apptainer exec container/container.sif snakemake --list-target-rules
 ```

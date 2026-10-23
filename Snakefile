@@ -68,11 +68,10 @@ SIM_WNNS = [10, 30, 50, 70]
 # -----------------------------------------------------------------------------
 # Threading configuration
 # -----------------------------------------------------------------------------
-# Thread counts per rule family. Tune these to your node size on serics_cpu.
+# Thread counts per rule family. Tune these to your node size.
 PETSC_THREADS = 8      # cellrank / pseudotime_kernel: BLAS/PETSc threads
 PALANTIR_THREADS = 16  # palantir: joblib worker processes
 LIGHT_THREADS = 4      # preprocessing / expression
-
 
 def env_threads(n):
     return (
@@ -82,7 +81,6 @@ def env_threads(n):
         "export NUMEXPR_NUM_THREADS={n}; "
         "export VECLIB_MAXIMUM_THREADS={n}; "
     ).format(n=n)
-
 
 # BLAS=1 for the whole process; joblib gets the cores via --n_jobs {threads}.
 ENV_JOBLIB = env_threads(1)
@@ -112,7 +110,6 @@ wildcard_constraints:
     tree = r"three_branches|five_branches",
 
 
-# RULE ALL
 rule all:
     input:
         # preprocessing mouse hair dataset

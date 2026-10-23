@@ -175,18 +175,21 @@ def _compute_results(mudata: MuData,
         results["spearman_ciL_SHE"] = None
         results["spearman_ciH_SHE"] = None
 
-    stat, pval, ci, _ = atlas.tl.fate_concentration_index(mudata=mudata,
+    try:
+        stat, pval, ci, _ = atlas.tl.fate_concentration_index(mudata=mudata,
                                                         time_key = time_key,
                                                         fate_key = fate_key,
                                                         seed = seed)
-    results["fate_index_stat"] = stat
-    results["fate_index_pval"] = pval
-    if ci is not None:
-        results["fate_index_ciL"] = ci[0]
-        results["fate_index_ciH"] = ci[1]
-    else:
-        results["fate_index_ciL"] = None
-        results["fate_index_ciH"] = None
+        results["fate_index_stat"] = stat
+        results["fate_index_pval"] = pval
+        if ci is not None:
+            results["fate_index_ciL"] = ci[0]
+            results["fate_index_ciH"] = ci[1]
+        else:
+            results["fate_index_ciL"] = None
+            results["fate_index_ciH"] = None
+    except Exception as e:
+        print(e)
 
     results["pseudotime_enrichment"] = atlas.tl.terminal_pseudotime_enrichment(
                                                             mudata = mudata,

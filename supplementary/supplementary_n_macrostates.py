@@ -1,15 +1,10 @@
 import os
-import re
+import argparse
 import math
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-INPUT = os.path.join(os.getcwd(), "output", "mouse_hair", "results.tsv")
-OUTDIR = os.path.join(os.getcwd(), "figures")
-os.makedirs(OUTDIR, exist_ok=True)
-
-NCOLS = 3
 
 METRIC_DICT = {"spearman_stat_pseudotime": (-1,1),
                 "kendall_stat_pseudotime": (-1,1),
@@ -82,6 +77,14 @@ def add_ci_pval(ax, data, metric, line):
         )
 
 if __name__=="__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--folder", type = str, default = "mouse_hair")
+    args = parser.parse_args()
+
+    INPUT = os.path.join(os.getcwd(), "output", args.folder, "results.tsv")
+    OUTDIR = os.path.join(os.getcwd(), "figures")
+    os.makedirs(OUTDIR, exist_ok=True)
+    NCOLS = 3
 
     df = pd.read_csv(INPUT, sep="\t")
     df[["method", "n_macrostates"]] = df["code"].apply(
