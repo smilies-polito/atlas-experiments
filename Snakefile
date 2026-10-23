@@ -717,9 +717,9 @@ rule humanBrain_rna_cellrank:
 
 rule preprocess_synthetic:
     input:
-        activity = SIMULATION_DATA + "/{rd}_{sigma}_activity.tsv",
-        metadata = SIMULATION_DATA + "/{rd}_{sigma}_metadata.tsv",
-        spliced = SIMULATION_DATA + "/{rd}_{sigma}_spliced.tsv",
+        activity = SIMULATION_DATA + "/{tree}/{rd}_{sigma}_activity.tsv",
+        metadata = SIMULATION_DATA + "/{tree}/{rd}_{sigma}_metadata.tsv",
+        spliced = SIMULATION_DATA + "/{tree}/{rd}_{sigma}_spliced.tsv",
     output:
         h5mu = SIMULATION_MUDATA + "/{tree}_{rd}:{sigma}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{wnn}.h5mu",
     threads: LIGHT_THREADS

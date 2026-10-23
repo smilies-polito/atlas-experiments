@@ -20,13 +20,14 @@ if __name__=="__main__":
     parser.add_argument("--n_pcs_rna", type=int, default=20)
     parser.add_argument("--n_pcs_act", type=int, default=10)
     parser.add_argument("--wnn", type=int, default = None)
+    parser.add_argument("--n_jobs", type=int, default=1)
     args = parser.parse_args()
     
     # DATA CONSTRUCTION
     tree = args.tree
     diff_cif_fraction, cif_sigma = args.rd, args.sigma
     knn_rna, knn_act, wnn = args.knn_rna, args.knn_act, args.wnn
-    n_pcs_rna, n_pcs_act= 20, 10
+    n_pcs_rna, n_pcs_act = args.n_pcs_rna, args.n_pcs_act
     pCode = f"{tree}_{diff_cif_fraction}:{cif_sigma}_{n_pcs_rna}:{n_pcs_act}_{knn_rna}:{knn_act}:{args.wnn}"
     
     data_path = os.path.join(working_directory, "output", "simulations", "mudata")
@@ -69,7 +70,7 @@ if __name__=="__main__":
     try:
         cext.run(
             n_states = None, 
-            n_jobs = -1, 
+            n_jobs = args.n_jobs, 
             allow_overlap = True)
         failed = False
     except Exception as e: 
@@ -115,7 +116,7 @@ if __name__=="__main__":
 
     try: 
         cext.run(
-            n_jobs = -1,
+            n_jobs = args.n_jobs,
             initial_states = early_cell, 
             terminal_states = terminal_cells)
         failed = False

@@ -18,9 +18,9 @@ METRIC_LIST = [
 		('terminal_silhouette_soft', -1),
 		('terminal_silhouette_pse', -1),
 		('terminal_enrichment', -1),
-		('committed', np.sqrt(np.log(2))),
-		('multipotent', np.sqrt(np.log(2))),
-		('totipotent', np.sqrt(np.log(2)))]
+		('jsd_committed', np.sqrt(np.log(2))),
+		('jsd_multipotent', np.sqrt(np.log(2))),
+		('jsd_totipotent', np.sqrt(np.log(2)))]
 
 def _compute_robustness(df, 
 						algorithm:str,
@@ -139,10 +139,10 @@ def compare_algorithms(A, R, rng,
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--algorithm", type=str, default="palantir")
-    args= parser.parse_args()
-    algorithm = args.algorithm 
+	parser = argparse.ArgumentParser()
+	parser.add_argument("--algorithm", type=str, default="palantir")
+	args= parser.parse_args()
+	algorithm = args.algorithm 
 
 	rng = np.random.default_rng(42)
 
@@ -150,20 +150,19 @@ if __name__ == "__main__":
 	rna = pd.read_csv(os.path.join(data_path, f"{algorithm}_rna", "results.csv"), sep=",", header = 0, index_col = None)
 	atlas = pd.read_csv(os.path.join(data_path, f"{algorithm}", "results.csv"), sep=",", header = 0, index_col = None)
 	
-	# parse atlas params
+	# parse atlas params: <tree>_<rd>:<sigma>_<n_pcs_rna>:<n_pcs_act>_<knn_rna>:<knn_act>:<wnn>
 	main_split = atlas["code"].str.split("_", expand=True)
 
 	atlas["tree"] = main_split[0] + "_" + main_split[1]
-	atlas["fixed_terminal"] = main_split[2]
-	atlas["rd"] = main_split[3]
-	atlas["sigma"] = main_split[4]
+	data_split = main_split[2].str.split(":", expand=True)
+	atlas["rd"] = data_split[0]
+	atlas["sigma"] = data_split[1]
 
-	knn_split = main_split[5].str.split(":", expand=True)
+	knn_split = main_split[4].str.split(":", expand=True)
 	atlas["knn_rna"] = knn_split[0]
 	atlas["knn_activity"] = knn_split[1]
 	atlas["wnn"] = knn_split[2]
 
-	atlas["fixed_terminal"] = atlas["fixed_terminal"].map({"True": True, "False": False})
 	atlas["rd"] = atlas["rd"].astype(float)
 	atlas["sigma"] = atlas["sigma"].astype(float)
 	atlas["knn_rna"] = atlas["knn_rna"].astype(int)
@@ -171,16 +170,15 @@ if __name__ == "__main__":
 	atlas["wnn"] = atlas["wnn"].astype(int)
 	atlas["failed"] = ~atlas["failed"]
 
-	# parse rna params
+	# parse rna params: <tree>_<rd>:<sigma>_<n_pcs_rna>_<knn_rna>
 	main_split = rna["code"].str.split("_", expand=True)
 
 	rna["tree"] = main_split[0] + "_" + main_split[1]
-	rna["fixed_terminal"] = main_split[2]
-	rna["rd"] = main_split[3]
-	rna["sigma"] = main_split[4]
-	rna["knn_rna"] = main_split[5]
+	data_split = main_split[2].str.split(":", expand=True)
+	rna["rd"] = data_split[0]
+	rna["sigma"] = data_split[1]
+	rna["knn_rna"] = main_split[4]
 
-	rna["fixed_terminal"] = rna["fixed_terminal"].map({"True": True, "False": False})
 	rna["rd"] = rna["rd"].astype(float)
 	rna["sigma"] = rna["sigma"].astype(float)
 	rna["knn_rna"] = rna["knn_rna"].astype(int)
@@ -239,8 +237,9 @@ if __name__ == "__main__":
 
 	cols_to_retain = ["metric", "tree", "fixed_terminal", f"Delta mean ({ci_level * 100:.0f} %)", f"Delta median ({ci_level * 100:.0f} %)", f"P(ATLAS > baseline) ({ci_level * 100:.0f} %)"]
 
-	performance_path = os.path.join(data_path, "performance_pseudotime_kernel.tsv")
-	robustness_path = os.path.join(data_path, "robustness_pseudotime_kernel.tsv")
+	performance_path = os.path.join(data_path, f"performance_{algorithm}.tsv")
+	robustness_path = os.path.join(data_path, f"robustness_{algorithm}.tsv")
+	wholeP["metric"] = wholeP["metric"].str.removeprefix("jsd_") # published tables use the short JSD names
 	wholeP[cols_to_retain].to_csv(performance_path, header=True, index=False, sep="\t")	
 	robustness.to_csv(robustness_path, header=True, index=False, sep="\t")	
 	

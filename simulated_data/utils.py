@@ -84,6 +84,7 @@ def _save_simulation(
 
     code = f"{tree}_{fixed_terminal}_{rd}_{sigma}_{knn_rna}:{knn_act}:{wnn}"
 
+    os.makedirs(saving_folder, exist_ok=True)
     results_path = os.path.join(saving_folder, "results.csv")
     with open(results_path, "a") as f:
         fcntl.flock(f, fcntl.LOCK_EX)
@@ -252,6 +253,7 @@ def _save_simulation_rna(
 
     code = f"{tree}_{fixed_terminal}_{rd}_{sigma}_{knn_rna}"
 
+    os.makedirs(saving_folder, exist_ok=True)
     results_path = os.path.join(saving_folder, "results.csv")
 
     with open(results_path, "a") as f:

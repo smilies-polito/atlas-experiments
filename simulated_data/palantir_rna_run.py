@@ -19,6 +19,7 @@ if __name__=="__main__":
     parser.add_argument("--sigma", type=float)
     parser.add_argument("--knn_rna", type=int)
     parser.add_argument("--n_pcs_rna", type=int, default=20)
+    parser.add_argument("--n_jobs", type=int, default=1)
     args = parser.parse_args()
     
     # DATA CONTRUCTION 
@@ -63,7 +64,7 @@ if __name__=="__main__":
         rna.obsp["DM_Similarity"] = diffusion_maps["T"]
         rna.obsm["DM_EigenVectors"] = diffusion_maps["EigenVectors"].set_index(rna.obs.index)
         rna.uns["DM_EigenValues"] = diffusion_maps["EigenValues"].values
-        eigenvectors = pd.DataFrame(rna.obsm["DM_EigenVectors"], index = rna.osb_names) if not isinstance(rna.obsm["DM_EigenVectors"], pd.DataFrame) else rna.obsm["DM_EigenVectors"]
+        eigenvectors = pd.DataFrame(rna.obsm["DM_EigenVectors"], index = rna.obs_names) if not isinstance(rna.obsm["DM_EigenVectors"], pd.DataFrame) else rna.obsm["DM_EigenVectors"]
         dm_dict = {"EigenValues": rna.uns["DM_EigenValues"], "EigenVectors": eigenvectors}
         result = palantir.utils.determine_multiscale_space(dm_res = dm_dict)
         rna.obsm["DM_EigenVectors_multiscaled"] = result
@@ -72,6 +73,7 @@ if __name__=="__main__":
                         fate_prob_key = "rna_fates",
                         pseudo_time_key = "rna_pseudotime",
                         num_waypoints = num_waypoints,
+                        n_jobs = args.n_jobs,
                         seed = seed)
         mudata.obsm["rna_fates"] = rna.obsm["rna_fates"].copy().reindex(mudata.obs.index)
         mudata.obs["rna_pseudotime"] = rna.obs["rna_pseudotime"].copy().reindex(mudata.obs.index)
@@ -119,7 +121,7 @@ if __name__=="__main__":
                         saving_folder = saving_simulation_path, 
                         results=results)
 
-    # RUN WITH NO FIXED TERMINAL 
+    # RUN WITH FIXED TERMINAL 
     rna = mudata["rna"].copy()
     try: 
         n_components, num_waypoints = 5, 250
@@ -128,7 +130,7 @@ if __name__=="__main__":
         rna.obsp["DM_Similarity"] = diffusion_maps["T"]
         rna.obsm["DM_EigenVectors"] = diffusion_maps["EigenVectors"].set_index(rna.obs.index)
         rna.uns["DM_EigenValues"] = diffusion_maps["EigenValues"].values
-        eigenvectors = pd.DataFrame(rna.obsm["DM_EigenVectors"], index = rna.osb_names) if not isinstance(rna.obsm["DM_EigenVectors"], pd.DataFrame) else rna.obsm["DM_EigenVectors"]
+        eigenvectors = pd.DataFrame(rna.obsm["DM_EigenVectors"], index = rna.obs_names) if not isinstance(rna.obsm["DM_EigenVectors"], pd.DataFrame) else rna.obsm["DM_EigenVectors"]
         dm_dict = {"EigenValues": rna.uns["DM_EigenValues"], "EigenVectors": eigenvectors}
         result = palantir.utils.determine_multiscale_space(dm_res = dm_dict)
         rna.obsm["DM_EigenVectors_multiscaled"] = result
@@ -138,6 +140,7 @@ if __name__=="__main__":
                         fate_prob_key = "rna_fates",
                         pseudo_time_key = "rna_pseudotime",
                         num_waypoints = num_waypoints,
+                        n_jobs = args.n_jobs,
                         seed = seed)
         mudata.obsm["rna_fates"] = rna.obsm["rna_fates"].copy().reindex(mudata.obs.index)
         mudata.obs["rna_pseudotime"] = rna.obs["rna_pseudotime"].copy().reindex(mudata.obs.index)

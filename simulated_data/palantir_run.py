@@ -21,6 +21,7 @@ if __name__=="__main__":
     parser.add_argument("--n_pcs_rna", type=int, default=20)
     parser.add_argument("--n_pcs_act", type=int, default=10)
     parser.add_argument("--wnn", type=int, default=None)
+    parser.add_argument("--n_jobs", type=int, default=1)
     args = parser.parse_args()
     
     # DATA CONTRUCTION 
@@ -69,6 +70,7 @@ if __name__=="__main__":
                     cluster_key="rna:pop",
                     terminal_states=None,
                     num_waypoints=num_waypoints,
+                    n_jobs=args.n_jobs,
                     random_state = seed)
         failed = False
     except Exception as e:
@@ -105,7 +107,8 @@ if __name__=="__main__":
         pext.run(early_cell=early_cell[0],
                     cluster_key="rna:pop",
                     terminal_states=terminal_cells,
-                    num_waypoints=num_waypoints)
+                    num_waypoints=num_waypoints,
+                    n_jobs=args.n_jobs)
         failed = False
     except Exception as e:
         print(e)

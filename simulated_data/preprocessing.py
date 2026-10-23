@@ -75,8 +75,7 @@ if __name__=="__main__":
                     neighbors_key="wnn")
 
 
-    if not os.path.exists(saving_simulation_path):
-        os.mkdir(saving_simulation_path) 
+    os.makedirs(saving_simulation_path, exist_ok=True)
 
     mudata.write(os.path.join(saving_simulation_path,
                                 f"{code}.h5mu")

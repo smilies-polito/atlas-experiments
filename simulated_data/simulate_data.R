@@ -82,8 +82,8 @@ do.velocity <- TRUE
 
 param.grid <- expand.grid(cif.sigma = cif.sigma.list, diff.cif = diff.cif.fraction)
 
-diff.tree <- "phyla3" #"phyla3" or "phyla5" based on the PHYLA() object used
-saving.folder <- file.path(getwd(), "data", diff.tree)
+diff.tree <- "three_branches" #"three_branches" or "five_branches" based on the PHYLA() object used
+saving.folder <- file.path(getwd(), "data", "simulated_data", diff.tree)
 if(! file.exists(saving.folder)){ 
   dir.create(saving.folder)
 }

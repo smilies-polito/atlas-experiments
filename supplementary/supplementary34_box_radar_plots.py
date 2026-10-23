@@ -27,14 +27,14 @@ METRIC_DICT = {"spearman_stat_pseudotime": (-1,1),
                 "spearman_stat_KLD": (-1,1),
                 "pearson_stat_SHE": (-1,1),
                 "pearson_stat_KLD": (-1,1),
-                "totipotent": (0, np.sqrt(np.log(2))),
-                "multipotent": (0, np.sqrt(np.log(2))), 
-                "committed": (0, np.sqrt(np.log(2))),
+                "jsd_totipotent": (0, np.sqrt(np.log(2))),
+                "jsd_multipotent": (0, np.sqrt(np.log(2))), 
+                "jsd_committed": (0, np.sqrt(np.log(2))),
                 }
 
 PSEUDOTIME_METRICS = ["spearman_stat_pseudotime", "kendall_stat_pseudotime"]
 TEMPORAL_STATE_METRICS = ["temporal_state_score", "terminal_enrichment", "terminal_silhouette_soft", "terminal_silhouette_pse"]
-FATE_METRICS = ["fate_index_stat", "spearman_stat_KLD", "pearson_stat_KLD", "spearman_stat_SHE", "pearson_stat_SHE", "totipotent", "multipotent", "committed"]
+FATE_METRICS = ["fate_index_stat", "spearman_stat_KLD", "pearson_stat_KLD", "spearman_stat_SHE", "pearson_stat_SHE", "jsd_totipotent", "jsd_multipotent", "jsd_committed"]
 
 METRIC_RENOM = {"spearman_stat_pseudotime": "Spearman corr. pseudotime",
                 "kendall_stat_pseudotime": "Kendall corr. pseudotime",    
@@ -51,9 +51,9 @@ METRIC_RENOM = {"spearman_stat_pseudotime": "Spearman corr. pseudotime",
                 "spearman_stat_KLD": "Spearman corr. KL-divergence",
                 "pearson_stat_SHE": "Pearson corr. shannon entropy",
                 "pearson_stat_KLD": "Pearson corr. KL-divergence",
-                "totipotent": "JSD - root",
-                "multipotent": "JSD - parent",
-                "committed": "JSD - leaf"
+                "jsd_totipotent": "JSD - root",
+                "jsd_multipotent": "JSD - parent",
+                "jsd_committed": "JSD - leaf"
                 }
 
 
@@ -68,16 +68,16 @@ SHORT_METRIC_RENOM = {"spearman_stat_pseudotime": "Spearman pseudo.",
                 "spearman_stat_KLD": "Spearman KL",
                 "pearson_stat_SHE": "- Pearson SHE",
                 "pearson_stat_KLD": "Pearson KL",
-                "totipotent": "1 - JSD (r)",
-                "multipotent": "1 - JSD (p)",
-                "committed": "1 - JSD (l)"
+                "jsd_totipotent": "1 - JSD (r)",
+                "jsd_multipotent": "1 - JSD (p)",
+                "jsd_committed": "1 - JSD (l)"
                 }
 
 RADAR_INVERTED_METRICS = {"spearman_stat_SHE": lambda x: -x,
                 "pearson_stat_SHE": lambda x: -x,
-                "totipotent": lambda x: 1 - x,
-                "multipotent": lambda x: 1 - x,
-                "committed": lambda x: 1 - x
+                "jsd_totipotent": lambda x: 1 - x,
+                "jsd_multipotent": lambda x: 1 - x,
+                "jsd_committed": lambda x: 1 - x
                 }
 
 
@@ -92,20 +92,19 @@ if __name__== "__main__":
     path = os.path.join(output_path, "results.csv")
     atlas = pd.read_csv(path)
 
-    # parse atlas params
+    # parse atlas params: <tree>_<rd>:<sigma>_<n_pcs_rna>:<n_pcs_act>_<knn_rna>:<knn_act>:<wnn>
     main_split = atlas["code"].str.split("_", expand=True)
 
     atlas["tree"] = main_split[0] + "_" + main_split[1]
-    atlas["fixed_terminal"] = main_split[2]
-    atlas["rd"] = main_split[3]
-    atlas["sigma"] = main_split[4]
+    data_split = main_split[2].str.split(":", expand=True)
+    atlas["rd"] = data_split[0]
+    atlas["sigma"] = data_split[1]
 
-    knn_split = main_split[5].str.split(":", expand=True)
+    knn_split = main_split[4].str.split(":", expand=True)
     atlas["knn_rna"] = knn_split[0]
     atlas["knn_activity"] = knn_split[1]
     atlas["wnn"] = knn_split[2]
 
-    atlas["fixed_terminal"] = atlas["fixed_terminal"].map({"True": True, "False": False})
     atlas["rd"] = atlas["rd"].astype(float)
     atlas["sigma"] = atlas["sigma"].astype(float)
     atlas["knn_rna"] = atlas["knn_rna"].astype(int)
@@ -147,9 +146,9 @@ if __name__== "__main__":
         title = METRIC_RENOM[metric]
         limit = METRIC_DICT[metric]
 
-        if metric in ["totipotent", "committed"]:
+        if metric in ["jsd_totipotent", "jsd_committed"]:
             dataset_condition = success["fixed_terminal"]
-        elif metric == "multipotent":
+        elif metric == "jsd_multipotent":
             dataset_condition = (
                 (success["tree"] == "five_branches")
                 & success["fixed_terminal"]
@@ -209,8 +208,8 @@ if __name__== "__main__":
 
     
     # RADAR PLOT
-    non_fixed_terminal_metrics = [m for m in METRIC_DICT.keys() if m not in ["multipotent", "totipotent", "committed", "ttp", "tsr", "ttc", "tts"]]
-    fixed_terminal_metrics = ["multipotent", "totipotent", "committed"]
+    non_fixed_terminal_metrics = [m for m in METRIC_DICT.keys() if m not in ["jsd_multipotent", "jsd_totipotent", "jsd_committed", "ttp", "tsr", "ttc", "tts"]]
+    fixed_terminal_metrics = ["jsd_multipotent", "jsd_totipotent", "jsd_committed"]
 
     radar_data = success.copy()
     for metric, transform in RADAR_INVERTED_METRICS.items():
